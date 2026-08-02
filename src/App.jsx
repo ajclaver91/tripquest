@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react'
-import {Compass,Plus,KeyRound,LogOut,ArrowLeft,Settings,UserRound,CalendarDays} from 'lucide-react'
+import {Compass,Plus,KeyRound,LogOut,ArrowLeft,Settings,UserRound,CalendarDays,Copy,Share2} from 'lucide-react'
 import {supabase} from './supabase'
 
 const emptyGame={name:'',emoji:'🧭',start_date:'',end_date:'',description:''}
@@ -9,7 +9,74 @@ function Auth(){const[register,setRegister]=useState(false),[f,setF]=useState({n
 
 function Modal({type,onClose,onDone}){const[game,setGame]=useState(emptyGame),[code,setCode]=useState(''),[msg,setMsg]=useState(''),[busy,setBusy]=useState(false);async function submit(e){e.preventDefault();setBusy(true);let r;if(type==='create')r=await supabase.rpc('create_tripquest_game',{p_name:game.name.trim(),p_emoji:game.emoji||'🧭',p_start_date:game.start_date,p_end_date:game.end_date,p_description:game.description.trim()||null});else r=await supabase.rpc('join_tripquest_game',{p_invite_code:code.trim().toUpperCase()});if(r.error)setMsg(r.error.message);else onDone();setBusy(false)}return <div className="backdrop"><form className="card modal" onSubmit={submit}><button type="button" className="icon" onClick={onClose}><ArrowLeft/></button>{type==='create'?<><p className="eyebrow">NUEVA AVENTURA</p><h2>¿Cómo empieza vuestra historia?</h2><label>Nombre<input required value={game.name} onChange={e=>setGame({...game,name:e.target.value})} placeholder="Galicia 2026"/></label><label>Emoji<input required maxLength="4" value={game.emoji} onChange={e=>setGame({...game,emoji:e.target.value})}/></label><div className="cols"><label>Empieza<input required type="date" value={game.start_date} onChange={e=>setGame({...game,start_date:e.target.value})}/></label><label>Termina<input required type="date" value={game.end_date} onChange={e=>setGame({...game,end_date:e.target.value})}/></label></div><label>Descripción<textarea rows="3" value={game.description} onChange={e=>setGame({...game,description:e.target.value})}/></label></>:<><p className="eyebrow">UNIRME</p><h2>Introduce el código</h2><input required className="code" maxLength="6" value={code} onChange={e=>setCode(e.target.value.toUpperCase())} placeholder="A7K2P9"/></>}<button className="primary wide" disabled={busy}>{busy?'Un momento…':type==='create'?'Crear aventura':'Unirme'}</button>{msg&&<p className="msg">{msg}</p>}</form></div>}
 
-function Game({membership,onBack}){const[mode,setMode]=useState('player'),g=membership.games,owner=membership.role==='owner';return <main className="shell"><header className="top"><button className="icon" onClick={onBack}><ArrowLeft/></button><div><p className="eyebrow">{g.emoji} AVENTURA</p><h1>{g.name}</h1></div></header>{owner&&<div className="mode"><button className={mode==='player'?'active':''} onClick={()=>setMode('player')}><UserRound size={18}/>Mi aventura</button><button className={mode==='admin'?'active':''} onClick={()=>setMode('admin')}><Settings size={18}/>Administrar</button></div>}<section className="card hero"><span>{g.emoji}</span><p className="eyebrow">{mode==='admin'?'MODO ADMIN':'TRIPQUEST'}</p><h2>{tripStatus(g.start_date,g.end_date)}</h2><p>{g.description||'Haz que esta aventura sea inolvidable.'}</p></section><section className="grid">{(mode==='player'?['🏠 Inicio','🏆 Ranking','✉️ Sobres','🎯 Retos','🗺️ Etapas','🔨 Subasta','🎒 Ventajas']:['✉️ Sobres','⭐ Puntos','🔨 Subasta','🎒 Ventajas','🗺️ Etapas','👥 Questers','⚙️ Ajustes']).map(x=><article className="card tile" key={x}><strong>{x}</strong><small>Próximo sprint</small></article>)}</section></main>}
+function Game({membership,onBack}){
+  const[mode,setMode]=useState('player');
+  const[copied,setCopied]=useState(false);
+  const g=membership.games,owner=membership.role==='owner';
+
+  async function copyCode(){
+    try{
+      await navigator.clipboard.writeText(g.invite_code);
+      setCopied(true);
+      setTimeout(()=>setCopied(false),1800);
+    }catch{
+      window.prompt('Copia este código:',g.invite_code);
+    }
+  }
+
+  async function shareCode(){
+    const text=`Únete a "${g.name}" en TripQuest con el código ${g.invite_code}`;
+    if(navigator.share){
+      try{await navigator.share({title:'Invitación a TripQuest',text});}catch{}
+    }else{
+      await copyCode();
+    }
+  }
+
+  return <main className="shell">
+    <header className="top">
+      <button className="icon" onClick={onBack}><ArrowLeft/></button>
+      <div><p className="eyebrow">{g.emoji} AVENTURA</p><h1>{g.name}</h1></div>
+    </header>
+
+    {owner&&<div className="mode">
+      <button className={mode==='player'?'active':''} onClick={()=>setMode('player')}><UserRound size={18}/>Mi aventura</button>
+      <button className={mode==='admin'?'active':''} onClick={()=>setMode('admin')}><Settings size={18}/>Administrar</button>
+    </div>}
+
+    <section className="card hero">
+      <span>{g.emoji}</span>
+      <p className="eyebrow">{mode==='admin'?'MODO ADMIN':'TRIPQUEST'}</p>
+      <h2>{tripStatus(g.start_date,g.end_date)}</h2>
+      <p>{g.description||'Haz que esta aventura sea inolvidable.'}</p>
+    </section>
+
+    <section className="card" style={{marginTop:'16px',padding:'22px'}}>
+      <p className="eyebrow">INVITAR QUESTERS</p>
+      <h2 style={{marginBottom:'8px'}}>Código de la aventura</h2>
+      <p style={{color:'var(--muted)',marginBottom:'16px'}}>Comparte este código para que tus amigos puedan unirse.</p>
+      <div style={{
+        fontSize:'2rem',
+        fontWeight:'950',
+        letterSpacing:'.18em',
+        textAlign:'center',
+        padding:'16px',
+        borderRadius:'16px',
+        background:'#eef3ef',
+        marginBottom:'12px'
+      }}>{g.invite_code}</div>
+      <div className="actions">
+        <button className="primary" onClick={copyCode}><Copy size={18}/>{copied?'Copiado':'Copiar código'}</button>
+        <button className="secondary" onClick={shareCode}><Share2 size={18}/>Compartir</button>
+      </div>
+    </section>
+
+    <section className="grid">{(mode==='player'
+      ?['🏠 Inicio','🏆 Ranking','✉️ Sobres','🎯 Retos','🗺️ Etapas','🔨 Subasta','🎒 Ventajas']
+      :['✉️ Sobres','⭐ Puntos','🔨 Subasta','🎒 Ventajas','🗺️ Etapas','👥 Questers','⚙️ Ajustes']
+    ).map(x=><article className="card tile" key={x}><strong>{x}</strong><small>Próximo sprint</small></article>)}</section>
+  </main>
+}
 
 function Dashboard({session}){const[memberships,setMemberships]=useState([]),[loading,setLoading]=useState(true),[modal,setModal]=useState(null),[selected,setSelected]=useState(null);async function load(){
   setLoading(true);
