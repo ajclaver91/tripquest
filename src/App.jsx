@@ -108,6 +108,18 @@ function Game({membership,onBack}){
         <p>{g.description||'Haz que esta aventura sea inolvidable.'}</p>
       </section>
 
+      {mode==='admin'&&<section className="card" style={{marginTop:'14px',padding:'16px 18px'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'12px',flexWrap:'wrap'}}>
+          <div>
+            <p className="eyebrow" style={{marginBottom:'4px'}}>CÓDIGO DE INVITACIÓN</p>
+            <strong style={{fontSize:'1.1rem',letterSpacing:'.12em'}}>{g.invite_code}</strong>
+          </div>
+          <button className="secondary" onClick={copyCode}>
+            <Copy size={17}/>{copied?'Copiado':'Copiar'}
+          </button>
+        </div>
+      </section>}
+
       <section className="grid">
         {currentSections.map(section=>
           <button
@@ -131,19 +143,6 @@ function Game({membership,onBack}){
             :'Estas son las personas que forman parte de la aventura.'}
         </p>
       </section>
-
-      {mode==='admin'&&<section className="card" style={{marginTop:'14px',padding:'18px'}}>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'14px',flexWrap:'wrap'}}>
-          <div>
-            <p className="eyebrow" style={{marginBottom:'5px'}}>INVITAR QUESTERS</p>
-            <strong style={{fontSize:'1.3rem',letterSpacing:'.12em'}}>{g.invite_code}</strong>
-          </div>
-          <div className="actions">
-            <button className="secondary" onClick={copyCode}><Copy size={17}/>{copied?'Copiado':'Copiar'}</button>
-            <button className="secondary" onClick={shareCode}><Share2 size={17}/>Compartir</button>
-          </div>
-        </div>
-      </section>}
 
       <section style={{display:'grid',gap:'10px',marginTop:'14px'}}>
         {questersLoading&&<article className="card" style={{padding:'18px'}}>Cargando Questers…</article>}
@@ -258,6 +257,6 @@ async function saveProfile(e){
 }if(selected)return <Game membership={selected} onBack={()=>setSelected(null)}/>;const nick=profile.nickname||session.user.user_metadata?.nickname||session.user.email?.split('@')[0];return <main className="shell"><header className="top"><div><p className="eyebrow">BIENVENIDO, QUESTER</p><h1>Hola, {nick}</h1></div><div style={{display:'flex',gap:'8px'}}>
   <button className="secondary" style={{padding:'11px 13px'}} onClick={()=>setProfileOpen(true)}><span style={{fontSize:'1.25rem'}}>{profile.avatar_emoji||'🧭'}</span><span>Mi perfil</span></button>
   <button className="icon" onClick={()=>supabase.auth.signOut()}><LogOut/></button>
-</div></header><section className="heading"><div><p className="eyebrow">MIS AVENTURAS</p><h2>¿A cuál quieres entrar?</h2></div><div className="actions"><button className="primary" onClick={()=>setModal('create')}><Plus size={18}/>Crear</button><button className="secondary" onClick={()=>setModal('join')}><KeyRound size={18}/>Unirme</button></div></section>{loading?<p>Cargando…</p>:memberships.length?<section className="games">{memberships.map(m=><button className="card game" key={m.id} onClick={()=>setSelected(m)}><span className="emoji">{m.games.emoji}</span><span><strong>{m.games.name}</strong><small>{tripStatus(m.games.start_date,m.games.end_date)}</small></span><em style={{display:'grid',gap:'4px',justifyItems:'end'}}><span style={{display:'flex',alignItems:'center',gap:'5px'}}><Users size={16}/>{m.games.member_count}</span><span style={{display:'flex',alignItems:'center',gap:'5px'}}><CalendarDays size={16}/>{new Date(m.games.start_date+'T00:00:00').toLocaleDateString('es-ES')}</span></em></button>)}</section>:<section className="card empty"><div>🌍</div><p className="eyebrow">TU PRIMERA AVENTURA</p><h2>El viaje puede empezar hoy.</h2><p>Crea una aventura o únete con un código.</p></section>}{modal&&<Modal type={modal} onClose={()=>setModal(null)} onDone={()=>{setModal(null);load()}}/>}{profileOpen&&<div className="backdrop"><form className="card modal" onSubmit={saveProfile}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'12px',marginBottom:'12px'}}><div><p className="eyebrow">MI PERFIL</p><h2 style={{marginBottom:0}}>Personaliza tu Quester</h2></div><button type="button" className="icon" onClick={()=>setProfileOpen(false)}><X/></button></div><div style={{width:'88px',height:'88px',borderRadius:'26px',background:profile.profile_color,display:'grid',placeItems:'center',fontSize:'3rem',margin:'8px auto 20px'}}>{profile.avatar_emoji||'🧭'}</div><label>Nickname<input required maxLength="30" value={profile.nickname} onChange={e=>setProfile({...profile,nickname:e.target.value})}/></label><label>Emoji<input required maxLength="4" value={profile.avatar_emoji} onChange={e=>setProfile({...profile,avatar_emoji:e.target.value})} placeholder="🧭"/></label><label>Color<div style={{display:'grid',gridTemplateColumns:'70px 1fr',gap:'10px',alignItems:'center'}}><input type="color" value={profile.profile_color} onChange={e=>setProfile({...profile,profile_color:e.target.value})} style={{height:'48px',padding:'5px'}}/><input value={profile.profile_color} onChange={e=>setProfile({...profile,profile_color:e.target.value})}/></div></label><button className="primary wide" disabled={profileSaving}>{profileSaving?'Guardando…':'Guardar cambios'}</button>{profileMessage&&<p className="msg">{profileMessage}</p>}</form></div>}</main>}
+</div></header><section className="heading"><div><p className="eyebrow">MIS AVENTURAS</p><h2>Mis aventuras</h2></div><div className="actions"><button className="primary" onClick={()=>setModal('create')}><Plus size={18}/>Crear</button><button className="secondary" onClick={()=>setModal('join')}><KeyRound size={18}/>Unirme</button></div></section>{loading?<p>Cargando…</p>:memberships.length?<section className="games">{memberships.map(m=><button className="card game" key={m.id} onClick={()=>setSelected(m)}><span className="emoji">{m.games.emoji}</span><span><strong>{m.games.name}</strong><small>{tripStatus(m.games.start_date,m.games.end_date)}</small></span><em style={{display:'grid',gap:'4px',justifyItems:'end'}}><span style={{display:'flex',alignItems:'center',gap:'5px'}}><Users size={16}/>{m.games.member_count}</span><span style={{display:'flex',alignItems:'center',gap:'5px'}}><CalendarDays size={16}/>{new Date(m.games.start_date+'T00:00:00').toLocaleDateString('es-ES')}</span></em></button>)}</section>:<section className="card empty"><div>🌍</div><p className="eyebrow">TU PRIMERA AVENTURA</p><h2>El viaje puede empezar hoy.</h2><p>Crea una aventura o únete con un código.</p></section>}{modal&&<Modal type={modal} onClose={()=>setModal(null)} onDone={()=>{setModal(null);load()}}/>}{profileOpen&&<div className="backdrop"><form className="card modal" onSubmit={saveProfile}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'12px',marginBottom:'12px'}}><div><p className="eyebrow">MI PERFIL</p><h2 style={{marginBottom:0}}>Personaliza tu Quester</h2></div><button type="button" className="icon" onClick={()=>setProfileOpen(false)}><X/></button></div><div style={{width:'88px',height:'88px',borderRadius:'26px',background:profile.profile_color,display:'grid',placeItems:'center',fontSize:'3rem',margin:'8px auto 20px'}}>{profile.avatar_emoji||'🧭'}</div><label>Nickname<input required maxLength="30" value={profile.nickname} onChange={e=>setProfile({...profile,nickname:e.target.value})}/></label><label>Emoji<input required maxLength="4" value={profile.avatar_emoji} onChange={e=>setProfile({...profile,avatar_emoji:e.target.value})} placeholder="🧭"/></label><label>Color<div style={{display:'grid',gridTemplateColumns:'70px 1fr',gap:'10px',alignItems:'center'}}><input type="color" value={profile.profile_color} onChange={e=>setProfile({...profile,profile_color:e.target.value})} style={{height:'48px',padding:'5px'}}/><input value={profile.profile_color} onChange={e=>setProfile({...profile,profile_color:e.target.value})}/></div></label><button className="primary wide" disabled={profileSaving}>{profileSaving?'Guardando…':'Guardar cambios'}</button>{profileMessage&&<p className="msg">{profileMessage}</p>}</form></div>}</main>}
 
 export default function App(){const[session,setSession]=useState(null),[ready,setReady]=useState(false);useEffect(()=>{supabase.auth.getSession().then(({data})=>{setSession(data.session);setReady(true)});const{data}=supabase.auth.onAuthStateChange((_e,s)=>{setSession(s);setReady(true)});return()=>data.subscription.unsubscribe()},[]);if(!ready)return <div className="splash"><Compass size={48}/><strong>TripQuest</strong></div>;return session?<Dashboard session={session}/>:<Auth/>}
