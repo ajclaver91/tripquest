@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react'
-import {Compass,Plus,KeyRound,LogOut,ArrowLeft,Settings,UserRound,CalendarDays,Copy,Share2,Crown,Users} from 'lucide-react'
+import {Compass,Plus,KeyRound,LogOut,ArrowLeft,Settings,UserRound,CalendarDays,Copy,Share2,Crown,Users,X} from 'lucide-react'
 import {supabase} from './supabase'
 
 const emptyGame={name:'',emoji:'🧭',start_date:'',end_date:'',description:''}
@@ -108,26 +108,6 @@ function Game({membership,onBack}){
         <p>{g.description||'Haz que esta aventura sea inolvidable.'}</p>
       </section>
 
-      <section className="card" style={{marginTop:'16px',padding:'22px'}}>
-        <p className="eyebrow">INVITAR QUESTERS</p>
-        <h2 style={{marginBottom:'8px'}}>Código de la aventura</h2>
-        <p style={{color:'var(--muted)',marginBottom:'16px'}}>Comparte este código para que tus amigos puedan unirse.</p>
-        <div style={{
-          fontSize:'2rem',
-          fontWeight:'950',
-          letterSpacing:'.18em',
-          textAlign:'center',
-          padding:'16px',
-          borderRadius:'16px',
-          background:'#eef3ef',
-          marginBottom:'12px'
-        }}>{g.invite_code}</div>
-        <div className="actions">
-          <button className="primary" onClick={copyCode}><Copy size={18}/>{copied?'Copiado':'Copiar código'}</button>
-          <button className="secondary" onClick={shareCode}><Share2 size={18}/>Compartir</button>
-        </div>
-      </section>
-
       <section className="grid">
         {currentSections.map(section=>
           <button
@@ -152,6 +132,19 @@ function Game({membership,onBack}){
         </p>
       </section>
 
+      {mode==='admin'&&<section className="card" style={{marginTop:'14px',padding:'18px'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'14px',flexWrap:'wrap'}}>
+          <div>
+            <p className="eyebrow" style={{marginBottom:'5px'}}>INVITAR QUESTERS</p>
+            <strong style={{fontSize:'1.3rem',letterSpacing:'.12em'}}>{g.invite_code}</strong>
+          </div>
+          <div className="actions">
+            <button className="secondary" onClick={copyCode}><Copy size={17}/>{copied?'Copiado':'Copiar'}</button>
+            <button className="secondary" onClick={shareCode}><Share2 size={17}/>Compartir</button>
+          </div>
+        </div>
+      </section>}
+
       <section style={{display:'grid',gap:'10px',marginTop:'14px'}}>
         {questersLoading&&<article className="card" style={{padding:'18px'}}>Cargando Questers…</article>}
         {questersError&&<article className="card" style={{padding:'18px',color:'#a13f3f'}}>{questersError}</article>}
@@ -166,7 +159,7 @@ function Game({membership,onBack}){
               width:'52px',
               height:'52px',
               borderRadius:'17px',
-              background:index===0?'#fff1bf':'#e7eee9',
+              background:q.profile_color||'#e7eee9',
               display:'grid',
               placeItems:'center',
               fontSize:'1.7rem',
@@ -229,6 +222,42 @@ function Dashboard({session}){const[memberships,setMemberships]=useState([]),[lo
   }));
   setMemberships(mapped);
   setLoading(false);
-}useEffect(()=>{load()},[]);if(selected)return <Game membership={selected} onBack={()=>setSelected(null)}/>;const nick=session.user.user_metadata?.nickname||session.user.email?.split('@')[0];return <main className="shell"><header className="top"><div><p className="eyebrow">BIENVENIDO, QUESTER</p><h1>Hola, {nick}</h1></div><button className="icon" onClick={()=>supabase.auth.signOut()}><LogOut/></button></header><section className="heading"><div><p className="eyebrow">MIS AVENTURAS</p><h2>¿A cuál quieres entrar?</h2></div><div className="actions"><button className="primary" onClick={()=>setModal('create')}><Plus size={18}/>Crear</button><button className="secondary" onClick={()=>setModal('join')}><KeyRound size={18}/>Unirme</button></div></section>{loading?<p>Cargando…</p>:memberships.length?<section className="games">{memberships.map(m=><button className="card game" key={m.id} onClick={()=>setSelected(m)}><span className="emoji">{m.games.emoji}</span><span><strong>{m.games.name}</strong><small>{tripStatus(m.games.start_date,m.games.end_date)}</small></span><em style={{display:'grid',gap:'4px',justifyItems:'end'}}><span style={{display:'flex',alignItems:'center',gap:'5px'}}><Users size={16}/>{m.games.member_count}</span><span style={{display:'flex',alignItems:'center',gap:'5px'}}><CalendarDays size={16}/>{new Date(m.games.start_date+'T00:00:00').toLocaleDateString('es-ES')}</span></em></button>)}</section>:<section className="card empty"><div>🌍</div><p className="eyebrow">TU PRIMERA AVENTURA</p><h2>El viaje puede empezar hoy.</h2><p>Crea una aventura o únete con un código.</p></section>}{modal&&<Modal type={modal} onClose={()=>setModal(null)} onDone={()=>{setModal(null);load()}}/>}</main>}
+}useEffect(()=>{load();loadProfile()},[]);
+async function loadProfile(){
+  const{data,error}=await supabase.from('profiles').select('nickname,avatar_emoji,profile_color').eq('id',session.user.id).single();
+  if(!error&&data)setProfile({
+    nickname:data.nickname||'',
+    avatar_emoji:data.avatar_emoji||'🧭',
+    profile_color:data.profile_color||'#dfeee7'
+  });
+}
+async function saveProfile(e){
+  e.preventDefault();
+  setProfileSaving(true);
+  setProfileMessage('');
+  const cleanNickname=profile.nickname.trim();
+  if(!cleanNickname){
+    setProfileMessage('El nickname no puede quedar vacío.');
+    setProfileSaving(false);
+    return;
+  }
+  const{error}=await supabase.from('profiles').update({
+    nickname:cleanNickname,
+    avatar_emoji:profile.avatar_emoji||'🧭',
+    profile_color:profile.profile_color||'#dfeee7'
+  }).eq('id',session.user.id);
+  if(error){
+    setProfileMessage(error.message);
+  }else{
+    await supabase.auth.updateUser({data:{nickname:cleanNickname}});
+    setProfile({...profile,nickname:cleanNickname});
+    setProfileMessage('Perfil guardado');
+    setTimeout(()=>{setProfileOpen(false);setProfileMessage('')},700);
+  }
+  setProfileSaving(false);
+}if(selected)return <Game membership={selected} onBack={()=>setSelected(null)}/>;const nick=session.user.user_metadata?.nickname||session.user.email?.split('@')[0];return <main className="shell"><header className="top"><div><p className="eyebrow">BIENVENIDO, QUESTER</p><h1>Hola, {nick}</h1></div><div style={{display:'flex',gap:'8px'}}>
+  <button className="secondary" style={{padding:'11px 13px'}} onClick={()=>setProfileOpen(true)}><span style={{fontSize:'1.25rem'}}>{profile.avatar_emoji||'🧭'}</span><span>Mi perfil</span></button>
+  <button className="icon" onClick={()=>supabase.auth.signOut()}><LogOut/></button>
+</div></header><section className="heading"><div><p className="eyebrow">MIS AVENTURAS</p><h2>¿A cuál quieres entrar?</h2></div><div className="actions"><button className="primary" onClick={()=>setModal('create')}><Plus size={18}/>Crear</button><button className="secondary" onClick={()=>setModal('join')}><KeyRound size={18}/>Unirme</button></div></section>{loading?<p>Cargando…</p>:memberships.length?<section className="games">{memberships.map(m=><button className="card game" key={m.id} onClick={()=>setSelected(m)}><span className="emoji">{m.games.emoji}</span><span><strong>{m.games.name}</strong><small>{tripStatus(m.games.start_date,m.games.end_date)}</small></span><em style={{display:'grid',gap:'4px',justifyItems:'end'}}><span style={{display:'flex',alignItems:'center',gap:'5px'}}><Users size={16}/>{m.games.member_count}</span><span style={{display:'flex',alignItems:'center',gap:'5px'}}><CalendarDays size={16}/>{new Date(m.games.start_date+'T00:00:00').toLocaleDateString('es-ES')}</span></em></button>)}</section>:<section className="card empty"><div>🌍</div><p className="eyebrow">TU PRIMERA AVENTURA</p><h2>El viaje puede empezar hoy.</h2><p>Crea una aventura o únete con un código.</p></section>}{modal&&<Modal type={modal} onClose={()=>setModal(null)} onDone={()=>{setModal(null);load()}}/>}</main>}
 
 export default function App(){const[session,setSession]=useState(null),[ready,setReady]=useState(false);useEffect(()=>{supabase.auth.getSession().then(({data})=>{setSession(data.session);setReady(true)});const{data}=supabase.auth.onAuthStateChange((_e,s)=>{setSession(s);setReady(true)});return()=>data.subscription.unsubscribe()},[]);if(!ready)return <div className="splash"><Compass size={48}/><strong>TripQuest</strong></div>;return session?<Dashboard session={session}/>:<Auth/>}
