@@ -1,11 +1,11 @@
 import {useEffect,useState} from 'react'
-import {Compass,Plus,KeyRound,LogOut,ArrowLeft,Settings,UserRound,CalendarDays,Copy,Share2,Crown,Users,X,Home,Trophy,Target,Backpack,Star} from 'lucide-react'
+import {Compass,Plus,KeyRound,LogOut,ArrowLeft,Settings,UserRound,CalendarDays,Copy,Share2,Crown,Users,X,Home,Trophy,Target,Backpack,Star,CheckCircle2} from 'lucide-react'
 import {supabase} from './supabase'
 
 const emptyGame={name:'',emoji:'🧭',start_date:'',end_date:'',description:''}
 const tripStatus=(s,e)=>{if(!s||!e)return'Fechas por definir';const t=new Date();t.setHours(0,0,0,0);const a=new Date(s+'T00:00:00'),b=new Date(e+'T00:00:00'),d=86400000;if(t<a){const n=Math.ceil((a-t)/d);return n===1?'Empieza mañana':`Empieza en ${n} días`}if(t>b)return'Aventura finalizada';return`Día ${Math.floor((t-a)/d)+1} de ${Math.floor((b-a)/d)+1}`}
 
-function Auth(){const[register,setRegister]=useState(false),[f,setF]=useState({nickname:'',email:'',password:''}),[msg,setMsg]=useState(''),[busy,setBusy]=useState(false);async function submit(e){e.preventDefault();setBusy(true);setMsg('');const r=register?await supabase.auth.signUp({email:f.email.trim(),password:f.password,options:{data:{nickname:f.nickname.trim()}}}):await supabase.auth.signInWithPassword({email:f.email.trim(),password:f.password});if(r.error)setMsg(r.error.message);else if(register)setMsg('Cuenta creada. Revisa el correo si se exige confirmación.');setBusy(false)}return <main className="auth"><section className="brand"><div className="mark"><Compass size={42}/></div><p className="eyebrow">TRIPQUEST</p><h1>Haz que el viaje empiece antes de salir.</h1><p className="lead">Crea una aventura, invita a tus Questers y convierte el viaje en un juego compartido.</p></section><form className="card authCard" onSubmit={submit}><div className="switch"><button type="button" className={!register?'active':''} onClick={()=>setRegister(false)}>Entrar</button><button type="button" className={register?'active':''} onClick={()=>setRegister(true)}>Crear cuenta</button></div>{register&&<label>¿Cómo te llamamos?<input required value={f.nickname} onChange={e=>setF({...f,nickname:e.target.value})} placeholder="Tu nick"/></label>}<label>Email<input required type="email" value={f.email} onChange={e=>setF({...f,email:e.target.value})}/></label><label>Contraseña<input required minLength="6" type="password" value={f.password} onChange={e=>setF({...f,password:e.target.value})}/></label><button className="primary wide" disabled={busy}>{busy?'Un momento…':register?'Crear mi cuenta':'Entrar'}</button>{msg&&<p className="msg">{msg}</p>}</form></main>}
+function Auth(){const[register,setRegister]=useState(false),[f,setF]=useState({nickname:'',email:'',password:''}),[msg,setMsg]=useState(''),[busy,setBusy]=useState(false);async function submit(e){e.preventDefault();setBusy(true);setMsg('');const r=register?await supabase.auth.signUp({email:f.email.trim(),password:f.password,options:{data:{nickname:f.nickname.trim()},emailRedirectTo:`${window.location.origin}/?email_confirmed=1`}}):await supabase.auth.signInWithPassword({email:f.email.trim(),password:f.password});if(r.error)setMsg(r.error.message);else if(register)setMsg('Cuenta creada. Revisa el correo si se exige confirmación.');setBusy(false)}return <main className="auth"><section className="brand"><div className="mark"><Compass size={42}/></div><p className="eyebrow">TRIPQUEST</p><h1>Haz que el viaje empiece antes de salir.</h1><p className="lead">Crea una aventura, invita a tus Questers y convierte el viaje en un juego compartido.</p></section><form className="card authCard" onSubmit={submit}><div className="switch"><button type="button" className={!register?'active':''} onClick={()=>setRegister(false)}>Entrar</button><button type="button" className={register?'active':''} onClick={()=>setRegister(true)}>Crear cuenta</button></div>{register&&<label>¿Cómo te llamamos?<input required value={f.nickname} onChange={e=>setF({...f,nickname:e.target.value})} placeholder="Tu nick"/></label>}<label>Email<input required type="email" value={f.email} onChange={e=>setF({...f,email:e.target.value})}/></label><label>Contraseña<input required minLength="6" type="password" value={f.password} onChange={e=>setF({...f,password:e.target.value})}/></label><button className="primary wide" disabled={busy}>{busy?'Un momento…':register?'Crear mi cuenta':'Entrar'}</button>{msg&&<p className="msg">{msg}</p>}</form></main>}
 
 function Modal({type,onClose,onDone}){const[game,setGame]=useState(emptyGame),[code,setCode]=useState(''),[msg,setMsg]=useState(''),[busy,setBusy]=useState(false);async function submit(e){e.preventDefault();setBusy(true);let r;if(type==='create')r=await supabase.rpc('create_tripquest_game',{p_name:game.name.trim(),p_emoji:game.emoji||'🧭',p_start_date:game.start_date,p_end_date:game.end_date,p_description:game.description.trim()||null});else r=await supabase.rpc('join_tripquest_game',{p_invite_code:code.trim().toUpperCase()});if(r.error)setMsg(r.error.message);else onDone();setBusy(false)}return <div className="backdrop"><form className="card modal" onSubmit={submit}><button type="button" className="icon" onClick={onClose}><ArrowLeft/></button>{type==='create'?<><p className="eyebrow">NUEVA AVENTURA</p><h2>¿Cómo empieza vuestra historia?</h2><label>Nombre<input required value={game.name} onChange={e=>setGame({...game,name:e.target.value})} placeholder="Galicia 2026"/></label><label>Emoji<input required maxLength="4" value={game.emoji} onChange={e=>setGame({...game,emoji:e.target.value})}/></label><div className="cols"><label>Empieza<input required type="date" value={game.start_date} onChange={e=>setGame({...game,start_date:e.target.value})}/></label><label>Termina<input required type="date" value={game.end_date} onChange={e=>setGame({...game,end_date:e.target.value})}/></label></div><label>Descripción<textarea rows="3" value={game.description} onChange={e=>setGame({...game,description:e.target.value})}/></label></>:<><p className="eyebrow">UNIRME</p><h2>Introduce el código</h2><input required className="code" maxLength="6" value={code} onChange={e=>setCode(e.target.value.toUpperCase())} placeholder="A7K2P9"/></>}<button className="primary wide" disabled={busy}>{busy?'Un momento…':type==='create'?'Crear aventura':'Unirme'}</button>{msg&&<p className="msg">{msg}</p>}</form></div>}
 
@@ -21,8 +21,10 @@ function Game({membership,onBack}){
   const[rankingError,setRankingError]=useState('');
   const[pointsForm,setPointsForm]=useState({user_id:'',amount:'10',reason:''});
   const[pointsBusy,setPointsBusy]=useState(false);
-  const[pointsMessage,setPointsMessage]=useState('');
+  const[pointsMessage,setPointsMessage]=useState('');const[pointHistory,setPointHistory]=useState([]);const[historyLoading,setHistoryLoading]=useState(false);
   const g=membership.games,owner=membership.role==='owner';
+
+  useEffect(()=>{loadQuesters()},[g.id]);
 
   async function copyCode(){
     try{
@@ -49,6 +51,21 @@ function Game({membership,onBack}){
       }
     }
     setQuestersLoading(false);
+  }
+
+  async function loadPointHistory(){
+    setHistoryLoading(true);
+    const{data,error}=await supabase.rpc('list_tripquest_point_history',{
+      p_game_id:g.id,
+      p_limit:30
+    });
+    if(error){
+      console.error('Error cargando historial:',error);
+      setPointHistory([]);
+    }else{
+      setPointHistory(data||[]);
+    }
+    setHistoryLoading(false);
   }
 
   async function loadRanking(){
@@ -97,6 +114,7 @@ function Game({membership,onBack}){
       setPointsMessage(amount>0?'Puntos añadidos':'Puntos descontados');
       setPointsForm(form=>({...form,amount:'10',reason:''}));
       await loadRanking();
+      await loadPointHistory();
     }
     setPointsBusy(false);
   }
@@ -104,10 +122,14 @@ function Game({membership,onBack}){
   function openPage(nextPage){
     setPage(nextPage);
     if(nextPage==='questers')loadQuesters();
-    if(nextPage==='ranking')loadRanking();
+    if(nextPage==='ranking'){
+      loadRanking();
+      loadPointHistory();
+    }
     if(nextPage==='points'){
       loadQuesters();
       loadRanking();
+      loadPointHistory();
     }
   }
 
@@ -175,20 +197,46 @@ function Game({membership,onBack}){
         </div>
       </section>}
 
-      {mode==='player'?<section className="grid">
-        <button className="card tile" style={{textAlign:'left',color:'inherit',border:'1px solid rgba(23,63,53,.11)'}} onClick={()=>openPage('ranking')}>
-          <strong>🏆 Ranking</strong><small>Consulta la clasificación</small>
-        </button>
-        <button className="card tile" style={{textAlign:'left',color:'inherit',border:'1px solid rgba(23,63,53,.11)'}} onClick={()=>openPage('questers')}>
-          <strong>👥 Questers</strong><small>Ver participantes</small>
-        </button>
-        <button className="card tile" style={{textAlign:'left',color:'inherit',border:'1px solid rgba(23,63,53,.11)'}} onClick={()=>openPage('challenges')}>
-          <strong>🎯 Retos</strong><small>Próximo sprint</small>
-        </button>
-        <button className="card tile" style={{textAlign:'left',color:'inherit',border:'1px solid rgba(23,63,53,.11)'}} onClick={()=>openPage('advantages')}>
-          <strong>🎒 Ventajas</strong><small>Próximo sprint</small>
-        </button>
-      </section>:<section className="grid">
+      {mode==='player'?<button className="card" onClick={()=>openPage('questers')} style={{
+        width:'100%',
+        marginTop:'14px',
+        padding:'18px',
+        border:'1px solid rgba(23,63,53,.11)',
+        color:'inherit',
+        textAlign:'left'
+      }}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'14px'}}>
+          <div>
+            <p className="eyebrow" style={{marginBottom:'5px'}}>QUESTERS</p>
+            <strong style={{fontSize:'1.08rem'}}>{questers.length} {questers.length===1?'participante':'participantes'}</strong>
+          </div>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'flex-end'}}>
+            {questers.slice(0,5).map((q,index)=><div key={q.user_id} style={{
+              width:'42px',
+              height:'42px',
+              borderRadius:'14px',
+              background:q.profile_color||'#e7eee9',
+              display:'grid',
+              placeItems:'center',
+              fontSize:'1.35rem',
+              marginLeft:index===0?0:'-8px',
+              border:'3px solid #fffdf7'
+            }}>{q.avatar_emoji||'🧭'}</div>)}
+            {questers.length>5&&<div style={{
+              width:'42px',
+              height:'42px',
+              borderRadius:'14px',
+              background:'#e7eee9',
+              display:'grid',
+              placeItems:'center',
+              marginLeft:'-8px',
+              border:'3px solid #fffdf7',
+              fontWeight:'900',
+              fontSize:'.78rem'
+            }}>+{questers.length-5}</div>}
+          </div>
+        </div>
+      </button>:<section className="grid">
         {adminSections.map(section=>
           <button className="card tile" style={{textAlign:'left',color:'inherit',border:'1px solid rgba(23,63,53,.11)'}} key={section.id} onClick={()=>openPage(section.id)}>
             <strong>{section.label}</strong><small>{section.detail}</small>
@@ -228,6 +276,31 @@ function Game({membership,onBack}){
         )}
         {!rankingLoading&&!rankingError&&!ranking.length&&<article className="card" style={{padding:'18px'}}>Todavía no hay Questers.</article>}
       </section>
+
+      <section style={{marginTop:'22px'}}>
+        <p className="eyebrow">ÚLTIMOS MOVIMIENTOS</p>
+        <div style={{display:'grid',gap:'8px'}}>
+          {historyLoading&&<article className="card" style={{padding:'16px'}}>Cargando historial…</article>}
+          {!historyLoading&&pointHistory.map(move=><article className="card" key={move.movement_id} style={{
+            padding:'14px 16px',
+            display:'flex',
+            alignItems:'center',
+            gap:'12px'
+          }}>
+            <div style={{width:'42px',height:'42px',borderRadius:'14px',background:move.profile_color||'#e7eee9',display:'grid',placeItems:'center',fontSize:'1.35rem'}}>
+              {move.avatar_emoji||'🧭'}
+            </div>
+            <div style={{flex:1}}>
+              <strong>{move.nickname}</strong>
+              <small style={{display:'block',color:'var(--muted)'}}>{move.reason}</small>
+            </div>
+            <strong style={{color:move.amount>0?'#24715a':'#a13f3f'}}>
+              {move.amount>0?'+':''}{move.amount}
+            </strong>
+          </article>)}
+          {!historyLoading&&!pointHistory.length&&<article className="card" style={{padding:'16px'}}>Todavía no hay movimientos de puntos.</article>}
+        </div>
+      </section>
     </>:page==='points'&&mode==='admin'?<>
       <section className="card" style={{padding:'22px'}}>
         <p className="eyebrow">ADMINISTRAR PUNTOS</p>
@@ -261,6 +334,29 @@ function Game({membership,onBack}){
             <span style={{flex:1,fontWeight:'800'}}>{q.nickname}</span>
             <strong>{q.total_points} pt</strong>
           </article>)}
+        </div>
+      </section>
+
+      <section style={{marginTop:'22px'}}>
+        <p className="eyebrow">HISTORIAL DE PUNTOS</p>
+        <div style={{display:'grid',gap:'8px'}}>
+          {historyLoading&&<article className="card" style={{padding:'16px'}}>Cargando historial…</article>}
+          {!historyLoading&&pointHistory.map(move=><article className="card" key={move.movement_id} style={{
+            padding:'14px 16px',
+            display:'flex',
+            alignItems:'center',
+            gap:'12px'
+          }}>
+            <span style={{fontSize:'1.35rem'}}>{move.avatar_emoji||'🧭'}</span>
+            <div style={{flex:1}}>
+              <strong>{move.nickname}</strong>
+              <small style={{display:'block',color:'var(--muted)'}}>{move.reason}</small>
+            </div>
+            <strong style={{color:move.amount>0?'#24715a':'#a13f3f'}}>
+              {move.amount>0?'+':''}{move.amount}
+            </strong>
+          </article>)}
+          {!historyLoading&&!pointHistory.length&&<article className="card" style={{padding:'16px'}}>Todavía no hay movimientos.</article>}
         </div>
       </section>
     </>:page==='questers'?<>
@@ -393,4 +489,42 @@ async function saveProfile(e){
   <button className="icon" onClick={()=>supabase.auth.signOut()}><LogOut/></button>
 </div></header><section className="heading"><div><p className="eyebrow">MIS AVENTURAS</p><h2>Mis aventuras</h2></div><div className="actions"><button className="primary" onClick={()=>setModal('create')}><Plus size={18}/>Crear</button><button className="secondary" onClick={()=>setModal('join')}><KeyRound size={18}/>Unirme</button></div></section>{loading?<p>Cargando…</p>:memberships.length?<section className="games">{memberships.map(m=><button className="card game" key={m.id} onClick={()=>setSelected(m)}><span className="emoji">{m.games.emoji}</span><span><strong>{m.games.name}</strong><small>{tripStatus(m.games.start_date,m.games.end_date)}</small></span><em style={{display:'grid',gap:'4px',justifyItems:'end'}}><span style={{display:'flex',alignItems:'center',gap:'5px'}}><Users size={16}/>{m.games.member_count}</span><span style={{display:'flex',alignItems:'center',gap:'5px'}}><CalendarDays size={16}/>{new Date(m.games.start_date+'T00:00:00').toLocaleDateString('es-ES')}</span></em></button>)}</section>:<section className="card empty"><div>🌍</div><p className="eyebrow">TU PRIMERA AVENTURA</p><h2>El viaje puede empezar hoy.</h2><p>Crea una aventura o únete con un código.</p></section>}{modal&&<Modal type={modal} onClose={()=>setModal(null)} onDone={()=>{setModal(null);load()}}/>}{profileOpen&&<div className="backdrop"><form className="card modal" onSubmit={saveProfile}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'12px',marginBottom:'12px'}}><div><p className="eyebrow">MI PERFIL</p><h2 style={{marginBottom:0}}>Personaliza tu Quester</h2></div><button type="button" className="icon" onClick={()=>setProfileOpen(false)}><X/></button></div><div style={{width:'88px',height:'88px',borderRadius:'26px',background:profile.profile_color,display:'grid',placeItems:'center',fontSize:'3rem',margin:'8px auto 20px'}}>{profile.avatar_emoji||'🧭'}</div><label>Nickname<input required maxLength="30" value={profile.nickname} onChange={e=>setProfile({...profile,nickname:e.target.value})}/></label><label>Emoji<input required maxLength="4" value={profile.avatar_emoji} onChange={e=>setProfile({...profile,avatar_emoji:e.target.value})} placeholder="🧭"/></label><label>Color<div style={{display:'grid',gridTemplateColumns:'70px 1fr',gap:'10px',alignItems:'center'}}><input type="color" value={profile.profile_color} onChange={e=>setProfile({...profile,profile_color:e.target.value})} style={{height:'48px',padding:'5px'}}/><input value={profile.profile_color} onChange={e=>setProfile({...profile,profile_color:e.target.value})}/></div></label><button className="primary wide" disabled={profileSaving}>{profileSaving?'Guardando…':'Guardar cambios'}</button>{profileMessage&&<p className="msg">{profileMessage}</p>}</form></div>}</main>}
 
-export default function App(){const[session,setSession]=useState(null),[ready,setReady]=useState(false);useEffect(()=>{supabase.auth.getSession().then(({data})=>{setSession(data.session);setReady(true)});const{data}=supabase.auth.onAuthStateChange((_e,s)=>{setSession(s);setReady(true)});return()=>data.subscription.unsubscribe()},[]);if(!ready)return <div className="splash"><Compass size={48}/><strong>TripQuest</strong></div>;return session?<Dashboard session={session}/>:<Auth/>}
+function EmailConfirmed({session,onContinue}){
+  return <main className="auth">
+    <section className="brand">
+      <div className="mark"><CheckCircle2 size={42}/></div>
+      <p className="eyebrow">EMAIL CONFIRMADO</p>
+      <h1>¡Ya eres Quester!</h1>
+      <p className="lead">Tu correo se ha confirmado correctamente. Ya puedes acceder a TripQuest.</p>
+    </section>
+    <section className="card authCard" style={{textAlign:'center'}}>
+      <div style={{fontSize:'4rem',marginBottom:'12px'}}>🎉</div>
+      <h2>Cuenta activada</h2>
+      <p style={{color:'var(--muted)'}}>{session?'Tu sesión ya está lista.':'Inicia sesión con tu email y contraseña.'}</p>
+      <button className="primary wide" onClick={onContinue}>
+        {session?'Entrar en TripQuest':'Ir al inicio de sesión'}
+      </button>
+    </section>
+  </main>
+}
+
+export default function App(){
+  const[session,setSession]=useState(null);
+  const[ready,setReady]=useState(false);
+  const[confirmed,setConfirmed]=useState(()=>new URLSearchParams(window.location.search).get('email_confirmed')==='1');
+
+  useEffect(()=>{
+    supabase.auth.getSession().then(({data})=>{setSession(data.session);setReady(true)});
+    const{data}=supabase.auth.onAuthStateChange((_e,s)=>{setSession(s);setReady(true)});
+    return()=>data.subscription.unsubscribe()
+  },[]);
+
+  function continueAfterConfirmation(){
+    window.history.replaceState({},'',window.location.pathname);
+    setConfirmed(false)
+  }
+
+  if(!ready)return <div className="splash"><Compass size={48}/><strong>TripQuest</strong></div>;
+  if(confirmed)return <EmailConfirmed session={session} onContinue={continueAfterConfirmation}/>;
+  return session?<Dashboard session={session}/>:<Auth/>
+}
