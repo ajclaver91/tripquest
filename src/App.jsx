@@ -21,10 +21,29 @@ function Game({membership,onBack}){
   const[rankingError,setRankingError]=useState('');
   const[pointsForm,setPointsForm]=useState({user_id:'',amount:'10',reason:''});
   const[pointsBusy,setPointsBusy]=useState(false);
-  const[pointsMessage,setPointsMessage]=useState('');const[pointHistory,setPointHistory]=useState([]);const[historyLoading,setHistoryLoading]=useState(false);
+  const[pointsMessage,setPointsMessage]=useState('');const[pointHistory,setPointHistory]=useState([]);const[historyLoading,setHistoryLoading]=useState(false);const[notificationCounts,setNotificationCounts]=useState({ranking:0,challenges:0,advantages:0,admin:0});
   const g=membership.games,owner=membership.role==='owner';
 
-  useEffect(()=>{loadQuesters()},[g.id]);
+  useEffect(()=>{loadQuesters();loadNotificationCounts()},[g.id]);
+
+  async function loadNotificationCounts(){
+    const{data,error}=await supabase.rpc('get_tripquest_notification_counts',{p_game_id:g.id});
+    if(error){
+      console.error('Error cargando notificaciones:',error);
+      return;
+    }
+    const next={ranking:0,challenges:0,advantages:0,admin:0};
+    (data||[]).forEach(row=>{next[row.section]=Number(row.unread_count)||0});
+    setNotificationCounts(next);
+  }
+
+  async function markSectionRead(section){
+    const{error}=await supabase.rpc('mark_tripquest_notifications_read',{
+      p_game_id:g.id,
+      p_section:section
+    });
+    if(!error)setNotificationCounts(current=>({...current,[section]:0}));
+  }
 
   async function copyCode(){
     try{
@@ -125,7 +144,10 @@ function Game({membership,onBack}){
     if(nextPage==='ranking'){
       loadRanking();
       loadPointHistory();
+      markSectionRead('ranking');
     }
+    if(nextPage==='challenges')markSectionRead('challenges');
+    if(nextPage==='advantages')markSectionRead('advantages');
     if(nextPage==='points'){
       loadQuesters();
       loadRanking();
@@ -136,6 +158,7 @@ function Game({membership,onBack}){
   function changeMode(nextMode){
     setMode(nextMode);
     setPage('home');
+    if(nextMode==='admin')markSectionRead('admin');
   }
 
   const adminSections=[
@@ -176,7 +199,7 @@ function Game({membership,onBack}){
 
     {owner&&<div className="mode">
       <button className={mode==='player'?'active':''} onClick={()=>changeMode('player')}><UserRound size={18}/>Mi aventura</button>
-      <button className={mode==='admin'?'active':''} onClick={()=>changeMode('admin')}><Settings size={18}/>Administrar</button>
+      <button className={mode==='admin'?'active':''} onClick={()=>changeMode('admin')} style={{position:'relative'}}><Settings size={18}/>Administrar{notificationCounts.admin>0&&<span style={{position:'absolute',right:'7px',top:'5px',width:'9px',height:'9px',borderRadius:'50%',background:'#e05b4f',border:'2px solid white'}}/>}</button>
     </div>}
 
     {page==='home'?<>
@@ -410,18 +433,43 @@ function Game({membership,onBack}){
       zIndex:10,
       backdropFilter:'blur(12px)'
     }}>
-      {playerNav.map(item=><button key={item.id} onClick={()=>openPage(item.id)} style={{
-        border:0,
-        borderRadius:'14px',
-        padding:'9px 5px',
-        display:'grid',
-        justifyItems:'center',
-        gap:'3px',
-        background:page===item.id?'#173f35':'transparent',
-        color:page===item.id?'white':'#62736d',
-        fontWeight:'850',
-        fontSize:'.72rem'
-      }}>{item.icon}<span>{item.label}</span></button>)}
+      {playerNav.map(item=>{
+        const count=item.id==='ranking'?notificationCounts.ranking:item.id==='challenges'?notificationCounts.challenges:item.id==='advantages'?notificationCounts.advantages:0;
+        return <button key={item.id} onClick={()=>openPage(item.id)} style={{
+          border:0,
+          borderRadius:'14px',
+          padding:'9px 5px',
+          display:'grid',
+          justifyItems:'center',
+          gap:'3px',
+          background:page===item.id?'#173f35':'transparent',
+          color:page===item.id?'white':'#62736d',
+          fontWeight:'850',
+          fontSize:'.72rem',
+          position:'relative'
+        }}>
+          <span style={{position:'relative',display:'inline-flex'}}>
+            {item.icon}
+            {count>0&&<span style={{
+              position:'absolute',
+              right:'-12px',
+              top:'-8px',
+              minWidth:'19px',
+              height:'19px',
+              padding:'0 5px',
+              borderRadius:'999px',
+              background:'#e05b4f',
+              color:'white',
+              border:'2px solid #fffdf7',
+              display:'grid',
+              placeItems:'center',
+              fontSize:'.65rem',
+              fontWeight:'950'
+            }}>{count>99?'99+':count}</span>}
+          </span>
+          <span>{item.label}</span>
+        </button>
+      })}
     </nav>}
   </main>
 }
