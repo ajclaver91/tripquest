@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react'
-import {Compass,Plus,KeyRound,LogOut,ArrowLeft,Settings,UserRound,CalendarDays,Copy,Share2,Crown,Users,X,Home,Trophy,Target,Backpack,Star,CheckCircle2} from 'lucide-react'
+import {Compass,Plus,KeyRound,LogOut,ArrowLeft,Settings,UserRound,CalendarDays,Copy,Share2,Crown,Users,X,Home,Trophy,Target,Backpack,Star,CheckCircle2,MoreVertical,Pencil,Trash2,DoorOpen} from 'lucide-react'
 import {supabase} from './supabase'
 
 const emptyGame={name:'',emoji:'🧭',start_date:'',end_date:'',description:''}
@@ -425,70 +425,292 @@ function Game({membership,onBack}){
     </nav>}
   </main>
 }
-function Dashboard({session}){const[memberships,setMemberships]=useState([]),[loading,setLoading]=useState(true),[modal,setModal]=useState(null),[selected,setSelected]=useState(null),[profileOpen,setProfileOpen]=useState(false),[profile,setProfile]=useState({nickname:'',avatar_emoji:'🧭',profile_color:'#dfeee7'}),[profileSaving,setProfileSaving]=useState(false),[profileMessage,setProfileMessage]=useState('');async function load(){
-  setLoading(true);
-  const {data,error}=await supabase.rpc('list_my_tripquest_games_v2');
-  if(error){
-    console.error('Error cargando aventuras:',error);
-    setMemberships([]);
-    setLoading(false);
-    return;
-  }
-  const mapped=(data||[]).map(row=>({
-    id:row.membership_id,
-    role:row.member_role,
-    joined_at:row.joined_at,
-    games:{
-      id:row.game_id,
-      name:row.game_name,
-      emoji:row.game_emoji,
-      description:row.game_description,
-      start_date:row.game_start_date,
-      end_date:row.game_end_date,
-      invite_code:row.invite_code,
-      member_count:row.member_count
-    }
-  }));
-  setMemberships(mapped);
-  setLoading(false);
-}useEffect(()=>{load();loadProfile()},[]);
-async function loadProfile(){
-  const{data,error}=await supabase.from('profiles').select('nickname,avatar_emoji,profile_color').eq('id',session.user.id).single();
-  if(!error&&data)setProfile({
-    nickname:data.nickname||'',
-    avatar_emoji:data.avatar_emoji||'🧭',
-    profile_color:data.profile_color||'#dfeee7'
-  });
-}
-async function saveProfile(e){
-  e.preventDefault();
-  setProfileSaving(true);
-  setProfileMessage('');
-  const cleanNickname=profile.nickname.trim();
-  if(!cleanNickname){
-    setProfileMessage('El nickname no puede quedar vacío.');
-    setProfileSaving(false);
-    return;
-  }
-  const{error}=await supabase.from('profiles').update({
-    nickname:cleanNickname,
-    avatar_emoji:profile.avatar_emoji||'🧭',
-    profile_color:profile.profile_color||'#dfeee7'
-  }).eq('id',session.user.id);
-  if(error){
-    setProfileMessage(error.message);
-  }else{
-    await supabase.auth.updateUser({data:{nickname:cleanNickname}});
-    setProfile({...profile,nickname:cleanNickname});
-    setProfileMessage('Perfil guardado');
-    setTimeout(()=>{setProfileOpen(false);setProfileMessage('')},700);
-  }
-  setProfileSaving(false);
-}if(selected)return <Game membership={selected} onBack={()=>setSelected(null)}/>;const nick=profile.nickname||session.user.user_metadata?.nickname||session.user.email?.split('@')[0];return <main className="shell"><header className="top"><div><p className="eyebrow">BIENVENIDO, QUESTER</p><h1>Hola, {nick}</h1></div><div style={{display:'flex',gap:'8px'}}>
-  <button className="secondary" style={{padding:'11px 13px'}} onClick={()=>setProfileOpen(true)}><span style={{fontSize:'1.25rem'}}>{profile.avatar_emoji||'🧭'}</span><span>Mi perfil</span></button>
-  <button className="icon" onClick={()=>supabase.auth.signOut()}><LogOut/></button>
-</div></header><section className="heading"><div><p className="eyebrow">MIS AVENTURAS</p><h2>Mis aventuras</h2></div><div className="actions"><button className="primary" onClick={()=>setModal('create')}><Plus size={18}/>Crear</button><button className="secondary" onClick={()=>setModal('join')}><KeyRound size={18}/>Unirme</button></div></section>{loading?<p>Cargando…</p>:memberships.length?<section className="games">{memberships.map(m=><button className="card game" key={m.id} onClick={()=>setSelected(m)}><span className="emoji">{m.games.emoji}</span><span><strong>{m.games.name}</strong><small>{tripStatus(m.games.start_date,m.games.end_date)}</small></span><em style={{display:'grid',gap:'4px',justifyItems:'end'}}><span style={{display:'flex',alignItems:'center',gap:'5px'}}><Users size={16}/>{m.games.member_count}</span><span style={{display:'flex',alignItems:'center',gap:'5px'}}><CalendarDays size={16}/>{new Date(m.games.start_date+'T00:00:00').toLocaleDateString('es-ES')}</span></em></button>)}</section>:<section className="card empty"><div>🌍</div><p className="eyebrow">TU PRIMERA AVENTURA</p><h2>El viaje puede empezar hoy.</h2><p>Crea una aventura o únete con un código.</p></section>}{modal&&<Modal type={modal} onClose={()=>setModal(null)} onDone={()=>{setModal(null);load()}}/>}{profileOpen&&<div className="backdrop"><form className="card modal" onSubmit={saveProfile}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'12px',marginBottom:'12px'}}><div><p className="eyebrow">MI PERFIL</p><h2 style={{marginBottom:0}}>Personaliza tu Quester</h2></div><button type="button" className="icon" onClick={()=>setProfileOpen(false)}><X/></button></div><div style={{width:'88px',height:'88px',borderRadius:'26px',background:profile.profile_color,display:'grid',placeItems:'center',fontSize:'3rem',margin:'8px auto 20px'}}>{profile.avatar_emoji||'🧭'}</div><label>Nickname<input required maxLength="30" value={profile.nickname} onChange={e=>setProfile({...profile,nickname:e.target.value})}/></label><label>Emoji<input required maxLength="4" value={profile.avatar_emoji} onChange={e=>setProfile({...profile,avatar_emoji:e.target.value})} placeholder="🧭"/></label><label>Color<div style={{display:'grid',gridTemplateColumns:'70px 1fr',gap:'10px',alignItems:'center'}}><input type="color" value={profile.profile_color} onChange={e=>setProfile({...profile,profile_color:e.target.value})} style={{height:'48px',padding:'5px'}}/><input value={profile.profile_color} onChange={e=>setProfile({...profile,profile_color:e.target.value})}/></div></label><button className="primary wide" disabled={profileSaving}>{profileSaving?'Guardando…':'Guardar cambios'}</button>{profileMessage&&<p className="msg">{profileMessage}</p>}</form></div>}</main>}
+function Dashboard({session}){
+  const[memberships,setMemberships]=useState([]);
+  const[loading,setLoading]=useState(true);
+  const[modal,setModal]=useState(null);
+  const[selected,setSelected]=useState(null);
+  const[profileOpen,setProfileOpen]=useState(false);
+  const[profile,setProfile]=useState({nickname:'',avatar_emoji:'🧭',profile_color:'#dfeee7'});
+  const[profileSaving,setProfileSaving]=useState(false);
+  const[profileMessage,setProfileMessage]=useState('');
+  const[menuGameId,setMenuGameId]=useState(null);
+  const[editingMembership,setEditingMembership]=useState(null);
+  const[editGame,setEditGame]=useState(emptyGame);
+  const[editBusy,setEditBusy]=useState(false);
+  const[editMessage,setEditMessage]=useState('');
+  const[deleteMembership,setDeleteMembership]=useState(null);
+  const[deleteText,setDeleteText]=useState('');
+  const[deleteBusy,setDeleteBusy]=useState(false);
+  const[deleteMessage,setDeleteMessage]=useState('');
 
+  async function load(){
+    setLoading(true);
+    const{data,error}=await supabase.rpc('list_my_tripquest_games_v2');
+    if(error){
+      console.error('Error cargando aventuras:',error);
+      setMemberships([]);
+      setLoading(false);
+      return;
+    }
+    setMemberships((data||[]).map(row=>({
+      id:row.membership_id,
+      role:row.member_role,
+      joined_at:row.joined_at,
+      games:{
+        id:row.game_id,
+        name:row.game_name,
+        emoji:row.game_emoji,
+        description:row.game_description,
+        start_date:row.game_start_date,
+        end_date:row.game_end_date,
+        invite_code:row.invite_code,
+        member_count:row.member_count
+      }
+    })));
+    setLoading(false);
+  }
+
+  useEffect(()=>{load();loadProfile()},[]);
+
+  async function loadProfile(){
+    const{data,error}=await supabase.from('profiles')
+      .select('nickname,avatar_emoji,profile_color')
+      .eq('id',session.user.id)
+      .single();
+    if(!error&&data)setProfile({
+      nickname:data.nickname||'',
+      avatar_emoji:data.avatar_emoji||'🧭',
+      profile_color:data.profile_color||'#dfeee7'
+    });
+  }
+
+  async function saveProfile(e){
+    e.preventDefault();
+    setProfileSaving(true);
+    setProfileMessage('');
+    const cleanNickname=profile.nickname.trim();
+    if(!cleanNickname){
+      setProfileMessage('El nickname no puede quedar vacío.');
+      setProfileSaving(false);
+      return;
+    }
+    const{error}=await supabase.from('profiles').update({
+      nickname:cleanNickname,
+      avatar_emoji:profile.avatar_emoji||'🧭',
+      profile_color:profile.profile_color||'#dfeee7'
+    }).eq('id',session.user.id);
+    if(error){
+      setProfileMessage(error.message);
+    }else{
+      await supabase.auth.updateUser({data:{nickname:cleanNickname}});
+      setProfile({...profile,nickname:cleanNickname});
+      setProfileMessage('Perfil guardado');
+      setTimeout(()=>{setProfileOpen(false);setProfileMessage('')},700);
+    }
+    setProfileSaving(false);
+  }
+
+  function openEdit(membership){
+    setMenuGameId(null);
+    setEditingMembership(membership);
+    setEditGame({
+      name:membership.games.name,
+      emoji:membership.games.emoji,
+      start_date:membership.games.start_date,
+      end_date:membership.games.end_date,
+      description:membership.games.description||''
+    });
+    setEditMessage('');
+  }
+
+  async function saveAdventure(e){
+    e.preventDefault();
+    setEditBusy(true);
+    setEditMessage('');
+    const{error}=await supabase.rpc('update_tripquest_game',{
+      p_game_id:editingMembership.games.id,
+      p_name:editGame.name.trim(),
+      p_emoji:editGame.emoji||'🧭',
+      p_start_date:editGame.start_date,
+      p_end_date:editGame.end_date,
+      p_description:editGame.description.trim()||null
+    });
+    if(error){
+      setEditMessage(error.message);
+    }else{
+      setEditingMembership(null);
+      await load();
+    }
+    setEditBusy(false);
+  }
+
+  function openDelete(membership){
+    setMenuGameId(null);
+    setDeleteMembership(membership);
+    setDeleteText('');
+    setDeleteMessage('');
+  }
+
+  async function confirmDeleteOrLeave(){
+    if(!deleteMembership)return;
+    setDeleteBusy(true);
+    setDeleteMessage('');
+    const isOwner=deleteMembership.role==='owner';
+
+    if(isOwner&&deleteText.trim()!==deleteMembership.games.name){
+      setDeleteMessage('Escribe exactamente el nombre de la aventura.');
+      setDeleteBusy(false);
+      return;
+    }
+
+    const fn=isOwner?'delete_tripquest_game':'leave_tripquest_game';
+    const{error}=await supabase.rpc(fn,{p_game_id:deleteMembership.games.id});
+    if(error){
+      setDeleteMessage(error.message);
+    }else{
+      setDeleteMembership(null);
+      await load();
+    }
+    setDeleteBusy(false);
+  }
+
+  if(selected)return <Game membership={selected} onBack={()=>setSelected(null)}/>;
+
+  const nick=profile.nickname||session.user.user_metadata?.nickname||session.user.email?.split('@')[0];
+
+  return <main className="shell">
+    <header className="top">
+      <div>
+        <p className="eyebrow">BIENVENIDO, QUESTER</p>
+        <h1>Hola, {nick}</h1>
+      </div>
+      <div style={{display:'flex',gap:'8px'}}>
+        <button className="secondary" style={{padding:'11px 13px'}} onClick={()=>setProfileOpen(true)}>
+          <span style={{fontSize:'1.25rem'}}>{profile.avatar_emoji||'🧭'}</span>
+          <span>Mi perfil</span>
+        </button>
+        <button className="icon" onClick={()=>supabase.auth.signOut()}><LogOut/></button>
+      </div>
+    </header>
+
+    <section className="heading">
+      <div><p className="eyebrow">MIS AVENTURAS</p><h2>Mis aventuras</h2></div>
+      <div className="actions">
+        <button className="primary" onClick={()=>setModal('create')}><Plus size={18}/>Crear</button>
+        <button className="secondary" onClick={()=>setModal('join')}><KeyRound size={18}/>Unirme</button>
+      </div>
+    </section>
+
+    {loading?<p>Cargando…</p>:memberships.length?<section className="games">
+      {memberships.map(m=><article className="card" key={m.id} style={{position:'relative',padding:'0'}}>
+        <button className="game" style={{width:'100%',boxShadow:'none',border:0,background:'transparent',paddingRight:'56px'}} onClick={()=>setSelected(m)}>
+          <span className="emoji">{m.games.emoji}</span>
+          <span><strong>{m.games.name}</strong><small>{tripStatus(m.games.start_date,m.games.end_date)}</small></span>
+          <em style={{display:'grid',gap:'4px',justifyItems:'end'}}>
+            <span style={{display:'flex',alignItems:'center',gap:'5px'}}><Users size={16}/>{m.games.member_count}</span>
+            <span style={{display:'flex',alignItems:'center',gap:'5px'}}><CalendarDays size={16}/>{new Date(m.games.start_date+'T00:00:00').toLocaleDateString('es-ES')}</span>
+          </em>
+        </button>
+
+        <button className="icon" onClick={e=>{e.stopPropagation();setMenuGameId(menuGameId===m.games.id?null:m.games.id)}} style={{position:'absolute',right:'8px',top:'50%',transform:'translateY(-50%)'}}>
+          <MoreVertical size={20}/>
+        </button>
+
+        {menuGameId===m.games.id&&<div className="card" style={{
+          position:'absolute',
+          right:'8px',
+          top:'calc(50% + 28px)',
+          zIndex:20,
+          padding:'8px',
+          minWidth:'175px',
+          boxShadow:'0 18px 40px rgba(23,63,53,.22)'
+        }}>
+          {m.role==='owner'&&<button className="secondary wide" style={{justifyContent:'flex-start',marginBottom:'6px'}} onClick={()=>openEdit(m)}>
+            <Pencil size={17}/>Editar aventura
+          </button>}
+          <button className="secondary wide" style={{justifyContent:'flex-start',color:m.role==='owner'?'#a13f3f':'inherit'}} onClick={()=>openDelete(m)}>
+            {m.role==='owner'?<Trash2 size={17}/>:<DoorOpen size={17}/>}
+            {m.role==='owner'?'Eliminar aventura':'Salir de la aventura'}
+          </button>
+        </div>}
+      </article>)}
+    </section>:<section className="card empty">
+      <div>🌍</div>
+      <p className="eyebrow">TU PRIMERA AVENTURA</p>
+      <h2>El viaje puede empezar hoy.</h2>
+      <p>Crea una aventura o únete con un código.</p>
+    </section>}
+
+    {modal&&<Modal type={modal} onClose={()=>setModal(null)} onDone={()=>{setModal(null);load()}}/>}
+
+    {editingMembership&&<div className="backdrop">
+      <form className="card modal" onSubmit={saveAdventure}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'12px',marginBottom:'12px'}}>
+          <div><p className="eyebrow">EDITAR AVENTURA</p><h2 style={{marginBottom:0}}>{editingMembership.games.name}</h2></div>
+          <button type="button" className="icon" onClick={()=>setEditingMembership(null)}><X/></button>
+        </div>
+        <label>Nombre<input required value={editGame.name} onChange={e=>setEditGame({...editGame,name:e.target.value})}/></label>
+        <label>Emoji<input required maxLength="4" value={editGame.emoji} onChange={e=>setEditGame({...editGame,emoji:e.target.value})}/></label>
+        <div className="cols">
+          <label>Empieza<input required type="date" value={editGame.start_date} onChange={e=>setEditGame({...editGame,start_date:e.target.value})}/></label>
+          <label>Termina<input required type="date" value={editGame.end_date} onChange={e=>setEditGame({...editGame,end_date:e.target.value})}/></label>
+        </div>
+        <label>Descripción<textarea rows="3" value={editGame.description} onChange={e=>setEditGame({...editGame,description:e.target.value})}/></label>
+        <button className="primary wide" disabled={editBusy}>{editBusy?'Guardando…':'Guardar cambios'}</button>
+        {editMessage&&<p className="msg">{editMessage}</p>}
+      </form>
+    </div>}
+
+    {deleteMembership&&<div className="backdrop">
+      <section className="card modal">
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'12px',marginBottom:'12px'}}>
+          <div>
+            <p className="eyebrow">{deleteMembership.role==='owner'?'ELIMINAR AVENTURA':'SALIR DE LA AVENTURA'}</p>
+            <h2 style={{marginBottom:0}}>{deleteMembership.games.name}</h2>
+          </div>
+          <button type="button" className="icon" onClick={()=>setDeleteMembership(null)}><X/></button>
+        </div>
+
+        {deleteMembership.role==='owner'?<>
+          <p style={{color:'var(--muted)'}}>Se borrarán definitivamente Questers, puntos, retos, etapas, subastas y ventajas de esta aventura.</p>
+          <label>Escribe el nombre exacto para confirmar
+            <input value={deleteText} onChange={e=>setDeleteText(e.target.value)} placeholder={deleteMembership.games.name}/>
+          </label>
+          <button className="wide" onClick={confirmDeleteOrLeave} disabled={deleteBusy} style={{
+            border:0,borderRadius:'13px',padding:'13px 16px',fontWeight:'900',background:'#a13f3f',color:'white'
+          }}>{deleteBusy?'Eliminando…':'Eliminar definitivamente'}</button>
+        </>:<>
+          <p style={{color:'var(--muted)'}}>Dejarás de ver esta aventura y tus datos de participación se eliminarán de ella.</p>
+          <button className="wide" onClick={confirmDeleteOrLeave} disabled={deleteBusy} style={{
+            border:0,borderRadius:'13px',padding:'13px 16px',fontWeight:'900',background:'#a13f3f',color:'white'
+          }}>{deleteBusy?'Saliendo…':'Salir de la aventura'}</button>
+        </>}
+        {deleteMessage&&<p className="msg">{deleteMessage}</p>}
+      </section>
+    </div>}
+
+    {profileOpen&&<div className="backdrop">
+      <form className="card modal" onSubmit={saveProfile}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'12px',marginBottom:'12px'}}>
+          <div><p className="eyebrow">MI PERFIL</p><h2 style={{marginBottom:0}}>Personaliza tu Quester</h2></div>
+          <button type="button" className="icon" onClick={()=>setProfileOpen(false)}><X/></button>
+        </div>
+        <div style={{width:'88px',height:'88px',borderRadius:'26px',background:profile.profile_color,display:'grid',placeItems:'center',fontSize:'3rem',margin:'8px auto 20px'}}>
+          {profile.avatar_emoji||'🧭'}
+        </div>
+        <label>Nickname<input required maxLength="30" value={profile.nickname} onChange={e=>setProfile({...profile,nickname:e.target.value})}/></label>
+        <label>Emoji<input required maxLength="4" value={profile.avatar_emoji} onChange={e=>setProfile({...profile,avatar_emoji:e.target.value})} placeholder="🧭"/></label>
+        <label>Color<div style={{display:'grid',gridTemplateColumns:'70px 1fr',gap:'10px',alignItems:'center'}}>
+          <input type="color" value={profile.profile_color} onChange={e=>setProfile({...profile,profile_color:e.target.value})} style={{height:'48px',padding:'5px'}}/>
+          <input value={profile.profile_color} onChange={e=>setProfile({...profile,profile_color:e.target.value})}/>
+        </div></label>
+        <button className="primary wide" disabled={profileSaving}>{profileSaving?'Guardando…':'Guardar cambios'}</button>
+        {profileMessage&&<p className="msg">{profileMessage}</p>}
+      </form>
+    </div>}
+  </main>
+}
 function EmailConfirmed({session,onContinue}){
   return <main className="auth">
     <section className="brand">
