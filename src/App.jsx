@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react'
-import {Compass,Plus,KeyRound,LogOut,ArrowLeft,Settings,UserRound,CalendarDays,Copy,Share2,Crown,Users,X} from 'lucide-react'
+import {Compass,Plus,KeyRound,LogOut,ArrowLeft,Settings,UserRound,CalendarDays,Copy,Share2,Crown,Users,X,Home,Trophy,Target,Backpack,Star} from 'lucide-react'
 import {supabase} from './supabase'
 
 const emptyGame={name:'',emoji:'🧭',start_date:'',end_date:'',description:''}
@@ -16,6 +16,12 @@ function Game({membership,onBack}){
   const[questers,setQuesters]=useState([]);
   const[questersLoading,setQuestersLoading]=useState(false);
   const[questersError,setQuestersError]=useState('');
+  const[ranking,setRanking]=useState([]);
+  const[rankingLoading,setRankingLoading]=useState(false);
+  const[rankingError,setRankingError]=useState('');
+  const[pointsForm,setPointsForm]=useState({user_id:'',amount:'10',reason:''});
+  const[pointsBusy,setPointsBusy]=useState(false);
+  const[pointsMessage,setPointsMessage]=useState('');
   const g=membership.games,owner=membership.role==='owner';
 
   async function copyCode(){
@@ -28,34 +34,81 @@ function Game({membership,onBack}){
     }
   }
 
-  async function shareCode(){
-    const text=`Únete a "${g.name}" en TripQuest con el código ${g.invite_code}`;
-    if(navigator.share){
-      try{await navigator.share({title:'Invitación a TripQuest',text});}catch{}
-    }else{
-      await copyCode();
-    }
-  }
-
   async function loadQuesters(){
     setQuestersLoading(true);
     setQuestersError('');
-    const{data,error}=await supabase.rpc('list_tripquest_game_members',{
-      p_game_id:g.id
-    });
+    const{data,error}=await supabase.rpc('list_tripquest_game_members',{p_game_id:g.id});
     if(error){
       console.error('Error cargando Questers:',error);
       setQuesters([]);
       setQuestersError(error.message);
     }else{
       setQuesters(data||[]);
+      if(!pointsForm.user_id&&data?.length){
+        setPointsForm(form=>({...form,user_id:data[0].user_id}));
+      }
     }
     setQuestersLoading(false);
+  }
+
+  async function loadRanking(){
+    setRankingLoading(true);
+    setRankingError('');
+    const{data,error}=await supabase.rpc('list_tripquest_ranking',{p_game_id:g.id});
+    if(error){
+      console.error('Error cargando ranking:',error);
+      setRanking([]);
+      setRankingError(error.message);
+    }else{
+      setRanking(data||[]);
+    }
+    setRankingLoading(false);
+  }
+
+  async function adjustPoints(e){
+    e.preventDefault();
+    setPointsBusy(true);
+    setPointsMessage('');
+    const amount=Number(pointsForm.amount);
+    if(!pointsForm.user_id){
+      setPointsMessage('Selecciona un Quester.');
+      setPointsBusy(false);
+      return;
+    }
+    if(!Number.isInteger(amount)||amount===0){
+      setPointsMessage('Los puntos deben ser un número entero distinto de cero.');
+      setPointsBusy(false);
+      return;
+    }
+    if(!pointsForm.reason.trim()){
+      setPointsMessage('Escribe el motivo.');
+      setPointsBusy(false);
+      return;
+    }
+    const{error}=await supabase.rpc('admin_adjust_tripquest_points',{
+      p_game_id:g.id,
+      p_user_id:pointsForm.user_id,
+      p_amount:amount,
+      p_reason:pointsForm.reason.trim()
+    });
+    if(error){
+      setPointsMessage(error.message);
+    }else{
+      setPointsMessage(amount>0?'Puntos añadidos':'Puntos descontados');
+      setPointsForm(form=>({...form,amount:'10',reason:''}));
+      await loadRanking();
+    }
+    setPointsBusy(false);
   }
 
   function openPage(nextPage){
     setPage(nextPage);
     if(nextPage==='questers')loadQuesters();
+    if(nextPage==='ranking')loadRanking();
+    if(nextPage==='points'){
+      loadQuesters();
+      loadRanking();
+    }
   }
 
   function changeMode(nextMode){
@@ -63,35 +116,39 @@ function Game({membership,onBack}){
     setPage('home');
   }
 
-  const playerSections=[
-    {id:'home',label:'🏠 Inicio'},
-    {id:'ranking',label:'🏆 Ranking'},
-    {id:'envelopes',label:'✉️ Sobres'},
-    {id:'challenges',label:'🎯 Retos'},
-    {id:'stages',label:'🗺️ Etapas'},
-    {id:'auction',label:'🔨 Subasta'},
-    {id:'advantages',label:'🎒 Ventajas'},
-    {id:'questers',label:'👥 Questers'}
-  ];
-
   const adminSections=[
-    {id:'envelopes',label:'✉️ Sobres'},
-    {id:'points',label:'⭐ Puntos'},
-    {id:'auction',label:'🔨 Subasta'},
-    {id:'advantages',label:'🎒 Ventajas'},
-    {id:'stages',label:'🗺️ Etapas'},
-    {id:'questers',label:'👥 Questers'},
-    {id:'settings',label:'⚙️ Ajustes'}
+    {id:'points',label:'⭐ Puntos',detail:'Gestionar clasificación'},
+    {id:'envelopes',label:'✉️ Sobres',detail:'Próximo sprint'},
+    {id:'auction',label:'🔨 Subasta',detail:'Próximo sprint'},
+    {id:'advantages',label:'🎒 Ventajas',detail:'Próximo sprint'},
+    {id:'stages',label:'🗺️ Etapas',detail:'Próximo sprint'},
+    {id:'questers',label:'👥 Questers',detail:'Ver participantes'},
+    {id:'settings',label:'⚙️ Ajustes',detail:'Próximo sprint'}
   ];
 
-  const currentSections=mode==='player'?playerSections:adminSections;
+  const playerNav=[
+    {id:'home',label:'Inicio',icon:<Home size={21}/>},
+    {id:'ranking',label:'Ranking',icon:<Trophy size={21}/>},
+    {id:'challenges',label:'Retos',icon:<Target size={21}/>},
+    {id:'advantages',label:'Ventajas',icon:<Backpack size={21}/>}
+  ];
 
-  return <main className="shell">
+  const title=
+    page==='ranking'?'Ranking':
+    page==='questers'?'Questers':
+    page==='points'?'Puntos':
+    page==='challenges'?'Retos':
+    page==='advantages'?'Ventajas':
+    g.name;
+
+  const topThree=['🥇','🥈','🥉'];
+
+  return <main className="shell" style={{paddingBottom:mode==='player'?'105px':undefined}}>
     <header className="top">
       <button className="icon" onClick={page==='home'?onBack:()=>setPage('home')}><ArrowLeft/></button>
       <div>
         <p className="eyebrow">{g.emoji} AVENTURA</p>
-        <h1>{page==='questers'?'Questers':g.name}</h1>
+        <h1>{title}</h1>
       </div>
     </header>
 
@@ -114,85 +171,162 @@ function Game({membership,onBack}){
             <p className="eyebrow" style={{marginBottom:'4px'}}>CÓDIGO DE INVITACIÓN</p>
             <strong style={{fontSize:'1.1rem',letterSpacing:'.12em'}}>{g.invite_code}</strong>
           </div>
-          <button className="secondary" onClick={copyCode}>
-            <Copy size={17}/>{copied?'Copiado':'Copiar'}
-          </button>
+          <button className="secondary" onClick={copyCode}><Copy size={17}/>{copied?'Copiado':'Copiar'}</button>
         </div>
       </section>}
 
-      <section className="grid">
-        {currentSections.map(section=>
-          <button
-            className="card tile"
-            style={{textAlign:'left',color:'inherit',border:'1px solid rgba(23,63,53,.11)'}}
-            key={section.id}
-            onClick={()=>openPage(section.id)}
-          >
-            <strong>{section.label}</strong>
-            <small>{section.id==='questers'?'Ver participantes':'Próximo sprint'}</small>
+      {mode==='player'?<section className="grid">
+        <button className="card tile" style={{textAlign:'left',color:'inherit',border:'1px solid rgba(23,63,53,.11)'}} onClick={()=>openPage('ranking')}>
+          <strong>🏆 Ranking</strong><small>Consulta la clasificación</small>
+        </button>
+        <button className="card tile" style={{textAlign:'left',color:'inherit',border:'1px solid rgba(23,63,53,.11)'}} onClick={()=>openPage('questers')}>
+          <strong>👥 Questers</strong><small>Ver participantes</small>
+        </button>
+        <button className="card tile" style={{textAlign:'left',color:'inherit',border:'1px solid rgba(23,63,53,.11)'}} onClick={()=>openPage('challenges')}>
+          <strong>🎯 Retos</strong><small>Próximo sprint</small>
+        </button>
+        <button className="card tile" style={{textAlign:'left',color:'inherit',border:'1px solid rgba(23,63,53,.11)'}} onClick={()=>openPage('advantages')}>
+          <strong>🎒 Ventajas</strong><small>Próximo sprint</small>
+        </button>
+      </section>:<section className="grid">
+        {adminSections.map(section=>
+          <button className="card tile" style={{textAlign:'left',color:'inherit',border:'1px solid rgba(23,63,53,.11)'}} key={section.id} onClick={()=>openPage(section.id)}>
+            <strong>{section.label}</strong><small>{section.detail}</small>
           </button>
         )}
+      </section>}
+    </>:page==='ranking'?<>
+      <section className="card" style={{padding:'22px'}}>
+        <p className="eyebrow">CLASIFICACIÓN</p>
+        <h2 style={{marginBottom:'7px'}}>Así va la aventura</h2>
+        <p style={{color:'var(--muted)',marginBottom:0}}>Los puntos pertenecen únicamente a esta aventura.</p>
+      </section>
+
+      <section style={{display:'grid',gap:'10px',marginTop:'14px'}}>
+        {rankingLoading&&<article className="card" style={{padding:'18px'}}>Cargando clasificación…</article>}
+        {rankingError&&<article className="card" style={{padding:'18px',color:'#a13f3f'}}>{rankingError}</article>}
+        {!rankingLoading&&!rankingError&&ranking.map((q,index)=>
+          <article className="card" key={q.user_id} style={{
+            padding:'16px',
+            display:'flex',
+            alignItems:'center',
+            gap:'13px',
+            border:index<3?'1px solid rgba(214,166,62,.45)':'1px solid rgba(23,63,53,.11)'
+          }}>
+            <div style={{width:'34px',fontSize:index<3?'1.5rem':'1rem',fontWeight:'950',textAlign:'center'}}>
+              {topThree[index]||`${index+1}.`}
+            </div>
+            <div style={{width:'50px',height:'50px',borderRadius:'16px',background:q.profile_color||'#e7eee9',display:'grid',placeItems:'center',fontSize:'1.65rem'}}>
+              {q.avatar_emoji||'🧭'}
+            </div>
+            <div style={{flex:1}}>
+              <strong>{q.nickname}</strong>
+              <small style={{display:'block',color:'var(--muted)'}}>{q.member_role==='owner'?'Creador · Admin':'Quester'}</small>
+            </div>
+            <strong style={{fontSize:'1.25rem'}}>{q.total_points} pt</strong>
+          </article>
+        )}
+        {!rankingLoading&&!rankingError&&!ranking.length&&<article className="card" style={{padding:'18px'}}>Todavía no hay Questers.</article>}
+      </section>
+    </>:page==='points'&&mode==='admin'?<>
+      <section className="card" style={{padding:'22px'}}>
+        <p className="eyebrow">ADMINISTRAR PUNTOS</p>
+        <h2 style={{marginBottom:'7px'}}>Actualiza la clasificación</h2>
+        <p style={{color:'var(--muted)',marginBottom:0}}>Usa cantidades positivas para sumar y negativas para restar.</p>
+      </section>
+
+      <form className="card" onSubmit={adjustPoints} style={{padding:'20px',marginTop:'14px'}}>
+        <label>Quester
+          <select value={pointsForm.user_id} onChange={e=>setPointsForm({...pointsForm,user_id:e.target.value})}>
+            <option value="">Selecciona un Quester</option>
+            {questers.map(q=><option key={q.user_id} value={q.user_id}>{q.nickname}</option>)}
+          </select>
+        </label>
+        <label>Puntos
+          <input type="number" step="1" value={pointsForm.amount} onChange={e=>setPointsForm({...pointsForm,amount:e.target.value})}/>
+        </label>
+        <label>Motivo
+          <input value={pointsForm.reason} onChange={e=>setPointsForm({...pointsForm,reason:e.target.value})} placeholder="Reto completado, penalización…"/>
+        </label>
+        <button className="primary wide" disabled={pointsBusy}><Star size={18}/>{pointsBusy?'Guardando…':'Registrar puntos'}</button>
+        {pointsMessage&&<p className="msg">{pointsMessage}</p>}
+      </form>
+
+      <section style={{marginTop:'14px'}}>
+        <p className="eyebrow">CLASIFICACIÓN ACTUAL</p>
+        <div style={{display:'grid',gap:'8px'}}>
+          {ranking.map((q,index)=><article className="card" key={q.user_id} style={{padding:'14px 16px',display:'flex',alignItems:'center',gap:'12px'}}>
+            <strong style={{width:'30px'}}>{index+1}.</strong>
+            <span style={{fontSize:'1.35rem'}}>{q.avatar_emoji||'🧭'}</span>
+            <span style={{flex:1,fontWeight:'800'}}>{q.nickname}</span>
+            <strong>{q.total_points} pt</strong>
+          </article>)}
+        </div>
       </section>
     </>:page==='questers'?<>
       <section className="card" style={{padding:'22px'}}>
         <p className="eyebrow">{mode==='admin'?'GESTIÓN DE LA AVENTURA':'COMPAÑEROS DE VIAJE'}</p>
         <h2 style={{marginBottom:'8px'}}>{questers.length} {questers.length===1?'Quester':'Questers'}</h2>
         <p style={{color:'var(--muted)'}}>
-          {mode==='admin'
-            ?'Aquí puedes comprobar quién se ha unido. El creador de la aventura aparece identificado como Admin.'
-            :'Estas son las personas que forman parte de la aventura.'}
+          {mode==='admin'?'Aquí puedes comprobar quién se ha unido. El creador aparece identificado como Admin.':'Estas son las personas que forman parte de la aventura.'}
         </p>
       </section>
 
       <section style={{display:'grid',gap:'10px',marginTop:'14px'}}>
         {questersLoading&&<article className="card" style={{padding:'18px'}}>Cargando Questers…</article>}
         {questersError&&<article className="card" style={{padding:'18px',color:'#a13f3f'}}>{questersError}</article>}
-        {!questersLoading&&!questersError&&questers.map((q,index)=>
-          <article className="card" key={q.user_id} style={{
-            padding:'17px',
-            display:'flex',
-            alignItems:'center',
-            gap:'14px'
-          }}>
-            <div style={{
-              width:'52px',
-              height:'52px',
-              borderRadius:'17px',
-              background:q.profile_color||'#e7eee9',
-              display:'grid',
-              placeItems:'center',
-              fontSize:'1.7rem',
-              flexShrink:0
-            }}>{q.avatar_emoji||'🧭'}</div>
+        {!questersLoading&&!questersError&&questers.map(q=>
+          <article className="card" key={q.user_id} style={{padding:'17px',display:'flex',alignItems:'center',gap:'14px'}}>
+            <div style={{width:'52px',height:'52px',borderRadius:'17px',background:q.profile_color||'#e7eee9',display:'grid',placeItems:'center',fontSize:'1.7rem',flexShrink:0}}>
+              {q.avatar_emoji||'🧭'}
+            </div>
             <div style={{flex:1}}>
               <strong style={{display:'flex',alignItems:'center',gap:'7px',fontSize:'1.02rem'}}>
-                {q.nickname}
-                {q.member_role==='owner'&&<Crown size={17}/>}
+                {q.nickname}{q.member_role==='owner'&&<Crown size={17}/>}
               </strong>
-              <small style={{color:'var(--muted)'}}>
-                {q.member_role==='owner'?'Creador · Admin':'Quester'}
-              </small>
+              <small style={{color:'var(--muted)'}}>{q.member_role==='owner'?'Creador · Admin':'Quester'}</small>
             </div>
-            {q.member_role==='owner'&&
-              <span style={{
-                padding:'7px 10px',
-                borderRadius:'999px',
-                background:'#fff1bf',
-                fontWeight:'900',
-                fontSize:'.72rem'
-              }}>ADMIN</span>}
           </article>
         )}
-        {!questersLoading&&!questersError&&!questers.length&&
-          <article className="card" style={{padding:'18px'}}>Todavía no hay Questers en esta aventura.</article>}
       </section>
     </>:<>
       <section className="card" style={{padding:'24px'}}>
         <p className="eyebrow">PRÓXIMO SPRINT</p>
-        <h2>{currentSections.find(x=>x.id===page)?.label||'Sección'}</h2>
-        <p style={{color:'var(--muted)'}}>Esta sección se irá incorporando en los siguientes sprints de TripQuest.</p>
+        <h2>{page==='challenges'?'🎯 Retos':page==='advantages'?'🎒 Ventajas':'Sección'}</h2>
+        <p style={{color:'var(--muted)'}}>Esta sección se incorporará en los siguientes sprints.</p>
       </section>
     </>}
+
+    {mode==='player'&&<nav style={{
+      position:'fixed',
+      left:'50%',
+      transform:'translateX(-50%)',
+      bottom:'max(10px, env(safe-area-inset-bottom))',
+      width:'min(620px, calc(100% - 20px))',
+      padding:'7px',
+      borderRadius:'20px',
+      background:'rgba(255,253,247,.96)',
+      border:'1px solid rgba(23,63,53,.13)',
+      boxShadow:'0 16px 38px rgba(23,63,53,.2)',
+      display:'grid',
+      gridTemplateColumns:'repeat(4,1fr)',
+      gap:'5px',
+      zIndex:10,
+      backdropFilter:'blur(12px)'
+    }}>
+      {playerNav.map(item=><button key={item.id} onClick={()=>openPage(item.id)} style={{
+        border:0,
+        borderRadius:'14px',
+        padding:'9px 5px',
+        display:'grid',
+        justifyItems:'center',
+        gap:'3px',
+        background:page===item.id?'#173f35':'transparent',
+        color:page===item.id?'white':'#62736d',
+        fontWeight:'850',
+        fontSize:'.72rem'
+      }}>{item.icon}<span>{item.label}</span></button>)}
+    </nav>}
   </main>
 }
 function Dashboard({session}){const[memberships,setMemberships]=useState([]),[loading,setLoading]=useState(true),[modal,setModal]=useState(null),[selected,setSelected]=useState(null),[profileOpen,setProfileOpen]=useState(false),[profile,setProfile]=useState({nickname:'',avatar_emoji:'🧭',profile_color:'#dfeee7'}),[profileSaving,setProfileSaving]=useState(false),[profileMessage,setProfileMessage]=useState('');async function load(){
