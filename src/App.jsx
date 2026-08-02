@@ -11,6 +11,31 @@ function Modal({type,onClose,onDone}){const[game,setGame]=useState(emptyGame),[c
 
 function Game({membership,onBack}){const[mode,setMode]=useState('player'),g=membership.games,owner=membership.role==='owner';return <main className="shell"><header className="top"><button className="icon" onClick={onBack}><ArrowLeft/></button><div><p className="eyebrow">{g.emoji} AVENTURA</p><h1>{g.name}</h1></div></header>{owner&&<div className="mode"><button className={mode==='player'?'active':''} onClick={()=>setMode('player')}><UserRound size={18}/>Mi aventura</button><button className={mode==='admin'?'active':''} onClick={()=>setMode('admin')}><Settings size={18}/>Administrar</button></div>}<section className="card hero"><span>{g.emoji}</span><p className="eyebrow">{mode==='admin'?'MODO ADMIN':'TRIPQUEST'}</p><h2>{tripStatus(g.start_date,g.end_date)}</h2><p>{g.description||'Haz que esta aventura sea inolvidable.'}</p></section><section className="grid">{(mode==='player'?['🏠 Inicio','🏆 Ranking','✉️ Sobres','🎯 Retos','🗺️ Etapas','🔨 Subasta','🎒 Ventajas']:['✉️ Sobres','⭐ Puntos','🔨 Subasta','🎒 Ventajas','🗺️ Etapas','👥 Questers','⚙️ Ajustes']).map(x=><article className="card tile" key={x}><strong>{x}</strong><small>Próximo sprint</small></article>)}</section></main>}
 
-function Dashboard({session}){const[memberships,setMemberships]=useState([]),[loading,setLoading]=useState(true),[modal,setModal]=useState(null),[selected,setSelected]=useState(null);async function load(){setLoading(true);const{data}=await supabase.from('game_members').select('id,role,joined_at,games(id,name,emoji,description,start_date,end_date,invite_code)').eq('user_id',session.user.id).order('joined_at',{ascending:false});setMemberships(data||[]);setLoading(false)}useEffect(()=>{load()},[]);if(selected)return <Game membership={selected} onBack={()=>setSelected(null)}/>;const nick=session.user.user_metadata?.nickname||session.user.email?.split('@')[0];return <main className="shell"><header className="top"><div><p className="eyebrow">BIENVENIDO, QUESTER</p><h1>Hola, {nick}</h1></div><button className="icon" onClick={()=>supabase.auth.signOut()}><LogOut/></button></header><section className="heading"><div><p className="eyebrow">MIS AVENTURAS</p><h2>¿A cuál quieres entrar?</h2></div><div className="actions"><button className="primary" onClick={()=>setModal('create')}><Plus size={18}/>Crear</button><button className="secondary" onClick={()=>setModal('join')}><KeyRound size={18}/>Unirme</button></div></section>{loading?<p>Cargando…</p>:memberships.length?<section className="games">{memberships.map(m=><button className="card game" key={m.id} onClick={()=>setSelected(m)}><span className="emoji">{m.games.emoji}</span><span><strong>{m.games.name}</strong><small>{tripStatus(m.games.start_date,m.games.end_date)}</small></span><em><CalendarDays size={16}/>{new Date(m.games.start_date+'T00:00:00').toLocaleDateString('es-ES')}</em></button>)}</section>:<section className="card empty"><div>🌍</div><p className="eyebrow">TU PRIMERA AVENTURA</p><h2>El viaje puede empezar hoy.</h2><p>Crea una aventura o únete con un código.</p></section>}{modal&&<Modal type={modal} onClose={()=>setModal(null)} onDone={()=>{setModal(null);load()}}/>}</main>}
+function Dashboard({session}){const[memberships,setMemberships]=useState([]),[loading,setLoading]=useState(true),[modal,setModal]=useState(null),[selected,setSelected]=useState(null);async function load(){
+  setLoading(true);
+  const {data,error}=await supabase.rpc('list_my_tripquest_games');
+  if(error){
+    console.error('Error cargando aventuras:',error);
+    setMemberships([]);
+    setLoading(false);
+    return;
+  }
+  const mapped=(data||[]).map(row=>({
+    id:row.membership_id,
+    role:row.member_role,
+    joined_at:row.joined_at,
+    games:{
+      id:row.game_id,
+      name:row.game_name,
+      emoji:row.game_emoji,
+      description:row.game_description,
+      start_date:row.game_start_date,
+      end_date:row.game_end_date,
+      invite_code:row.invite_code
+    }
+  }));
+  setMemberships(mapped);
+  setLoading(false);
+}useEffect(()=>{load()},[]);if(selected)return <Game membership={selected} onBack={()=>setSelected(null)}/>;const nick=session.user.user_metadata?.nickname||session.user.email?.split('@')[0];return <main className="shell"><header className="top"><div><p className="eyebrow">BIENVENIDO, QUESTER</p><h1>Hola, {nick}</h1></div><button className="icon" onClick={()=>supabase.auth.signOut()}><LogOut/></button></header><section className="heading"><div><p className="eyebrow">MIS AVENTURAS</p><h2>¿A cuál quieres entrar?</h2></div><div className="actions"><button className="primary" onClick={()=>setModal('create')}><Plus size={18}/>Crear</button><button className="secondary" onClick={()=>setModal('join')}><KeyRound size={18}/>Unirme</button></div></section>{loading?<p>Cargando…</p>:memberships.length?<section className="games">{memberships.map(m=><button className="card game" key={m.id} onClick={()=>setSelected(m)}><span className="emoji">{m.games.emoji}</span><span><strong>{m.games.name}</strong><small>{tripStatus(m.games.start_date,m.games.end_date)}</small></span><em><CalendarDays size={16}/>{new Date(m.games.start_date+'T00:00:00').toLocaleDateString('es-ES')}</em></button>)}</section>:<section className="card empty"><div>🌍</div><p className="eyebrow">TU PRIMERA AVENTURA</p><h2>El viaje puede empezar hoy.</h2><p>Crea una aventura o únete con un código.</p></section>}{modal&&<Modal type={modal} onClose={()=>setModal(null)} onDone={()=>{setModal(null);load()}}/>}</main>}
 
 export default function App(){const[session,setSession]=useState(null),[ready,setReady]=useState(false);useEffect(()=>{supabase.auth.getSession().then(({data})=>{setSession(data.session);setReady(true)});const{data}=supabase.auth.onAuthStateChange((_e,s)=>{setSession(s);setReady(true)});return()=>data.subscription.unsubscribe()},[]);if(!ready)return <div className="splash"><Compass size={48}/><strong>TripQuest</strong></div>;return session?<Dashboard session={session}/>:<Auth/>}
