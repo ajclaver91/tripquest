@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react'
-import {Compass,Plus,KeyRound,LogOut,ArrowLeft,Settings,UserRound,CalendarDays,Copy,Share2,Crown,Users,X,Home,Trophy,Target,Backpack,Star,CheckCircle2,MoreVertical,Pencil,Trash2,DoorOpen,Lock,Handshake,Send,Check,Clock3,RotateCcw} from 'lucide-react'
+import {Compass,Plus,KeyRound,LogOut,ArrowLeft,Settings,UserRound,CalendarDays,Copy,Share2,Crown,Users,X,Home,Trophy,Target,Backpack,Star,CheckCircle2,MoreVertical,Pencil,Trash2,DoorOpen,Lock,Handshake,Send,Check,Clock3,Shuffle} from 'lucide-react'
 import {supabase} from './supabase'
 
 const emptyGame={name:'',emoji:'🧭',start_date:'',end_date:'',description:''}
@@ -36,13 +36,13 @@ function Game({membership,onBack}){
   const[challengeBusy,setChallengeBusy]=useState(false);
   const[challengeMessage,setChallengeMessage]=useState('');
   const[challengeForm,setChallengeForm]=useState({
-    kind:'secret_individual',
     title:'',
     description:'',
     points:'20',
-    recipient_ids:[],
-    random_count:'1'
+    recipient_ids:[]
   });
+  const[envelopeRounds,setEnvelopeRounds]=useState([]);
+  const[roundBusy,setRoundBusy]=useState(false);
 
   const g=membership.games;
   const owner=membership.role==='owner';
@@ -212,14 +212,16 @@ function Game({membership,onBack}){
   }
 
   async function loadAdminChallenges(){
-    const [libraryResult,dailyReviewResult,specialReviewResult]=await Promise.all([
+    const [libraryResult,dailyReviewResult,specialReviewResult,roundResult]=await Promise.all([
       supabase.rpc('list_tripquest_daily_library',{p_game_id:g.id}),
       supabase.rpc('list_admin_daily_reviews',{p_game_id:g.id}),
-      supabase.rpc('list_admin_special_reviews',{p_game_id:g.id})
+      supabase.rpc('list_admin_special_reviews',{p_game_id:g.id}),
+      supabase.rpc('list_blind_envelope_rounds',{p_game_id:g.id})
     ]);
     if(!libraryResult.error)setLibrary(libraryResult.data||[]);
     if(!dailyReviewResult.error)setAdminDailyReviews(dailyReviewResult.data||[]);
     if(!specialReviewResult.error)setAdminSpecialReviews(specialReviewResult.data||[]);
+    if(!roundResult.error)setEnvelopeRounds(roundResult.data||[]);
   }
 
   async function toggleDaily(item){
@@ -248,10 +250,25 @@ function Game({membership,onBack}){
     }));
   }
 
-  function chooseRandomRecipients(){
-    const count=Math.max(1,Math.min(Number(challengeForm.random_count)||1,questers.length));
-    const shuffled=[...questers].sort(()=>Math.random()-.5);
-    setChallengeForm(form=>({...form,recipient_ids:shuffled.slice(0,count).map(q=>q.user_id)}));
+  async function distributeBlindEnvelopes(roundType){
+    setRoundBusy(true);
+    setChallengeMessage('');
+    const fn=roundType==='individual'
+      ?'distribute_blind_individual_envelopes'
+      :'distribute_blind_team_envelopes';
+    const{data,error}=await supabase.rpc(fn,{p_game_id:g.id});
+    if(error){
+      setChallengeMessage(error.message);
+    }else{
+      setChallengeMessage(
+        roundType==='individual'
+          ?`Ronda enviada: ${data} sobres individuales`
+          :`Ronda enviada: ${data} equipos`
+      );
+      await loadAdminChallenges();
+      await loadNotificationCounts();
+    }
+    setRoundBusy(false);
   }
 
   async function createChallenge(e){
@@ -276,7 +293,7 @@ function Game({membership,onBack}){
     }
     const{error}=await supabase.rpc('create_tripquest_challenge',{
       p_game_id:g.id,
-      p_kind:challengeForm.kind,
+      p_kind:'custom',
       p_title:challengeForm.title.trim(),
       p_description:challengeForm.description.trim(),
       p_points:points,
@@ -287,12 +304,10 @@ function Game({membership,onBack}){
     }else{
       setChallengeMessage('Reto enviado');
       setChallengeForm({
-        kind:'secret_individual',
         title:'',
         description:'',
         points:'20',
-        recipient_ids:[],
-        random_count:'1'
+        recipient_ids:[]
       });
       await loadAdminChallenges();
       await loadNotificationCounts();
@@ -396,7 +411,10 @@ function Game({membership,onBack}){
   const kindLabel={
     secret_individual:'🔒 Sobre secreto',
     secret_team:'🤝 Reto de equipo',
-    manual:'✍️ Reto manual'
+    manual:'✍️ Reto manual',
+    random_individual:'🔒 Sobre aleatorio',
+    random_team:'🤝 Sobre aleatorio de equipo',
+    custom:'✍️ Sobre personalizado'
   };
 
   return <main className="shell" style={{paddingBottom:mode==='player'?'105px':undefined}}>
@@ -534,7 +552,7 @@ function Game({membership,onBack}){
             </span>
           </div>
           <p style={{color:'var(--muted)'}}>{item.description}</p>
-          {item.kind==='secret_team'&&<p style={{fontWeight:'800'}}>Equipo: {item.member_names}</p>}
+          {(item.kind==='secret_team'||item.kind==='random_team')&&<p style={{fontWeight:'800'}}>Equipo: {item.member_names}</p>}
           <strong>⭐ {item.points} pt por Quester</strong>
           {(item.group_status==='pending'||item.group_status==='rejected')&&
             <button className="primary wide" style={{marginTop:'14px'}} onClick={()=>submitSpecial(item.group_id)}>
@@ -562,38 +580,114 @@ function Game({membership,onBack}){
         </button>)}
       </section>
 
-      <form className="card" onSubmit={createChallenge} style={{padding:'22px',marginTop:'22px'}}>
-        <p className="eyebrow">CREAR MISIÓN ESPECIAL</p>
-        <h2 style={{marginBottom:'15px'}}>Envía un reto</h2>
-        <label>Tipo
-          <select value={challengeForm.kind} onChange={e=>setChallengeForm({...challengeForm,kind:e.target.value,recipient_ids:[]})}>
-            <option value="secret_individual">Sobre secreto individual</option>
-            <option value="secret_team">Sobre secreto de equipo</option>
-            <option value="manual">Reto manual</option>
-          </select>
-        </label>
-        <label>Título<input value={challengeForm.title} onChange={e=>setChallengeForm({...challengeForm,title:e.target.value})} placeholder="La misión imposible"/></label>
-        <label>Descripción<textarea rows="4" value={challengeForm.description} onChange={e=>setChallengeForm({...challengeForm,description:e.target.value})} placeholder="Explica lo que deben conseguir…"/></label>
-        <label>Puntos por Quester<input type="number" min="0" step="1" value={challengeForm.points} onChange={e=>setChallengeForm({...challengeForm,points:e.target.value})}/></label>
+      <section className="card" style={{padding:'22px',marginTop:'22px'}}>
+        <p className="eyebrow">SOBRES ALEATORIOS</p>
+        <h2 style={{marginBottom:'8px'}}>Reparto completamente ciego</h2>
+        <p style={{color:'var(--muted)'}}>
+          TripQuest elige y reparte las pruebas dentro de Supabase. Como Admin solo verás
+          cuántos sobres o equipos se han creado, nunca las asignaciones.
+        </p>
 
-        <div style={{display:'flex',gap:'8px',alignItems:'end',marginBottom:'12px'}}>
-          <label style={{flex:1,marginBottom:0}}>Número aleatorio
-            <input type="number" min="1" max={questers.length||1} value={challengeForm.random_count} onChange={e=>setChallengeForm({...challengeForm,random_count:e.target.value})}/>
-          </label>
-          <button type="button" className="secondary" onClick={chooseRandomRecipients}><RotateCcw size={17}/>Elegir al azar</button>
+        <div style={{display:'grid',gap:'10px',marginTop:'16px'}}>
+          <button className="primary wide" disabled={roundBusy||questers.length<1}
+            onClick={()=>distributeBlindEnvelopes('individual')}>
+            <Lock size={18}/>{roundBusy?'Repartiendo…':'Enviar un sobre diferente a todos'}
+          </button>
+
+          <button className="secondary wide" disabled={roundBusy||questers.length<2}
+            onClick={()=>distributeBlindEnvelopes('team')}>
+            <Handshake size={18}/>{roundBusy?'Formando equipos…':'Crear equipos y repartir sobres'}
+          </button>
         </div>
 
-        <p className="eyebrow" style={{marginTop:'15px'}}>DESTINATARIOS</p>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:'8px',marginBottom:'16px'}}>
-          {questers.map(q=><button type="button" key={q.user_id} onClick={()=>toggleRecipient(q.user_id)} style={{
-            border:challengeForm.recipient_ids.includes(q.user_id)?'2px solid #2f7563':'1px solid #d8d3c6',
-            borderRadius:'13px',padding:'10px',background:challengeForm.recipient_ids.includes(q.user_id)?'#eef6f2':'white',
-            display:'flex',alignItems:'center',gap:'8px',fontWeight:'800',color:'inherit'
-          }}>
+        <small style={{display:'block',color:'var(--muted)',marginTop:'12px'}}>
+          Los equipos se equilibran automáticamente. Nadie queda fuera; con tres Questers,
+          uno puede recibir una misión individual dentro de la ronda de equipos.
+        </small>
+      </section>
+
+      <section style={{marginTop:'18px'}}>
+        <p className="eyebrow">ÚLTIMAS RONDAS CIEGAS</p>
+        <div style={{display:'grid',gap:'8px'}}>
+          {envelopeRounds.map(round=><article className="card" key={round.round_id}
+            style={{padding:'14px 16px',display:'flex',alignItems:'center',gap:'12px'}}>
+            <span style={{fontSize:'1.4rem'}}>{round.round_type==='individual'?'🔒':'🤝'}</span>
+            <div style={{flex:1}}>
+              <strong>{round.round_type==='individual'?'Sobres individuales':'Sobres por equipos'}</strong>
+              <small style={{display:'block',color:'var(--muted)'}}>
+                {round.assignment_count} {round.round_type==='individual'?'sobres enviados':'equipos creados'}
+              </small>
+            </div>
+            <small style={{color:'var(--muted)'}}>
+              {new Date(round.created_at).toLocaleDateString('es-ES')}
+            </small>
+          </article>)}
+          {!envelopeRounds.length&&<article className="card" style={{padding:'16px'}}>
+            Todavía no se han enviado rondas aleatorias.
+          </article>}
+        </div>
+      </section>
+
+      <form className="card" onSubmit={createChallenge} style={{padding:'22px',marginTop:'22px'}}>
+        <p className="eyebrow">SOBRE PERSONALIZADO</p>
+        <h2 style={{marginBottom:'8px'}}>Escribe una prueba puntual</h2>
+        <p style={{color:'var(--muted)'}}>
+          Selecciona manualmente una persona, varias o todo el grupo. Aquí sí conoces
+          la prueba porque la estás creando tú.
+        </p>
+
+        <label>Título
+          <input value={challengeForm.title}
+            onChange={e=>setChallengeForm({...challengeForm,title:e.target.value})}
+            placeholder="La misión imposible"/>
+        </label>
+        <label>Descripción
+          <textarea rows="4" value={challengeForm.description}
+            onChange={e=>setChallengeForm({...challengeForm,description:e.target.value})}
+            placeholder="Explica lo que deben conseguir…"/>
+        </label>
+        <label>Puntos por Quester
+          <input type="number" min="0" step="1" value={challengeForm.points}
+            onChange={e=>setChallengeForm({...challengeForm,points:e.target.value})}/>
+        </label>
+
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'10px',marginTop:'15px'}}>
+          <p className="eyebrow" style={{margin:0}}>DESTINATARIOS</p>
+          <button type="button" className="secondary"
+            onClick={()=>setChallengeForm(form=>({
+              ...form,
+              recipient_ids:form.recipient_ids.length===questers.length
+                ?[]
+                :questers.map(q=>q.user_id)
+            }))}>
+            {challengeForm.recipient_ids.length===questers.length?'Quitar todos':'Seleccionar todos'}
+          </button>
+        </div>
+
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:'8px',margin:'12px 0 16px'}}>
+          {questers.map(q=><button type="button" key={q.user_id}
+            onClick={()=>toggleRecipient(q.user_id)} style={{
+              border:challengeForm.recipient_ids.includes(q.user_id)
+                ?'2px solid #2f7563'
+                :'1px solid #d8d3c6',
+              borderRadius:'13px',
+              padding:'10px',
+              background:challengeForm.recipient_ids.includes(q.user_id)
+                ?'#eef6f2'
+                :'white',
+              display:'flex',
+              alignItems:'center',
+              gap:'8px',
+              fontWeight:'800',
+              color:'inherit'
+            }}>
             <span>{q.avatar_emoji||'🧭'}</span>{q.nickname}
           </button>)}
         </div>
-        <button className="primary wide" disabled={challengeBusy}><Send size={18}/>{challengeBusy?'Enviando…':'Enviar reto'}</button>
+
+        <button className="primary wide" disabled={challengeBusy}>
+          <Send size={18}/>{challengeBusy?'Enviando…':'Enviar sobre personalizado'}
+        </button>
         {challengeMessage&&<p className="msg">{challengeMessage}</p>}
       </form>
 
@@ -609,8 +703,14 @@ function Game({membership,onBack}){
             </div>
           </article>)}
           {adminSpecialReviews.map(item=><article className="card" key={item.group_id} style={{padding:'17px'}}>
-            <strong>{item.title}</strong>
-            <small style={{display:'block',color:'var(--muted)',margin:'5px 0'}}>Integrantes: {item.member_names}</small>
+            <strong>{item.is_blind
+              ?(item.kind==='random_team'?'Reto aleatorio de equipo':'Sobre aleatorio individual')
+              :item.title}</strong>
+            <small style={{display:'block',color:'var(--muted)',margin:'5px 0'}}>
+              {item.is_blind
+                ?'Asignación oculta para el Admin'
+                :`Integrantes: ${item.member_names}`}
+            </small>
             <small style={{display:'block',color:'var(--muted)',marginBottom:'12px'}}>{item.points} pt por integrante</small>
             <div className="actions">
               <button className="primary" disabled={challengeBusy} onClick={()=>reviewSpecial(item.group_id,true)}><Check size={17}/>Aprobar</button>
