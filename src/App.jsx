@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react'
-import {Compass,Plus,KeyRound,LogOut,ArrowLeft,Settings,UserRound,CalendarDays,Copy,Share2,Crown,Users,X,Home,Trophy,Target,Backpack,Star,CheckCircle2,MoreVertical,Pencil,Trash2,DoorOpen,Lock,Handshake,Send,Check,Clock3,Shuffle,PackageOpen,Map} from 'lucide-react'
+import {Compass,Plus,KeyRound,LogOut,ArrowLeft,Settings,UserRound,CalendarDays,Copy,Share2,Crown,Users,X,Home,Trophy,Target,Backpack,Star,CheckCircle2,MoreVertical,Pencil,Trash2,DoorOpen,Lock,Handshake,Send,Check,Clock3,Shuffle,PackageOpen,Map,Gift,ShieldCheck,Play,Archive,Undo2} from 'lucide-react'
 import {supabase} from './supabase'
 
 const emptyGame={name:'',emoji:'🧭',start_date:'',end_date:'',description:''}
@@ -54,6 +54,23 @@ function Game({membership,onBack}){
     description:'',
     points:'20',
     audience:'individual'
+  });
+
+  const[myAdvantages,setMyAdvantages]=useState([]);
+  const[advantageCatalog,setAdvantageCatalog]=useState([]);
+  const[advantageAssignments,setAdvantageAssignments]=useState([]);
+  const[advantageRequests,setAdvantageRequests]=useState([]);
+  const[advantageHistory,setAdvantageHistory]=useState([]);
+  const[advantageBusy,setAdvantageBusy]=useState(false);
+  const[advantageMessage,setAdvantageMessage]=useState('');
+  const[newAdvantage,setNewAdvantage]=useState({
+    name:'',
+    emoji:'🎁',
+    description:''
+  });
+  const[assignAdvantage,setAssignAdvantage]=useState({
+    advantage_id:'',
+    user_id:''
   });
 
   const g=membership.games;
@@ -223,6 +240,155 @@ function Game({membership,onBack}){
       await loadMySpecialChallenges();
       await loadNotificationCounts();
     }
+  }
+
+  async function loadMyAdvantages(){
+    const [inventoryResult,historyResult]=await Promise.all([
+      supabase.rpc('list_my_tripquest_advantages',{p_game_id:g.id}),
+      supabase.rpc('list_my_tripquest_advantage_history',{p_game_id:g.id})
+    ]);
+
+    if(inventoryResult.error){
+      console.error('Error cargando ventajas:',inventoryResult.error);
+      setMyAdvantages([]);
+      setAdvantageMessage(inventoryResult.error.message);
+    }else{
+      setMyAdvantages(inventoryResult.data||[]);
+    }
+
+    if(historyResult.error){
+      console.error('Error cargando historial de ventajas:',historyResult.error);
+      setAdvantageHistory([]);
+    }else{
+      setAdvantageHistory(historyResult.data||[]);
+    }
+  }
+
+  async function loadAdminAdvantages(){
+    const [catalogResult,assignmentsResult,requestsResult]=await Promise.all([
+      supabase.rpc('list_tripquest_advantage_catalog',{p_game_id:g.id}),
+      supabase.rpc('list_admin_tripquest_advantage_assignments',{p_game_id:g.id}),
+      supabase.rpc('list_admin_tripquest_advantage_requests',{p_game_id:g.id})
+    ]);
+
+    if(catalogResult.error){
+      console.error('Error cargando catálogo:',catalogResult.error);
+      setAdvantageCatalog([]);
+    }else{
+      setAdvantageCatalog(catalogResult.data||[]);
+      if(!assignAdvantage.advantage_id&&catalogResult.data?.length){
+        setAssignAdvantage(form=>({...form,advantage_id:catalogResult.data[0].advantage_id}));
+      }
+    }
+
+    if(assignmentsResult.error){
+      console.error('Error cargando asignaciones:',assignmentsResult.error);
+      setAdvantageAssignments([]);
+    }else{
+      setAdvantageAssignments(assignmentsResult.data||[]);
+    }
+
+    if(requestsResult.error){
+      console.error('Error cargando solicitudes:',requestsResult.error);
+      setAdvantageRequests([]);
+    }else{
+      setAdvantageRequests(requestsResult.data||[]);
+    }
+  }
+
+  async function createAdvantage(e){
+    e.preventDefault();
+    setAdvantageBusy(true);
+    setAdvantageMessage('');
+
+    const{error}=await supabase.rpc('create_tripquest_advantage',{
+      p_game_id:g.id,
+      p_name:newAdvantage.name.trim(),
+      p_emoji:newAdvantage.emoji||'🎁',
+      p_description:newAdvantage.description.trim()
+    });
+
+    if(error){
+      setAdvantageMessage(error.message);
+    }else{
+      setAdvantageMessage('Ventaja creada');
+      setNewAdvantage({name:'',emoji:'🎁',description:''});
+      await loadAdminAdvantages();
+    }
+    setAdvantageBusy(false);
+  }
+
+  async function assignAdvantageToUser(e){
+    e.preventDefault();
+    setAdvantageBusy(true);
+    setAdvantageMessage('');
+
+    if(!assignAdvantage.advantage_id||!assignAdvantage.user_id){
+      setAdvantageMessage('Selecciona una ventaja y un Quester.');
+      setAdvantageBusy(false);
+      return;
+    }
+
+    const{error}=await supabase.rpc('assign_tripquest_advantage',{
+      p_game_id:g.id,
+      p_advantage_id:assignAdvantage.advantage_id,
+      p_user_id:assignAdvantage.user_id
+    });
+
+    if(error){
+      setAdvantageMessage(error.message);
+    }else{
+      setAdvantageMessage('Ventaja asignada');
+      await loadAdminAdvantages();
+    }
+    setAdvantageBusy(false);
+  }
+
+  async function requestAdvantageUse(assignmentId){
+    setAdvantageBusy(true);
+    setAdvantageMessage('');
+    const{error}=await supabase.rpc('request_tripquest_advantage_use',{
+      p_assignment_id:assignmentId
+    });
+    if(error){
+      setAdvantageMessage(error.message);
+    }else{
+      setAdvantageMessage('Solicitud enviada al Admin');
+      await loadMyAdvantages();
+      await loadNotificationCounts();
+    }
+    setAdvantageBusy(false);
+  }
+
+  async function reviewAdvantageRequest(requestId,approve){
+    setAdvantageBusy(true);
+    setAdvantageMessage('');
+    const{error}=await supabase.rpc('review_tripquest_advantage_request',{
+      p_request_id:requestId,
+      p_approve:approve
+    });
+    if(error){
+      setAdvantageMessage(error.message);
+    }else{
+      setAdvantageMessage(approve?'Uso confirmado':'Solicitud rechazada');
+      await loadAdminAdvantages();
+    }
+    setAdvantageBusy(false);
+  }
+
+  async function removeAdvantageAssignment(assignmentId){
+    setAdvantageBusy(true);
+    setAdvantageMessage('');
+    const{error}=await supabase.rpc('remove_tripquest_advantage_assignment',{
+      p_assignment_id:assignmentId
+    });
+    if(error){
+      setAdvantageMessage(error.message);
+    }else{
+      setAdvantageMessage('Ventaja retirada');
+      await loadAdminAdvantages();
+    }
+    setAdvantageBusy(false);
   }
 
   async function loadPacks(){
@@ -488,7 +654,14 @@ function Game({membership,onBack}){
       loadMySpecialChallenges();
       markSectionRead('challenges');
     }
-    if(nextPage==='advantages')markSectionRead('advantages');
+    if(nextPage==='advantages'){
+      loadMyAdvantages();
+      markSectionRead('advantages');
+    }
+    if(nextPage==='adminAdvantages'){
+      loadQuesters();
+      loadAdminAdvantages();
+    }
     if(nextPage==='points'){
       loadQuesters();
       loadRanking();
@@ -519,7 +692,7 @@ function Game({membership,onBack}){
     {id:'adminChallenges',label:'🎯 Retos y sobres',detail:'Diarios, secretos y equipos'},
     {id:'points',label:'⭐ Puntos',detail:'Gestionar clasificación'},
     {id:'auction',label:'🔨 Subasta',detail:'Próximo sprint'},
-    {id:'advantages',label:'🎒 Ventajas',detail:'Próximo sprint'},
+    {id:'adminAdvantages',label:'🎒 Ventajas',detail:'Objetos e inventario'},
     {id:'stages',label:'🗺️ Etapas',detail:'Próximo sprint'},
     {id:'questers',label:'👥 Questers',detail:'Ver participantes'},
     {id:'settings',label:'⚙️ Ajustes',detail:'Próximo sprint'}
@@ -541,6 +714,7 @@ function Game({membership,onBack}){
     page==='adminChallenges'?'Retos y sobres':
     page==='packs'?'Packs':
     page==='stages'?'Etapas':
+    page==='adminAdvantages'?'Ventajas':
     page==='advantages'?'Ventajas':
     g.name;
 
@@ -992,6 +1166,131 @@ function Game({membership,onBack}){
           </article>
         )}
       </section>
+    </>:page==='adminAdvantages'&&mode==='admin'?<>
+      <section className="card" style={{padding:'22px'}}>
+        <p className="eyebrow">OBJETOS Y VENTAJAS</p>
+        <h2 style={{marginBottom:'7px'}}>Gestiona el inventario</h2>
+        <p style={{color:'var(--muted)',marginBottom:0}}>
+          Asigna ventajas estándar o crea objetos personalizados para esta aventura.
+        </p>
+      </section>
+
+      <section className="card" style={{padding:'22px',marginTop:'14px'}}>
+        <p className="eyebrow">ASIGNAR VENTAJA</p>
+        <form onSubmit={assignAdvantageToUser}>
+          <label>Ventaja
+            <select value={assignAdvantage.advantage_id}
+              onChange={e=>setAssignAdvantage({...assignAdvantage,advantage_id:e.target.value})}>
+              <option value="">Selecciona una ventaja</option>
+              {advantageCatalog.map(item=><option key={item.advantage_id} value={item.advantage_id}>
+                {item.emoji} {item.name}
+              </option>)}
+            </select>
+          </label>
+          <label>Quester
+            <select value={assignAdvantage.user_id}
+              onChange={e=>setAssignAdvantage({...assignAdvantage,user_id:e.target.value})}>
+              <option value="">Selecciona un Quester</option>
+              {questers.map(q=><option key={q.user_id} value={q.user_id}>{q.nickname}</option>)}
+            </select>
+          </label>
+          <button className="primary wide" disabled={advantageBusy}>
+            <Gift size={18}/>{advantageBusy?'Asignando…':'Asignar ventaja'}
+          </button>
+        </form>
+      </section>
+
+      <section style={{marginTop:'20px'}}>
+        <p className="eyebrow">SOLICITUDES DE USO</p>
+        <div style={{display:'grid',gap:'9px'}}>
+          {advantageRequests.map(request=><article className="card" key={request.request_id}
+            style={{padding:'17px'}}>
+            <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
+              <span style={{fontSize:'1.7rem'}}>{request.emoji}</span>
+              <div style={{flex:1}}>
+                <strong>{request.nickname} quiere usar {request.advantage_name}</strong>
+                <small style={{display:'block',color:'var(--muted)'}}>{request.description}</small>
+              </div>
+            </div>
+            <div className="actions" style={{marginTop:'12px'}}>
+              <button className="primary" disabled={advantageBusy}
+                onClick={()=>reviewAdvantageRequest(request.request_id,true)}>
+                <ShieldCheck size={17}/>Confirmar uso
+              </button>
+              <button className="secondary" disabled={advantageBusy}
+                onClick={()=>reviewAdvantageRequest(request.request_id,false)}>
+                Rechazar
+              </button>
+            </div>
+          </article>)}
+          {!advantageRequests.length&&<article className="card" style={{padding:'16px'}}>
+            No hay solicitudes pendientes.
+          </article>}
+        </div>
+      </section>
+
+      <section style={{marginTop:'20px'}}>
+        <p className="eyebrow">INVENTARIO ACTUAL</p>
+        <div style={{display:'grid',gap:'9px'}}>
+          {advantageAssignments.map(item=><article className="card" key={item.assignment_id}
+            style={{padding:'16px',display:'flex',alignItems:'center',gap:'12px'}}>
+            <span style={{fontSize:'1.7rem'}}>{item.emoji}</span>
+            <div style={{flex:1}}>
+              <strong>{item.advantage_name}</strong>
+              <small style={{display:'block',color:'var(--muted)'}}>
+                {item.nickname} · {item.assignment_status==='available'?'Disponible':'Uso solicitado'}
+              </small>
+            </div>
+            <button className="secondary" disabled={advantageBusy}
+              onClick={()=>removeAdvantageAssignment(item.assignment_id)}>
+              <Archive size={17}/>Quitar
+            </button>
+          </article>)}
+          {!advantageAssignments.length&&<article className="card" style={{padding:'16px'}}>
+            Todavía no hay ventajas asignadas.
+          </article>}
+        </div>
+      </section>
+
+      <form className="card" onSubmit={createAdvantage} style={{padding:'22px',marginTop:'22px'}}>
+        <p className="eyebrow">OBJETO PERSONALIZADO</p>
+        <h2 style={{marginBottom:'14px'}}>Crea una ventaja nueva</h2>
+        <div className="cols">
+          <label>Nombre
+            <input value={newAdvantage.name}
+              onChange={e=>setNewAdvantage({...newAdvantage,name:e.target.value})}
+              placeholder="El salvoconducto"/>
+          </label>
+          <label>Emoji
+            <input maxLength="4" value={newAdvantage.emoji}
+              onChange={e=>setNewAdvantage({...newAdvantage,emoji:e.target.value})}/>
+          </label>
+        </div>
+        <label>Descripción
+          <textarea rows="3" value={newAdvantage.description}
+            onChange={e=>setNewAdvantage({...newAdvantage,description:e.target.value})}
+            placeholder="Explica qué permite hacer y cómo se usa."/>
+        </label>
+        <button className="primary wide" disabled={advantageBusy}>
+          <Plus size={18}/>Crear objeto
+        </button>
+        {advantageMessage&&<p className="msg">{advantageMessage}</p>}
+      </form>
+
+      <section style={{marginTop:'22px'}}>
+        <p className="eyebrow">CATÁLOGO</p>
+        <div style={{display:'grid',gap:'9px'}}>
+          {advantageCatalog.map(item=><article className="card" key={item.advantage_id}
+            style={{padding:'16px',display:'flex',alignItems:'center',gap:'12px'}}>
+            <span style={{fontSize:'1.7rem'}}>{item.emoji}</span>
+            <div style={{flex:1}}>
+              <strong>{item.name}</strong>
+              <small style={{display:'block',color:'var(--muted)'}}>{item.description}</small>
+            </div>
+            <small style={{fontWeight:'900'}}>{item.is_standard?'Oficial':'Personalizado'}</small>
+          </article>)}
+        </div>
+      </section>
     </>:page==='stages'?<>
       <section className="card" style={{padding:'22px'}}>
         <p className="eyebrow">ETAPAS</p>
@@ -1008,10 +1307,79 @@ function Game({membership,onBack}){
           crear y consultar las etapas reales del viaje.
         </p>
       </section>
+    </>:page==='advantages'?<>
+      <section className="card" style={{padding:'22px'}}>
+        <p className="eyebrow">TU INVENTARIO</p>
+        <h2 style={{marginBottom:'7px'}}>Objetos y ventajas</h2>
+        <p style={{color:'var(--muted)',marginBottom:0}}>
+          Solicita usar una ventaja y el Admin confirmará cuándo se consume.
+        </p>
+      </section>
+
+      <section style={{display:'grid',gap:'10px',marginTop:'14px'}}>
+        {myAdvantages.map(item=><article className="card" key={item.assignment_id}
+          style={{padding:'18px'}}>
+          <div style={{display:'flex',alignItems:'flex-start',gap:'13px'}}>
+            <div style={{width:'54px',height:'54px',borderRadius:'17px',background:'#eef3ef',
+              display:'grid',placeItems:'center',fontSize:'1.8rem'}}>
+              {item.emoji}
+            </div>
+            <div style={{flex:1}}>
+              <strong style={{fontSize:'1.08rem'}}>{item.advantage_name}</strong>
+              <p style={{color:'var(--muted)',margin:'6px 0 10px'}}>{item.description}</p>
+              <small style={{fontWeight:'900'}}>
+                {item.assignment_status==='available'
+                  ?'Disponible'
+                  :item.assignment_status==='requested'
+                    ?'Esperando confirmación'
+                    :'Usada'}
+              </small>
+            </div>
+          </div>
+          {item.assignment_status==='available'&&
+            <button className="primary wide" style={{marginTop:'13px'}}
+              disabled={advantageBusy}
+              onClick={()=>requestAdvantageUse(item.assignment_id)}>
+              <Play size={17}/>Solicitar uso
+            </button>}
+        </article>)}
+        {!myAdvantages.length&&<article className="card" style={{padding:'18px'}}>
+          Aún no tienes ninguna ventaja.
+        </article>}
+      </section>
+
+      <section style={{marginTop:'22px'}}>
+        <p className="eyebrow">HISTORIAL</p>
+        <div style={{display:'grid',gap:'8px'}}>
+          {advantageHistory.map(item=><article className="card" key={item.history_id}
+            style={{padding:'14px 16px',display:'flex',alignItems:'center',gap:'12px'}}>
+            <span style={{fontSize:'1.45rem'}}>{item.emoji}</span>
+            <div style={{flex:1}}>
+              <strong>{item.advantage_name}</strong>
+              <small style={{display:'block',color:'var(--muted)'}}>
+                {item.event_type==='assigned'
+                  ?'Recibida'
+                  :item.event_type==='requested'
+                    ?'Uso solicitado'
+                    :item.event_type==='used'
+                      ?'Usada'
+                      :'Solicitud rechazada'}
+              </small>
+            </div>
+            <small style={{color:'var(--muted)'}}>
+              {new Date(item.created_at).toLocaleDateString('es-ES')}
+            </small>
+          </article>)}
+          {!advantageHistory.length&&<article className="card" style={{padding:'16px'}}>
+            Todavía no hay movimientos.
+          </article>}
+        </div>
+      </section>
+      {advantageMessage&&<p className="msg">{advantageMessage}</p>}
     </>:<>
       <section className="card" style={{padding:'24px'}}>
         <p className="eyebrow">PRÓXIMO SPRINT</p>
-        <h2>{page==='advantages'?'🎒 Ventajas':'Sección'}</h2>
+        <h2>Sección</h2>
         <p style={{color:'var(--muted)'}}>Esta sección se incorporará en los siguientes sprints.</p>
       </section>
     </>}
