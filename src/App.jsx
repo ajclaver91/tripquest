@@ -27,7 +27,7 @@ function Game({membership,onBack}){
   const[notificationCounts,setNotificationCounts]=useState({ranking:0,challenges:0,advantages:0,admin:0});
 
   const[dailyChallenges,setDailyChallenges]=useState([]);
-  const[dailyLoading,setDailyLoading]=useState(false);
+  const[dailyLoading,setDailyLoading]=useState(false);const[dailyError,setDailyError]=useState('');
   const[specialChallenges,setSpecialChallenges]=useState([]);
   const[specialLoading,setSpecialLoading]=useState(false);
   const[library,setLibrary]=useState([]);
@@ -179,10 +179,12 @@ function Game({membership,onBack}){
 
   async function loadDailyChallenges(){
     setDailyLoading(true);
+    setDailyError('');
     const{data,error}=await supabase.rpc('list_my_daily_challenges',{p_game_id:g.id});
     if(error){
       console.error('Error cargando retos diarios:',error);
       setDailyChallenges([]);
+      setDailyError(error.message||'No se pudieron cargar los retos diarios.');
     }else{
       setDailyChallenges(data||[]);
     }
@@ -618,7 +620,10 @@ function Game({membership,onBack}){
           <p className="eyebrow">RETOS DEL DÍA</p>
           <div style={{display:'grid',gap:'10px'}}>
             {dailyLoading&&<article className="card" style={{padding:'17px'}}>Cargando retos…</article>}
-            {!dailyLoading&&dailyChallenges.map(item=><article className="card" key={item.daily_challenge_id} style={{padding:'18px'}}>
+            {!dailyLoading&&dailyError&&<article className="card" style={{padding:'17px',color:'#a13f3f'}}>
+              {dailyError}
+            </article>}
+            {!dailyLoading&&!dailyError&&dailyChallenges.map(item=><article className="card" key={item.daily_challenge_id} style={{padding:'18px'}}>
               <div style={{display:'flex',justifyContent:'space-between',gap:'12px',alignItems:'flex-start'}}>
                 <div style={{flex:1}}>
                   <strong style={{fontSize:'1.05rem'}}>{item.title}</strong>
@@ -634,7 +639,7 @@ function Game({membership,onBack}){
                   <Check size={17}/>Marcar como completado
                 </button>}
             </article>)}
-            {!dailyLoading&&!dailyChallenges.length&&<article className="card" style={{padding:'18px'}}>El Admin todavía no ha activado retos para hoy.</article>}
+            {!dailyLoading&&!dailyError&&!dailyChallenges.length&&<article className="card" style={{padding:'18px'}}>El Admin todavía no ha activado retos para hoy.</article>}
           </div>
         </section>
       </>:<section className="grid">
