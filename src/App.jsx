@@ -43,6 +43,18 @@ function Game({membership,onBack}){
   });
   const[envelopeRounds,setEnvelopeRounds]=useState([]);
   const[roundBusy,setRoundBusy]=useState(false);
+  const[packs,setPacks]=useState([]);
+  const[packTemplates,setPackTemplates]=useState([]);
+  const[selectedPackId,setSelectedPackId]=useState('');
+  const[packBusy,setPackBusy]=useState(false);
+  const[packMessage,setPackMessage]=useState('');
+  const[newPack,setNewPack]=useState({name:'',emoji:'🎒',description:''});
+  const[newTemplate,setNewTemplate]=useState({
+    title:'',
+    description:'',
+    points:'20',
+    audience:'individual'
+  });
 
   const g=membership.games;
   const owner=membership.role==='owner';
@@ -211,6 +223,119 @@ function Game({membership,onBack}){
     }
   }
 
+  async function loadPacks(){
+    const{data,error}=await supabase.rpc('list_tripquest_packs',{p_game_id:g.id});
+    if(error){
+      console.error('Error cargando packs:',error);
+      setPacks([]);
+      return;
+    }
+    setPacks(data||[]);
+    const currentExists=(data||[]).some(pack=>pack.pack_id===selectedPackId);
+    const nextId=currentExists?selectedPackId:(data?.[0]?.pack_id||'');
+    setSelectedPackId(nextId);
+    if(nextId)await loadPackTemplates(nextId);
+    else setPackTemplates([]);
+  }
+
+  async function loadPackTemplates(packId){
+    const{data,error}=await supabase.rpc('list_tripquest_pack_templates',{
+      p_game_id:g.id,
+      p_pack_id:packId
+    });
+    if(error){
+      console.error('Error cargando pruebas del pack:',error);
+      setPackTemplates([]);
+    }else{
+      setPackTemplates(data||[]);
+    }
+  }
+
+  async function togglePack(pack){
+    setPackBusy(true);
+    setPackMessage('');
+    const{error}=await supabase.rpc('set_tripquest_pack_enabled',{
+      p_game_id:g.id,
+      p_pack_id:pack.pack_id,
+      p_enabled:!pack.is_enabled
+    });
+    if(error)setPackMessage(error.message);
+    else{
+      setPackMessage(pack.is_enabled?'Pack desactivado':'Pack activado');
+      await loadPacks();
+    }
+    setPackBusy(false);
+  }
+
+  async function togglePackTemplate(template){
+    setPackBusy(true);
+    setPackMessage('');
+    const{error}=await supabase.rpc('set_tripquest_template_enabled',{
+      p_game_id:g.id,
+      p_template_id:template.template_id,
+      p_enabled:!template.is_enabled
+    });
+    if(error)setPackMessage(error.message);
+    else{
+      await loadPackTemplates(selectedPackId);
+      await loadPacks();
+    }
+    setPackBusy(false);
+  }
+
+  async function createCustomPack(e){
+    e.preventDefault();
+    setPackBusy(true);
+    setPackMessage('');
+    const{data,error}=await supabase.rpc('create_tripquest_pack',{
+      p_game_id:g.id,
+      p_name:newPack.name.trim(),
+      p_emoji:newPack.emoji||'🎒',
+      p_description:newPack.description.trim()||null
+    });
+    if(error){
+      setPackMessage(error.message);
+    }else{
+      setNewPack({name:'',emoji:'🎒',description:''});
+      setPackMessage('Pack creado');
+      await loadPacks();
+      if(data){
+        setSelectedPackId(data);
+        await loadPackTemplates(data);
+      }
+    }
+    setPackBusy(false);
+  }
+
+  async function createPackTemplate(e){
+    e.preventDefault();
+    setPackBusy(true);
+    setPackMessage('');
+    if(!selectedPackId){
+      setPackMessage('Selecciona un pack.');
+      setPackBusy(false);
+      return;
+    }
+    const points=Number(newTemplate.points);
+    const{error}=await supabase.rpc('create_tripquest_pack_template',{
+      p_game_id:g.id,
+      p_pack_id:selectedPackId,
+      p_title:newTemplate.title.trim(),
+      p_description:newTemplate.description.trim(),
+      p_points:Number.isInteger(points)?points:20,
+      p_audience:newTemplate.audience
+    });
+    if(error){
+      setPackMessage(error.message);
+    }else{
+      setNewTemplate({title:'',description:'',points:'20',audience:'individual'});
+      setPackMessage('Prueba añadida');
+      await loadPackTemplates(selectedPackId);
+      await loadPacks();
+    }
+    setPackBusy(false);
+  }
+
   async function loadAdminChallenges(){
     const [libraryResult,dailyReviewResult,specialReviewResult,roundResult]=await Promise.all([
       supabase.rpc('list_tripquest_daily_library',{p_game_id:g.id}),
@@ -367,6 +492,9 @@ function Game({membership,onBack}){
       loadQuesters();
       loadAdminChallenges();
     }
+    if(nextPage==='packs'){
+      loadPacks();
+    }
   }
 
   function changeMode(nextMode){
@@ -376,6 +504,7 @@ function Game({membership,onBack}){
   }
 
   const adminSections=[
+    {id:'packs',label:'🎒 Packs',detail:'Biblioteca y pruebas'},
     {id:'adminChallenges',label:'🎯 Retos y sobres',detail:'Diarios, secretos y equipos'},
     {id:'points',label:'⭐ Puntos',detail:'Gestionar clasificación'},
     {id:'auction',label:'🔨 Subasta',detail:'Próximo sprint'},
@@ -398,6 +527,7 @@ function Game({membership,onBack}){
     page==='points'?'Puntos':
     page==='challenges'?'Retos':
     page==='adminChallenges'?'Retos y sobres':
+    page==='packs'?'Packs':
     page==='advantages'?'Ventajas':
     g.name;
 
@@ -561,6 +691,104 @@ function Game({membership,onBack}){
         </article>)}
         {!specialLoading&&!specialChallenges.length&&<article className="card" style={{padding:'18px'}}>No tienes misiones especiales pendientes.</article>}
       </section>
+    </>:page==='packs'&&mode==='admin'?<>
+      <section className="card" style={{padding:'22px'}}>
+        <p className="eyebrow">BIBLIOTECA DE PACKS</p>
+        <h2 style={{marginBottom:'7px'}}>Elige qué tipo de viaje quieres jugar</h2>
+        <p style={{color:'var(--muted)',marginBottom:0}}>
+          Solo se usarán en las rondas aleatorias los packs y pruebas que estén activos.
+        </p>
+      </section>
+
+      <section style={{display:'grid',gap:'10px',marginTop:'14px'}}>
+        {packs.map(pack=><article className="card" key={pack.pack_id} style={{
+          padding:'16px',
+          border:pack.is_enabled?'2px solid #2f7563':'1px solid rgba(23,63,53,.11)'
+        }}>
+          <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
+            <div style={{width:'46px',height:'46px',borderRadius:'15px',background:'#eef3ef',display:'grid',placeItems:'center',fontSize:'1.45rem'}}>
+              {pack.emoji||'🎒'}
+            </div>
+            <div style={{flex:1}}>
+              <strong>{pack.name}</strong>
+              <small style={{display:'block',color:'var(--muted)'}}>
+                {pack.enabled_templates}/{pack.total_templates} pruebas activas
+              </small>
+            </div>
+            <button className={pack.is_enabled?'primary':'secondary'} disabled={packBusy}
+              onClick={()=>togglePack(pack)}>
+              {pack.is_enabled?'Activo':'Activar'}
+            </button>
+          </div>
+          {pack.description&&<p style={{color:'var(--muted)',margin:'12px 0 0'}}>{pack.description}</p>}
+          <button className="secondary wide" style={{marginTop:'12px'}} onClick={async()=>{
+            setSelectedPackId(pack.pack_id);
+            await loadPackTemplates(pack.pack_id);
+          }}>
+            <PackageOpen size={17}/>Gestionar pruebas
+          </button>
+        </article>)}
+      </section>
+
+      {selectedPackId&&<section className="card" style={{padding:'22px',marginTop:'22px'}}>
+        <p className="eyebrow">PRUEBAS DEL PACK</p>
+        <h2 style={{marginBottom:'14px'}}>
+          {packs.find(pack=>pack.pack_id===selectedPackId)?.name||'Pack'}
+        </h2>
+
+        <div style={{display:'grid',gap:'8px'}}>
+          {packTemplates.map(template=><button key={template.template_id} disabled={packBusy}
+            onClick={()=>togglePackTemplate(template)} style={{
+              border:template.is_enabled?'2px solid #2f7563':'1px solid #d8d3c6',
+              borderRadius:'14px',
+              padding:'14px',
+              background:template.is_enabled?'#eef6f2':'white',
+              display:'flex',
+              alignItems:'center',
+              gap:'12px',
+              color:'inherit',
+              textAlign:'left'
+            }}>
+            <span style={{width:'28px',height:'28px',borderRadius:'9px',display:'grid',placeItems:'center',
+              background:template.is_enabled?'#2f7563':'#eef3ef',color:template.is_enabled?'white':'#62736d'}}>
+              {template.is_enabled?<Check size={17}/>:''}
+            </span>
+            <span style={{flex:1}}>
+              <strong>{template.title}</strong>
+              <small style={{display:'block',color:'var(--muted)'}}>{template.description}</small>
+            </span>
+            <small style={{fontWeight:'900'}}>{template.audience==='team'?'Equipo':template.audience==='both'?'Ambos':'Individual'} · {template.points} pt</small>
+          </button>)}
+          {!packTemplates.length&&<article style={{padding:'14px',color:'var(--muted)'}}>Este pack todavía no tiene pruebas.</article>}
+        </div>
+
+        <form onSubmit={createPackTemplate} style={{marginTop:'20px'}}>
+          <p className="eyebrow">AÑADIR PRUEBA</p>
+          <label>Título<input value={newTemplate.title} onChange={e=>setNewTemplate({...newTemplate,title:e.target.value})}/></label>
+          <label>Descripción<textarea rows="3" value={newTemplate.description} onChange={e=>setNewTemplate({...newTemplate,description:e.target.value})}/></label>
+          <div className="cols">
+            <label>Tipo<select value={newTemplate.audience} onChange={e=>setNewTemplate({...newTemplate,audience:e.target.value})}>
+              <option value="individual">Individual</option>
+              <option value="team">Equipo</option>
+              <option value="both">Ambos</option>
+            </select></label>
+            <label>Puntos<input type="number" min="0" step="1" value={newTemplate.points} onChange={e=>setNewTemplate({...newTemplate,points:e.target.value})}/></label>
+          </div>
+          <button className="primary wide" disabled={packBusy}><Plus size={18}/>Añadir prueba</button>
+        </form>
+      </section>}
+
+      <form className="card" onSubmit={createCustomPack} style={{padding:'22px',marginTop:'22px'}}>
+        <p className="eyebrow">CREAR PACK PROPIO</p>
+        <h2 style={{marginBottom:'14px'}}>Tu propia colección</h2>
+        <div className="cols">
+          <label>Nombre<input value={newPack.name} onChange={e=>setNewPack({...newPack,name:e.target.value})} placeholder="Galicia salvaje"/></label>
+          <label>Emoji<input maxLength="4" value={newPack.emoji} onChange={e=>setNewPack({...newPack,emoji:e.target.value})}/></label>
+        </div>
+        <label>Descripción<textarea rows="3" value={newPack.description} onChange={e=>setNewPack({...newPack,description:e.target.value})}/></label>
+        <button className="primary wide" disabled={packBusy}><Plus size={18}/>Crear pack</button>
+        {packMessage&&<p className="msg">{packMessage}</p>}
+      </form>
     </>:page==='adminChallenges'&&mode==='admin'?<>
       <section className="card" style={{padding:'22px'}}>
         <p className="eyebrow">RETOS DEL DÍA</p>
