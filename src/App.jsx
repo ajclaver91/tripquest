@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react'
-import {Compass,Plus,KeyRound,LogOut,ArrowLeft,Settings,UserRound,CalendarDays,Copy,Share2,Crown,Users,X,Home,Trophy,Target,Backpack,Star,CheckCircle2,MoreVertical,Pencil,Trash2,DoorOpen,Lock,Handshake,Send,Check,Clock3,Shuffle,PackageOpen} from 'lucide-react'
+import {Compass,Plus,KeyRound,LogOut,ArrowLeft,Settings,UserRound,CalendarDays,Copy,Share2,Crown,Users,X,Home,Trophy,Target,Backpack,Star,CheckCircle2,MoreVertical,Pencil,Trash2,DoorOpen,Lock,Handshake,Send,Check,Clock3,Shuffle,PackageOpen,Map} from 'lucide-react'
 import {supabase} from './supabase'
 
 const emptyGame={name:'',emoji:'🧭',start_date:'',end_date:'',description:''}
@@ -472,6 +472,10 @@ function Game({membership,onBack}){
 
   function openPage(nextPage){
     setPage(nextPage);
+    if(nextPage==='home'){
+      loadDailyChallenges();
+      loadQuesters();
+    }
     if(nextPage==='questers')loadQuesters();
     if(nextPage==='ranking'){
       loadRanking();
@@ -500,7 +504,12 @@ function Game({membership,onBack}){
   function changeMode(nextMode){
     setMode(nextMode);
     setPage('home');
-    if(nextMode==='admin')markSectionRead('admin');
+    if(nextMode==='admin'){
+      markSectionRead('admin');
+    }else{
+      loadDailyChallenges();
+      loadQuesters();
+    }
   }
 
   const adminSections=[
@@ -515,10 +524,11 @@ function Game({membership,onBack}){
   ];
 
   const playerNav=[
-    {id:'home',label:'Inicio',icon:<Home size={21}/>},
-    {id:'ranking',label:'Ranking',icon:<Trophy size={21}/>},
-    {id:'challenges',label:'Retos',icon:<Target size={21}/>},
-    {id:'advantages',label:'Ventajas',icon:<Backpack size={21}/>}
+    {id:'home',label:'Inicio',icon:<Home size={20}/>},
+    {id:'ranking',label:'Ranking',icon:<Trophy size={20}/>},
+    {id:'challenges',label:'Retos',icon:<Target size={20}/>},
+    {id:'stages',label:'Etapas',icon:<Map size={20}/>},
+    {id:'advantages',label:'Ventajas',icon:<Backpack size={20}/>}
   ];
 
   const title=
@@ -528,6 +538,7 @@ function Game({membership,onBack}){
     page==='challenges'?'Retos':
     page==='adminChallenges'?'Retos y sobres':
     page==='packs'?'Packs':
+    page==='stages'?'Etapas':
     page==='advantages'?'Ventajas':
     g.name;
 
@@ -976,6 +987,22 @@ function Game({membership,onBack}){
           </article>
         )}
       </section>
+    </>:page==='stages'?<>
+      <section className="card" style={{padding:'22px'}}>
+        <p className="eyebrow">ETAPAS</p>
+        <h2 style={{marginBottom:'7px'}}>El recorrido de la aventura</h2>
+        <p style={{color:'var(--muted)',marginBottom:0}}>
+          Aquí aparecerán las etapas creadas por el Admin, con fecha, origen, destino,
+          distancia, descripción y enlace de ruta.
+        </p>
+      </section>
+      <section className="card" style={{padding:'18px',marginTop:'14px'}}>
+        <strong>🗺️ Próximo sprint</strong>
+        <p style={{color:'var(--muted)',marginBottom:0}}>
+          La sección ya queda integrada en la navegación. El siguiente desarrollo permitirá
+          crear y consultar las etapas reales del viaje.
+        </p>
+      </section>
     </>:<>
       <section className="card" style={{padding:'24px'}}>
         <p className="eyebrow">PRÓXIMO SPRINT</p>
@@ -991,17 +1018,17 @@ function Game({membership,onBack}){
       borderRadius:'20px',background:'rgba(255,253,247,.96)',
       border:'1px solid rgba(23,63,53,.13)',
       boxShadow:'0 16px 38px rgba(23,63,53,.2)',
-      display:'grid',gridTemplateColumns:'repeat(4,1fr)',
+      display:'grid',gridTemplateColumns:'repeat(5,1fr)',
       gap:'5px',zIndex:10,backdropFilter:'blur(12px)'
     }}>
       {playerNav.map(item=>{
         const count=item.id==='ranking'?notificationCounts.ranking:item.id==='challenges'?notificationCounts.challenges:item.id==='advantages'?notificationCounts.advantages:0;
         return <button key={item.id} onClick={()=>openPage(item.id)} style={{
-          border:0,borderRadius:'14px',padding:'9px 5px',
+          border:0,borderRadius:'14px',padding:'9px 2px',
           display:'grid',justifyItems:'center',gap:'3px',
           background:page===item.id?'#173f35':'transparent',
           color:page===item.id?'white':'#62736d',
-          fontWeight:'850',fontSize:'.72rem',position:'relative'
+          fontWeight:'850',fontSize:'.66rem',position:'relative'
         }}>
           <span style={{position:'relative',display:'inline-flex'}}>
             {item.icon}
