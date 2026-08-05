@@ -311,7 +311,7 @@ function Game({membership,onBack}){
     if(error){
       setAdvantageMessage(error.message);
     }else{
-      setAdvantageMessage('Ventaja creada');
+      setAdvantageMessage('Objeto creado');
       setNewAdvantage({name:'',emoji:'🎁',description:''});
       await loadAdminAdvantages();
     }
@@ -324,7 +324,7 @@ function Game({membership,onBack}){
     setAdvantageMessage('');
 
     if(!assignAdvantage.advantage_id||!assignAdvantage.user_id){
-      setAdvantageMessage('Selecciona una ventaja y un Quester.');
+      setAdvantageMessage('Selecciona un objeto y un Quester.');
       setAdvantageBusy(false);
       return;
     }
@@ -338,7 +338,7 @@ function Game({membership,onBack}){
     if(error){
       setAdvantageMessage(error.message);
     }else{
-      setAdvantageMessage('Ventaja asignada');
+      setAdvantageMessage('Objeto asignado');
       await loadAdminAdvantages();
     }
     setAdvantageBusy(false);
@@ -385,7 +385,7 @@ function Game({membership,onBack}){
     if(error){
       setAdvantageMessage(error.message);
     }else{
-      setAdvantageMessage('Ventaja retirada');
+      setAdvantageMessage('Objeto retirado');
       await loadAdminAdvantages();
     }
     setAdvantageBusy(false);
@@ -703,7 +703,7 @@ function Game({membership,onBack}){
     {id:'ranking',label:'Ranking',icon:<Trophy size={20}/>},
     {id:'challenges',label:'Retos',icon:<Target size={20}/>},
     {id:'stages',label:'Etapas',icon:<Map size={20}/>},
-    {id:'advantages',label:'Ventajas',icon:<Backpack size={20}/>}
+    {id:'advantages',label:'Objetos',icon:<Backpack size={20}/>}
   ];
 
   const title=
@@ -714,8 +714,8 @@ function Game({membership,onBack}){
     page==='adminChallenges'?'Retos y sobres':
     page==='packs'?'Packs':
     page==='stages'?'Etapas':
-    page==='adminAdvantages'?'Ventajas':
-    page==='advantages'?'Ventajas':
+    page==='adminAdvantages'?'Objetos':
+    page==='advantages'?'Objetos':
     g.name;
 
   const topThree=['🥇','🥈','🥉'];
@@ -1168,20 +1168,20 @@ function Game({membership,onBack}){
       </section>
     </>:page==='adminAdvantages'&&mode==='admin'?<>
       <section className="card" style={{padding:'22px'}}>
-        <p className="eyebrow">OBJETOS Y VENTAJAS</p>
-        <h2 style={{marginBottom:'7px'}}>Gestiona el inventario</h2>
+        <p className="eyebrow">OBJETOS</p>
+        <h2 style={{marginBottom:'7px'}}>Gestiona los objetos</h2>
         <p style={{color:'var(--muted)',marginBottom:0}}>
-          Asigna ventajas estándar o crea objetos personalizados para esta aventura.
+          Asigna objetos oficiales o crea objetos personalizados para esta aventura.
         </p>
       </section>
 
       <section className="card" style={{padding:'22px',marginTop:'14px'}}>
-        <p className="eyebrow">ASIGNAR VENTAJA</p>
+        <p className="eyebrow">ASIGNAR OBJETO</p>
         <form onSubmit={assignAdvantageToUser}>
-          <label>Ventaja
+          <label>Objeto
             <select value={assignAdvantage.advantage_id}
               onChange={e=>setAssignAdvantage({...assignAdvantage,advantage_id:e.target.value})}>
-              <option value="">Selecciona una ventaja</option>
+              <option value="">Selecciona un objeto</option>
               {advantageCatalog.map(item=><option key={item.advantage_id} value={item.advantage_id}>
                 {item.emoji} {item.name}
               </option>)}
@@ -1195,7 +1195,7 @@ function Game({membership,onBack}){
             </select>
           </label>
           <button className="primary wide" disabled={advantageBusy}>
-            <Gift size={18}/>{advantageBusy?'Asignando…':'Asignar ventaja'}
+            <Gift size={18}/>{advantageBusy?'Asignando…':'Asignar objeto'}
           </button>
         </form>
       </section>
@@ -1247,7 +1247,7 @@ function Game({membership,onBack}){
             </button>
           </article>)}
           {!advantageAssignments.length&&<article className="card" style={{padding:'16px'}}>
-            Todavía no hay ventajas asignadas.
+            Todavía no hay objetos asignados.
           </article>}
         </div>
       </section>
@@ -1278,7 +1278,7 @@ function Game({membership,onBack}){
       </form>
 
       <section style={{marginTop:'22px'}}>
-        <p className="eyebrow">CATÁLOGO</p>
+        <p className="eyebrow">CATÁLOGO DE OBJETOS</p>
         <div style={{display:'grid',gap:'9px'}}>
           {advantageCatalog.map(item=><article className="card" key={item.advantage_id}
             style={{padding:'16px',display:'flex',alignItems:'center',gap:'12px'}}>
@@ -1310,9 +1310,9 @@ function Game({membership,onBack}){
     </>:page==='advantages'?<>
       <section className="card" style={{padding:'22px'}}>
         <p className="eyebrow">TU INVENTARIO</p>
-        <h2 style={{marginBottom:'7px'}}>Objetos y ventajas</h2>
+        <h2 style={{marginBottom:'7px'}}>Tus objetos</h2>
         <p style={{color:'var(--muted)',marginBottom:0}}>
-          Solicita usar una ventaja y el Admin confirmará cuándo se consume.
+          Solicita usar un objeto y el Admin confirmará cuándo se consume.
         </p>
       </section>
 
@@ -1344,7 +1344,7 @@ function Game({membership,onBack}){
             </button>}
         </article>)}
         {!myAdvantages.length&&<article className="card" style={{padding:'18px'}}>
-          Aún no tienes ninguna ventaja.
+          Aún no tienes ningún objeto.
         </article>}
       </section>
 
