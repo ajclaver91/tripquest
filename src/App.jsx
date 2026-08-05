@@ -27,7 +27,7 @@ function Game({membership,onBack}){
   const[notificationCounts,setNotificationCounts]=useState({ranking:0,challenges:0,advantages:0,admin:0});
 
   const[dailyChallenges,setDailyChallenges]=useState([]);
-  const[dailyLoading,setDailyLoading]=useState(false);const[dailyError,setDailyError]=useState('');
+  const[dailyLoading,setDailyLoading]=useState(false);const[dailyError,setDailyError]=useState('');const[expandedDailyChallenge,setExpandedDailyChallenge]=useState(null);
   const[specialChallenges,setSpecialChallenges]=useState([]);
   const[specialLoading,setSpecialLoading]=useState(false);
   const[library,setLibrary]=useState([]);
@@ -793,46 +793,68 @@ function Game({membership,onBack}){
             {!dailyLoading&&dailyError&&<article className="card" style={{padding:'13px 15px',color:'#a13f3f'}}>
               {dailyError}
             </article>}
-            {!dailyLoading&&!dailyError&&dailyChallenges.map((item,index)=><article
-              className="card"
-              key={item.daily_challenge_id}
-              style={{
-                padding:'11px 12px',
-                display:'flex',
-                alignItems:'center',
-                gap:'9px',
-                minWidth:0,
-                maxWidth:'100%',
-                overflow:'hidden'
-              }}
-            >
-              <span style={{
-                width:'25px',
-                height:'25px',
-                borderRadius:'8px',
-                background:'#eef3ef',
-                display:'grid',
-                placeItems:'center',
-                fontSize:'.74rem',
-                fontWeight:'950',
-                flexShrink:0
-              }}>{index+1}</span>
-              <div style={{flex:1,minWidth:0}}>
-                <strong style={{display:'block',fontSize:'.94rem'}}>{item.title}</strong>
-                <small style={{
-                  display:'block',
-                  color:'var(--muted)',
-                  whiteSpace:'nowrap',
+            {!dailyLoading&&!dailyError&&dailyChallenges.map((item,index)=>{
+              const isExpanded=expandedDailyChallenge===item.daily_challenge_id;
+              return <button
+                type="button"
+                className="card"
+                key={item.daily_challenge_id}
+                onClick={()=>setExpandedDailyChallenge(
+                  isExpanded?null:item.daily_challenge_id
+                )}
+                aria-expanded={isExpanded}
+                style={{
+                  width:'100%',
+                  padding:'11px 12px',
+                  display:'grid',
+                  gridTemplateColumns:'25px minmax(0,1fr) auto',
+                  alignItems:'center',
+                  gap:'9px',
+                  minWidth:0,
+                  maxWidth:'100%',
                   overflow:'hidden',
-                  textOverflow:'ellipsis'
-                }}>{item.description}</small>
-              </div>
-              <strong style={{
-                fontSize:'.76rem',
-                whiteSpace:'nowrap',
-                flexShrink:0
-              }}>⭐ {item.points}</strong>
-            </article>)}
+                  border:'1px solid rgba(23,63,53,.11)',
+                  color:'inherit',
+                  textAlign:'left'
+                }}
+              >
+                <span style={{
+                  width:'25px',
+                  height:'25px',
+                  borderRadius:'8px',
+                  background:isExpanded?'#2f7563':'#eef3ef',
+                  color:isExpanded?'white':'inherit',
+                  display:'grid',
+                  placeItems:'center',
+                  fontSize:'.74rem',
+                  fontWeight:'950'
+                }}>{index+1}</span>
+
+                <strong style={{
+                  display:'block',
+                  minWidth:0,
+                  overflow:'hidden',
+                  textOverflow:'ellipsis',
+                  whiteSpace:'nowrap',
+                  fontSize:'.94rem'
+                }}>{item.title}</strong>
+
+                <strong style={{
+                  fontSize:'.76rem',
+                  whiteSpace:'nowrap'
+                }}>⭐ {item.points}</strong>
+
+                {isExpanded&&<p style={{
+                  gridColumn:'2 / 4',
+                  margin:'2px 0 2px',
+                  color:'var(--muted)',
+                  lineHeight:1.45,
+                  fontSize:'.86rem',
+                  whiteSpace:'normal',
+                  overflowWrap:'anywhere'
+                }}>{item.description}</p>}
+              </button>
+            })}
             {!dailyLoading&&!dailyError&&!dailyChallenges.length&&<article className="card" style={{padding:'13px 15px'}}>
               No hay retos disponibles para hoy.
             </article>}
