@@ -726,7 +726,11 @@ function Game({membership,onBack}){
     custom:'✍️ Sobre personalizado'
   };
 
-  return <main className="shell" style={{paddingBottom:mode==='player'?'105px':undefined}}>
+  return <main className="shell" style={{
+    paddingBottom:mode==='player'?'105px':undefined,
+    overflowX:'hidden',
+    maxWidth:'100%'
+  }}>
     <header className="top">
       <button className="icon" onClick={page==='home'?onBack:()=>setPage('home')}><ArrowLeft/></button>
       <div>
@@ -792,7 +796,15 @@ function Game({membership,onBack}){
             {!dailyLoading&&!dailyError&&dailyChallenges.map((item,index)=><article
               className="card"
               key={item.daily_challenge_id}
-              style={{padding:'11px 14px',display:'flex',alignItems:'center',gap:'11px'}}
+              style={{
+                padding:'11px 12px',
+                display:'flex',
+                alignItems:'center',
+                gap:'9px',
+                minWidth:0,
+                maxWidth:'100%',
+                overflow:'hidden'
+              }}
             >
               <span style={{
                 width:'25px',
@@ -815,7 +827,11 @@ function Game({membership,onBack}){
                   textOverflow:'ellipsis'
                 }}>{item.description}</small>
               </div>
-              <strong style={{fontSize:'.8rem',whiteSpace:'nowrap'}}>⭐ {item.points}</strong>
+              <strong style={{
+                fontSize:'.76rem',
+                whiteSpace:'nowrap',
+                flexShrink:0
+              }}>⭐ {item.points}</strong>
             </article>)}
             {!dailyLoading&&!dailyError&&!dailyChallenges.length&&<article className="card" style={{padding:'13px 15px'}}>
               No hay retos disponibles para hoy.
@@ -851,7 +867,7 @@ function Game({membership,onBack}){
         <p className="eyebrow">ÚLTIMOS MOVIMIENTOS</p>
         <div style={{display:'grid',gap:'8px'}}>
           {historyLoading&&<article className="card" style={{padding:'16px'}}>Cargando historial…</article>}
-          {!historyLoading&&pointHistory.map(move=><article className="card" key={move.movement_id} style={{padding:'14px 16px',display:'flex',alignItems:'center',gap:'12px'}}>
+          {!historyLoading&&pointHistory.map(move=><article className="card" key={move.movement_id} style={{padding:'14px 16px',display:'flex',alignItems:'center',gap:'12px',minWidth:0}}>
             <div style={{width:'42px',height:'42px',borderRadius:'14px',background:move.profile_color||'#e7eee9',display:'grid',placeItems:'center',fontSize:'1.35rem'}}>{move.avatar_emoji||'🧭'}</div>
             <div style={{flex:1}}><strong>{move.nickname}</strong><small style={{display:'block',color:'var(--muted)'}}>{move.reason}</small></div>
             <strong style={{color:move.amount>0?'#24715a':'#a13f3f'}}>{move.amount>0?'+':''}{move.amount}</strong>
@@ -901,7 +917,7 @@ function Game({membership,onBack}){
           padding:'16px',
           border:pack.is_enabled?'2px solid #2f7563':'1px solid rgba(23,63,53,.11)'
         }}>
-          <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
+          <div style={{display:'flex',alignItems:'center',gap:'12px',minWidth:0}}>
             <div style={{width:'46px',height:'46px',borderRadius:'15px',background:'#eef3ef',display:'grid',placeItems:'center',fontSize:'1.45rem'}}>
               {pack.emoji||'🎒'}
             </div>
@@ -1350,17 +1366,25 @@ function Game({membership,onBack}){
     {mode==='player'&&<nav style={{
       position:'fixed',left:'50%',transform:'translateX(-50%)',
       bottom:'max(10px, env(safe-area-inset-bottom))',
-      width:'min(620px, calc(100% - 20px))',padding:'7px',
+      width:'calc(100vw - 16px)',
+      maxWidth:'620px',
+      boxSizing:'border-box',
+      padding:'6px',
       borderRadius:'20px',background:'rgba(255,253,247,.96)',
       border:'1px solid rgba(23,63,53,.13)',
       boxShadow:'0 16px 38px rgba(23,63,53,.2)',
-      display:'grid',gridTemplateColumns:'repeat(5,1fr)',
+      display:'grid',
+      gridTemplateColumns:'repeat(5,minmax(0,1fr))',
       gap:'5px',zIndex:10,backdropFilter:'blur(12px)'
     }}>
       {playerNav.map(item=>{
         const count=item.id==='ranking'?notificationCounts.ranking:item.id==='challenges'?notificationCounts.challenges:item.id==='advantages'?notificationCounts.advantages:0;
         return <button key={item.id} onClick={()=>openPage(item.id)} style={{
-          border:0,borderRadius:'14px',padding:'9px 2px',
+          border:0,
+          borderRadius:'14px',
+          padding:'8px 1px',
+          minWidth:0,
+          overflow:'hidden',
           display:'grid',justifyItems:'center',gap:'3px',
           background:page===item.id?'#173f35':'transparent',
           color:page===item.id?'white':'#62736d',
@@ -1376,7 +1400,14 @@ function Game({membership,onBack}){
               fontSize:'.65rem',fontWeight:'950'
             }}>{count>99?'99+':count}</span>}
           </span>
-          <span>{item.label}</span>
+          <span style={{
+            display:'block',
+            width:'100%',
+            overflow:'hidden',
+            textOverflow:'ellipsis',
+            whiteSpace:'nowrap',
+            textAlign:'center'
+          }}>{item.label}</span>
         </button>
       })}
     </nav>}
