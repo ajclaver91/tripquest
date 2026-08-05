@@ -243,24 +243,16 @@ function Game({membership,onBack}){
   }
 
   async function loadMyAdvantages(){
-    const [inventoryResult,historyResult]=await Promise.all([
-      supabase.rpc('list_my_tripquest_advantages',{p_game_id:g.id}),
-      supabase.rpc('list_my_tripquest_advantage_history',{p_game_id:g.id})
-    ]);
+    const{data,error}=await supabase.rpc('list_my_tripquest_advantages',{
+      p_game_id:g.id
+    });
 
-    if(inventoryResult.error){
-      console.error('Error cargando ventajas:',inventoryResult.error);
+    if(error){
+      console.error('Error cargando objetos:',error);
       setMyAdvantages([]);
-      setAdvantageMessage(inventoryResult.error.message);
+      setAdvantageMessage(error.message);
     }else{
-      setMyAdvantages(inventoryResult.data||[]);
-    }
-
-    if(historyResult.error){
-      console.error('Error cargando historial de ventajas:',historyResult.error);
-      setAdvantageHistory([]);
-    }else{
-      setAdvantageHistory(historyResult.data||[]);
+      setMyAdvantages(data||[]);
     }
   }
 
@@ -792,28 +784,42 @@ function Game({membership,onBack}){
 
         <section style={{marginTop:'20px'}}>
           <p className="eyebrow">RETOS DEL DÍA</p>
-          <div style={{display:'grid',gap:'10px'}}>
-            {dailyLoading&&<article className="card" style={{padding:'17px'}}>Cargando retos…</article>}
-            {!dailyLoading&&dailyError&&<article className="card" style={{padding:'17px',color:'#a13f3f'}}>
+          <div style={{display:'grid',gap:'7px'}}>
+            {dailyLoading&&<article className="card" style={{padding:'13px 15px'}}>Cargando retos…</article>}
+            {!dailyLoading&&dailyError&&<article className="card" style={{padding:'13px 15px',color:'#a13f3f'}}>
               {dailyError}
             </article>}
-            {!dailyLoading&&!dailyError&&dailyChallenges.map(item=><article className="card" key={item.daily_challenge_id} style={{padding:'18px'}}>
-              <div style={{display:'flex',justifyContent:'space-between',gap:'12px',alignItems:'flex-start'}}>
-                <div style={{flex:1}}>
-                  <strong style={{fontSize:'1.05rem'}}>{item.title}</strong>
-                  <p style={{color:'var(--muted)',margin:'7px 0 10px'}}>{item.description}</p>
-                  <span style={{fontWeight:'900'}}>⭐ {item.points} pt</span>
-                </div>
-                <span style={{fontSize:'.75rem',fontWeight:'900',padding:'7px 10px',borderRadius:'999px',background:'#eef3ef'}}>
-                  {statusLabel[item.progress_status]||'Pendiente'}
-                </span>
+            {!dailyLoading&&!dailyError&&dailyChallenges.map((item,index)=><article
+              className="card"
+              key={item.daily_challenge_id}
+              style={{padding:'11px 14px',display:'flex',alignItems:'center',gap:'11px'}}
+            >
+              <span style={{
+                width:'25px',
+                height:'25px',
+                borderRadius:'8px',
+                background:'#eef3ef',
+                display:'grid',
+                placeItems:'center',
+                fontSize:'.74rem',
+                fontWeight:'950',
+                flexShrink:0
+              }}>{index+1}</span>
+              <div style={{flex:1,minWidth:0}}>
+                <strong style={{display:'block',fontSize:'.94rem'}}>{item.title}</strong>
+                <small style={{
+                  display:'block',
+                  color:'var(--muted)',
+                  whiteSpace:'nowrap',
+                  overflow:'hidden',
+                  textOverflow:'ellipsis'
+                }}>{item.description}</small>
               </div>
-              {(item.progress_status==='pending'||item.progress_status==='rejected')&&
-                <button className="primary wide" style={{marginTop:'13px'}} onClick={()=>submitDaily(item.daily_challenge_id)}>
-                  <Check size={17}/>Marcar como completado
-                </button>}
+              <strong style={{fontSize:'.8rem',whiteSpace:'nowrap'}}>⭐ {item.points}</strong>
             </article>)}
-            {!dailyLoading&&!dailyError&&!dailyChallenges.length&&<article className="card" style={{padding:'18px'}}>El Admin todavía no ha activado retos para hoy.</article>}
+            {!dailyLoading&&!dailyError&&!dailyChallenges.length&&<article className="card" style={{padding:'13px 15px'}}>
+              No hay retos disponibles para hoy.
+            </article>}
           </div>
         </section>
       </>:<section className="grid">
@@ -982,20 +988,12 @@ function Game({membership,onBack}){
     </>:page==='adminChallenges'&&mode==='admin'?<>
       <section className="card" style={{padding:'22px'}}>
         <p className="eyebrow">RETOS DEL DÍA</p>
-        <h2 style={{marginBottom:'7px'}}>Selecciona el checklist del grupo</h2>
-        <p style={{color:'var(--muted)',marginBottom:0}}>Activa o desactiva retos. Los cambios aparecen inmediatamente en el Inicio de todos.</p>
-      </section>
-      <section style={{display:'grid',gap:'8px',marginTop:'13px'}}>
-        {library.map(item=><button key={item.template_id} className="card" disabled={challengeBusy} onClick={()=>toggleDaily(item)} style={{
-          padding:'15px 17px',display:'flex',alignItems:'center',gap:'12px',
-          textAlign:'left',color:'inherit',border:item.is_active?'2px solid #2f7563':'1px solid rgba(23,63,53,.11)'
-        }}>
-          <span style={{width:'28px',height:'28px',borderRadius:'9px',display:'grid',placeItems:'center',background:item.is_active?'#2f7563':'#eef3ef',color:item.is_active?'white':'#62736d'}}>
-            {item.is_active?<Check size={17}/>:''}
-          </span>
-          <span style={{flex:1}}><strong>{item.title}</strong><small style={{display:'block',color:'var(--muted)'}}>{item.description}</small></span>
-          <strong>{item.points} pt</strong>
-        </button>)}
+        <h2 style={{marginBottom:'7px'}}>Cinco retos automáticos cada día</h2>
+        <p style={{color:'var(--muted)',marginBottom:0}}>
+          TripQuest selecciona los mismos cinco retos para todo el grupo y los renueva
+          automáticamente cada madrugada. No requieren validación: cuando alguien los
+          complete, asigna los puntos manualmente desde Puntos.
+        </p>
       </section>
 
       <section className="card" style={{padding:'22px',marginTop:'22px'}}>
@@ -1110,16 +1108,8 @@ function Game({membership,onBack}){
       </form>
 
       <section style={{marginTop:'22px'}}>
-        <p className="eyebrow">PENDIENTES DE VALIDAR</p>
+        <p className="eyebrow">SOBRES PENDIENTES DE VALIDAR</p>
         <div style={{display:'grid',gap:'10px'}}>
-          {adminDailyReviews.map(item=><article className="card" key={item.progress_id} style={{padding:'17px'}}>
-            <strong>{item.nickname} · {item.title}</strong>
-            <small style={{display:'block',color:'var(--muted)',margin:'5px 0 12px'}}>Reto diario · {item.points} pt</small>
-            <div className="actions">
-              <button className="primary" disabled={challengeBusy} onClick={()=>reviewDaily(item.progress_id,true)}><Check size={17}/>Aprobar</button>
-              <button className="secondary" disabled={challengeBusy} onClick={()=>reviewDaily(item.progress_id,false)}>Rechazar</button>
-            </div>
-          </article>)}
           {adminSpecialReviews.map(item=><article className="card" key={item.group_id} style={{padding:'17px'}}>
             <strong>{item.is_blind
               ?(item.kind==='random_team'?'Reto aleatorio de equipo':'Sobre aleatorio individual')
@@ -1135,7 +1125,7 @@ function Game({membership,onBack}){
               <button className="secondary" disabled={challengeBusy} onClick={()=>reviewSpecial(item.group_id,false)}>Rechazar</button>
             </div>
           </article>)}
-          {!adminDailyReviews.length&&!adminSpecialReviews.length&&<article className="card" style={{padding:'17px'}}>No hay retos esperando validación.</article>}
+          {!adminSpecialReviews.length&&<article className="card" style={{padding:'17px'}}>No hay retos esperando validación.</article>}
         </div>
       </section>
     </>:page==='points'&&mode==='admin'?<>
@@ -1348,33 +1338,6 @@ function Game({membership,onBack}){
         </article>}
       </section>
 
-      <section style={{marginTop:'22px'}}>
-        <p className="eyebrow">HISTORIAL</p>
-        <div style={{display:'grid',gap:'8px'}}>
-          {advantageHistory.map(item=><article className="card" key={item.history_id}
-            style={{padding:'14px 16px',display:'flex',alignItems:'center',gap:'12px'}}>
-            <span style={{fontSize:'1.45rem'}}>{item.emoji}</span>
-            <div style={{flex:1}}>
-              <strong>{item.advantage_name}</strong>
-              <small style={{display:'block',color:'var(--muted)'}}>
-                {item.event_type==='assigned'
-                  ?'Recibida'
-                  :item.event_type==='requested'
-                    ?'Uso solicitado'
-                    :item.event_type==='used'
-                      ?'Usada'
-                      :'Solicitud rechazada'}
-              </small>
-            </div>
-            <small style={{color:'var(--muted)'}}>
-              {new Date(item.created_at).toLocaleDateString('es-ES')}
-            </small>
-          </article>)}
-          {!advantageHistory.length&&<article className="card" style={{padding:'16px'}}>
-            Todavía no hay movimientos.
-          </article>}
-        </div>
-      </section>
       {advantageMessage&&<p className="msg">{advantageMessage}</p>}
     </>:<>
       <section className="card" style={{padding:'24px'}}>
