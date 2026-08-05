@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react'
-import {Compass,Plus,KeyRound,LogOut,ArrowLeft,Settings,UserRound,CalendarDays,Copy,Share2,Crown,Users,X,Home,Trophy,Target,Backpack,Star,CheckCircle2,MoreVertical,Pencil,Trash2,DoorOpen,Lock,Handshake,Send,Check,Clock3,Shuffle,PackageOpen,Map,Gift,ShieldCheck,Play,Archive,Undo2} from 'lucide-react'
+import {Compass,Plus,KeyRound,LogOut,ArrowLeft,Settings,UserRound,CalendarDays,Copy,Share2,Crown,Users,X,Home,Trophy,Target,Backpack,Star,CheckCircle2,MoreVertical,Pencil,Trash2,DoorOpen,Lock,Handshake,Send,Check,Clock3,Shuffle,PackageOpen,Map,Gift,ShieldCheck,Play,Archive,Undo2,Gavel,Dices,Save,LockKeyhole} from 'lucide-react'
 import {supabase} from './supabase'
 
 const emptyGame={name:'',emoji:'🧭',start_date:'',end_date:'',description:''}
@@ -72,6 +72,14 @@ function Game({membership,onBack}){
     advantage_id:'',
     user_id:''
   });
+  const[auction,setAuction]=useState(null);
+  const[auctionLots,setAuctionLots]=useState([]);
+  const[auctionCatalog,setAuctionCatalog]=useState([]);
+  const[auctionBusy,setAuctionBusy]=useState(false);
+  const[auctionMessage,setAuctionMessage]=useState('');
+  const[newLot,setNewLot]=useState({advantage_id:'',minimum_bid:'10'});
+  const[myBids,setMyBids]=useState({});
+
 
   const g=membership.games;
   const owner=membership.role==='owner';
@@ -79,6 +87,7 @@ function Game({membership,onBack}){
   useEffect(()=>{
     loadQuesters();
     loadDailyChallenges();
+    loadAuction();
     loadNotificationCounts();
   },[g.id]);
 
@@ -240,6 +249,59 @@ function Game({membership,onBack}){
       await loadMySpecialChallenges();
       await loadNotificationCounts();
     }
+  }
+
+  async function loadAuction(){
+    const{data,error}=await supabase.rpc('get_tripquest_current_auction',{p_game_id:g.id});
+    if(error||!data?.length){setAuction(null);setAuctionLots([]);return}
+    const current=data[0];
+    setAuction(current);
+    const{data:lots}=await supabase.rpc('list_tripquest_auction_lots',{p_auction_id:current.auction_id});
+    setAuctionLots(lots||[]);
+    const next={};(lots||[]).forEach(l=>next[l.lot_id]=l.my_bid??'');setMyBids(next);
+  }
+
+  async function loadAuctionCatalog(){
+    const{data}=await supabase.rpc('list_tripquest_advantage_catalog',{p_game_id:g.id});
+    setAuctionCatalog(data||[]);
+    if(data?.length&&!newLot.advantage_id)setNewLot(f=>({...f,advantage_id:data[0].advantage_id}));
+  }
+
+  async function createAuction(){
+    setAuctionBusy(true);setAuctionMessage('');
+    const{error}=await supabase.rpc('create_tripquest_auction',{p_game_id:g.id});
+    setAuctionMessage(error?error.message:'Subasta creada');
+    await loadAuction();await loadAuctionCatalog();setAuctionBusy(false);
+  }
+
+  async function addAuctionLot(random=false){
+    setAuctionBusy(true);setAuctionMessage('');
+    const min=Number(newLot.minimum_bid)||0;
+    const result=random
+      ?await supabase.rpc('add_random_tripquest_auction_lot',{p_auction_id:auction.auction_id,p_minimum_bid:min})
+      :await supabase.rpc('add_tripquest_auction_lot',{p_auction_id:auction.auction_id,p_advantage_id:newLot.advantage_id,p_minimum_bid:min});
+    setAuctionMessage(result.error?result.error.message:(random?'Objeto aleatorio añadido':'Objeto añadido'));
+    await loadAuction();setAuctionBusy(false);
+  }
+
+  async function openAuction(){
+    setAuctionBusy(true);
+    const{error}=await supabase.rpc('open_tripquest_auction',{p_auction_id:auction.auction_id});
+    setAuctionMessage(error?error.message:'Subasta abierta');await loadAuction();setAuctionBusy(false);
+  }
+
+  async function closeAuction(){
+    setAuctionBusy(true);
+    const{data,error}=await supabase.rpc('close_tripquest_auction',{p_auction_id:auction.auction_id});
+    setAuctionMessage(error?error.message:data);await loadAuction();setAuctionBusy(false);
+  }
+
+  async function saveBid(lot){
+    setAuctionBusy(true);
+    const{error}=await supabase.rpc('place_tripquest_auction_bid',{
+      p_lot_id:lot.lot_id,p_amount:Number(myBids[lot.lot_id])
+    });
+    setAuctionMessage(error?error.message:'Puja guardada');await loadAuction();setAuctionBusy(false);
   }
 
   async function loadMyAdvantages(){
@@ -654,6 +716,7 @@ function Game({membership,onBack}){
       loadQuesters();
       loadAdminAdvantages();
     }
+    if(nextPage==='auction'){loadAuction();loadAuctionCatalog();}
     if(nextPage==='points'){
       loadQuesters();
       loadRanking();
@@ -683,7 +746,7 @@ function Game({membership,onBack}){
     {id:'packs',label:'🎒 Packs',detail:'Biblioteca y pruebas'},
     {id:'adminChallenges',label:'🎯 Retos y sobres',detail:'Diarios, secretos y equipos'},
     {id:'points',label:'⭐ Puntos',detail:'Gestionar clasificación'},
-    {id:'auction',label:'🔨 Subasta',detail:'Próximo sprint'},
+    {id:'auction',label:'🔨 Subasta',detail:'Objetos y pujas'},
     {id:'adminAdvantages',label:'🎒 Ventajas',detail:'Objetos e inventario'},
     {id:'stages',label:'🗺️ Etapas',detail:'Próximo sprint'},
     {id:'questers',label:'👥 Questers',detail:'Ver participantes'},
@@ -706,6 +769,7 @@ function Game({membership,onBack}){
     page==='adminChallenges'?'Retos y sobres':
     page==='packs'?'Packs':
     page==='stages'?'Etapas':
+    page==='auction'?'Subasta':
     page==='adminAdvantages'?'Objetos':
     page==='advantages'?'Objetos':
     g.name;
@@ -785,6 +849,25 @@ function Game({membership,onBack}){
             </div>
           </div>
         </button>
+
+        {auction&&auction.status!=='draft'&&<section style={{marginTop:'20px'}}>
+          <p className="eyebrow">SUBASTA</p>
+          <article className="card" style={{padding:'16px'}}>
+            <strong>{auction.status==='tiebreak'?'Desempate en curso':'Subasta abierta'}</strong>
+            <div style={{display:'grid',gap:'9px',marginTop:'10px'}}>
+              {auctionLots.filter(l=>['open','tiebreak'].includes(l.lot_status)).map(lot=><div key={lot.lot_id} style={{border:'1px solid #ddd7ca',borderRadius:'13px',padding:'12px'}}>
+                <strong>{lot.emoji} {lot.advantage_name}</strong>
+                <small style={{display:'block',color:'var(--muted)',margin:'4px 0'}}>{lot.description}</small>
+                <small style={{fontWeight:'900'}}>Mínima: {lot.minimum_bid} pt{lot.lot_status==='tiebreak'?` · Desempate desde ${lot.tie_floor} pt`:''}</small>
+                {lot.can_bid&&<div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:'8px',marginTop:'8px'}}>
+                  <input type="number" value={myBids[lot.lot_id]??''} onChange={e=>setMyBids({...myBids,[lot.lot_id]:e.target.value})}/>
+                  <button className="primary" disabled={auctionBusy} onClick={()=>saveBid(lot)}><Save size={16}/>Guardar</button>
+                </div>}
+              </div>)}
+            </div>
+            {auctionMessage&&<p className="msg">{auctionMessage}</p>}
+          </article>
+        </section>}
 
         <section style={{marginTop:'20px'}}>
           <p className="eyebrow">RETOS DEL DÍA</p>
@@ -1194,6 +1277,36 @@ function Game({membership,onBack}){
           </article>
         )}
       </section>
+    </>:page==='auction'&&mode==='admin'?<>
+      <section className="card" style={{padding:'22px'}}>
+        <p className="eyebrow">SUBASTA</p><h2>Objetos y pujas</h2>
+        <p style={{color:'var(--muted)'}}>Elige objetos, define pujas mínimas y cierra cada ronda cuando quieras.</p>
+      </section>
+      {!auction&&<button className="primary wide" style={{marginTop:'14px'}} onClick={createAuction} disabled={auctionBusy}><Gavel size={18}/>Crear subasta</button>}
+      {auction&&<>
+        {auction.status==='draft'&&<section className="card" style={{padding:'18px',marginTop:'14px'}}>
+          <label>Objeto<select value={newLot.advantage_id} onChange={e=>setNewLot({...newLot,advantage_id:e.target.value})}>{auctionCatalog.map(a=><option key={a.advantage_id} value={a.advantage_id}>{a.emoji} {a.name}</option>)}</select></label>
+          <label>Puja mínima<input type="number" min="0" value={newLot.minimum_bid} onChange={e=>setNewLot({...newLot,minimum_bid:e.target.value})}/></label>
+          <div className="actions">
+            <button className="primary" onClick={()=>addAuctionLot(false)} disabled={auctionBusy}><Plus size={17}/>Añadir</button>
+            <button className="secondary" onClick={()=>addAuctionLot(true)} disabled={auctionBusy}><Dices size={17}/>Aleatorio</button>
+          </div>
+        </section>}
+        <section style={{display:'grid',gap:'9px',marginTop:'14px'}}>
+          {auctionLots.map(l=><article className="card" key={l.lot_id} style={{padding:'15px'}}>
+            <strong>{l.emoji} {l.advantage_name}</strong>
+            <small style={{display:'block',color:'var(--muted)'}}>{l.description}</small>
+            <small style={{display:'block',fontWeight:'900',marginTop:'5px'}}>Mínima: {l.minimum_bid} pt · {l.lot_status}</small>
+            {l.winner_nickname&&<small style={{display:'block'}}>🏆 {l.winner_nickname} · {l.winning_bid} pt</small>}
+          </article>)}
+        </section>
+        <section className="card" style={{padding:'18px',marginTop:'14px'}}>
+          {auction.status==='draft'&&<button className="primary wide" onClick={openAuction} disabled={auctionBusy||!auctionLots.length}><Play size={17}/>Abrir subasta</button>}
+          {['open','tiebreak'].includes(auction.status)&&<button className="primary wide" onClick={closeAuction} disabled={auctionBusy}><LockKeyhole size={17}/>Cerrar ronda</button>}
+          {auction.status==='closed'&&<button className="secondary wide" onClick={createAuction} disabled={auctionBusy}><Gavel size={17}/>Nueva subasta</button>}
+          {auctionMessage&&<p className="msg">{auctionMessage}</p>}
+        </section>
+      </>}
     </>:page==='adminAdvantages'&&mode==='admin'?<>
       <section className="card" style={{padding:'22px'}}>
         <p className="eyebrow">OBJETOS</p>
