@@ -2,10 +2,241 @@ import {useEffect,useState} from 'react'
 import {Compass,Plus,KeyRound,LogOut,ArrowLeft,Settings,UserRound,CalendarDays,Copy,Share2,Crown,Users,X,Home,Trophy,Target,Backpack,Star,CheckCircle2,MoreVertical,Pencil,Trash2,DoorOpen,Lock,Handshake,Send,Check,Clock3,Shuffle,PackageOpen,Map,Gift,ShieldCheck,Play,Archive,Undo2,Gavel,Dices,Save,LockKeyhole,Hotel,Navigation,Clock,ExternalLink,ChevronDown,ChevronUp,GripVertical,Power,RefreshCcw,Eraser,Database,UserPlus,UserMinus} from 'lucide-react'
 import {supabase} from './supabase'
 
-const emptyGame={name:'',emoji:'🧭',start_date:'',end_date:'',description:''}
-const tripStatus=(s,e)=>{if(!s||!e)return'Fechas por definir';const t=new Date();t.setHours(0,0,0,0);const a=new Date(s+'T00:00:00'),b=new Date(e+'T00:00:00'),d=86400000;if(t<a){const n=Math.ceil((a-t)/d);return n===1?'Empieza mañana':`Empieza en ${n} días`}if(t>b)return'Brinkkando finalizado';return`Día ${Math.floor((t-a)/d)+1} de ${Math.floor((b-a)/d)+1}`}
+const APP_VERSION='1.0.0'
+const LEGAL_OWNER='Arturo Jorge Claver Insa'
+const LEGAL_EMAIL='ajclaver91@gmail.com'
+const LEGAL_COUNTRY='España'
+const LEGAL_UPDATED='6 de agosto de 2026'
 
-function Auth(){const[register,setRegister]=useState(false),[f,setF]=useState({nickname:'',email:'',password:''}),[msg,setMsg]=useState(''),[busy,setBusy]=useState(false);async function submit(e){e.preventDefault();setBusy(true);setMsg('');const r=register?await supabase.auth.signUp({email:f.email.trim(),password:f.password,options:{data:{nickname:f.nickname.trim()},emailRedirectTo:`${window.location.origin}/?email_confirmed=1`}}):await supabase.auth.signInWithPassword({email:f.email.trim(),password:f.password});if(r.error)setMsg(r.error.message);else if(register)setMsg('Cuenta creada. Revisa el correo si se exige confirmación.');setBusy(false)}return <main className="auth"><section className="brand"><div className="mark"><Compass size={42}/></div><p className="eyebrow">BRINKKANDO</p><h1>Cada plan merece un Brinkkando.</h1><p className="lead">Crea un Brinkkando, invita a tus Brinkkers y convierte cualquier plan en un juego compartido.</p></section><form className="card authCard" onSubmit={submit}><div className="switch"><button type="button" className={!register?'active':''} onClick={()=>setRegister(false)}>Entrar</button><button type="button" className={register?'active':''} onClick={()=>setRegister(true)}>Crear cuenta</button></div>{register&&<label>¿Cómo te llamamos?<input required value={f.nickname} onChange={e=>setF({...f,nickname:e.target.value})} placeholder="Tu nick"/></label>}<label>Email<input required type="email" value={f.email} onChange={e=>setF({...f,email:e.target.value})}/></label><label>Contraseña<input required minLength="6" type="password" value={f.password} onChange={e=>setF({...f,password:e.target.value})}/></label><button className="primary wide" disabled={busy}>{busy?'Un momento…':register?'Crear mi cuenta':'Entrar'}</button>{msg&&<p className="msg">{msg}</p>}</form></main>}
+
+const emptyGame={name:'',emoji:'🧭',start_date:'',end_date:'',description:''}
+const tripStatus=(s,e)=>{if(!s||!e)return'Fechas por definir';const t=new Date();t.setHours(0,0,0,0);const a=new Date(s+'T00:00:00'),b=new Date(e+'T00:00:00'),d=86400000;if(t<a){const n=Math.ceil((a-t)/d);return n===1?'Empieza mañana':`Empieza en ${n} días`}if(t>b)return'Aventura finalizada';return`Día ${Math.floor((t-a)/d)+1} de ${Math.floor((b-a)/d)+1}`}
+
+
+const legalSections={
+  privacy:{
+    eyebrow:'PRIVACIDAD',
+    title:'Política de privacidad',
+    content:<>
+      <h3>1. Responsable</h3>
+      <p><strong>{LEGAL_OWNER}</strong>, con contacto en <strong>{LEGAL_EMAIL}</strong>, es responsable del tratamiento de los datos utilizados en Brinkkando.</p>
+
+      <h3>2. Datos tratados</h3>
+      <p>Brinkkando puede tratar el correo electrónico, nickname, emoji y color de perfil, participación en Brinkkandos, puntuaciones, retos, pujas, objetos y contenido que los propios usuarios introduzcan.</p>
+
+      <h3>3. Finalidades y base jurídica</h3>
+      <p>Los datos se utilizan para crear y mantener la cuenta, permitir el acceso a Brinkkandos, ejecutar sus funciones y atender solicitudes. La base principal es la ejecución del servicio solicitado por el usuario. Cuando una función requiera consentimiento, se solicitará de forma separada.</p>
+
+      <h3>4. Proveedores</h3>
+      <p>La autenticación y la base de datos se prestan mediante Supabase. El alojamiento y despliegue web se realizan mediante Netlify. Estos proveedores pueden tratar datos por cuenta del responsable conforme a sus condiciones y garantías aplicables.</p>
+
+      <h3>5. Conservación</h3>
+      <p>Los datos se conservarán mientras la cuenta o los Brinkkandos asociados permanezcan activos y, después, durante el tiempo estrictamente necesario para atender responsabilidades legales o técnicas.</p>
+
+      <h3>6. Destinatarios y transferencias</h3>
+      <p>Los datos no se venden. Pueden comunicarse a proveedores tecnológicos necesarios para prestar el servicio o cuando exista una obligación legal. Algunos proveedores pueden operar fuera del Espacio Económico Europeo y aplicar los mecanismos legales correspondientes.</p>
+
+      <h3>7. Derechos</h3>
+      <p>Puedes solicitar acceso, rectificación, supresión, oposición, limitación o portabilidad escribiendo a <strong>{LEGAL_EMAIL}</strong>. También puedes reclamar ante la Agencia Española de Protección de Datos.</p>
+
+      <h3>8. Menores</h3>
+      <p>Brinkkando no está dirigido a menores que no puedan consentir válidamente el tratamiento de sus datos. Si se detecta una cuenta creada sin la autorización necesaria, podrá eliminarse.</p>
+
+      <h3>9. Seguridad y cambios</h3>
+      <p>Se aplican medidas técnicas razonables, como autenticación y reglas de acceso en la base de datos. Ningún sistema es completamente infalible. Esta política podrá actualizarse cuando cambie el servicio o la normativa.</p>
+    </>
+  },
+  terms:{
+    eyebrow:'CONDICIONES',
+    title:'Términos de uso',
+    content:<>
+      <h3>1. Objeto</h3>
+      <p>Brinkkando permite organizar planes privados y añadir dinámicas de juego, puntos, retos, objetos, subastas y jornadas.</p>
+
+      <h3>2. Cuenta y acceso</h3>
+      <p>El usuario debe facilitar datos correctos, custodiar su contraseña y avisar de accesos no autorizados. Los códigos de unión deben compartirse únicamente con las personas que deban participar.</p>
+
+      <h3>3. Responsabilidad del administrador</h3>
+      <p>Quien crea un Brinkkando decide sus integrantes, contenidos, puntos, retos y reglas. Debe evitar pruebas peligrosas, ilegales, humillantes, discriminatorias o que afecten a terceros sin permiso.</p>
+
+      <h3>4. Conducta</h3>
+      <p>No se permite utilizar Brinkkando para acosar, amenazar, suplantar identidades, difundir contenido ilícito, vulnerar derechos, acceder a cuentas ajenas o interferir en la seguridad del servicio.</p>
+
+      <h3>5. Actividades y desplazamientos</h3>
+      <p>Brinkkando es una herramienta organizativa y lúdica. No verifica rutas, reservas, horarios, condiciones meteorológicas ni la seguridad de las actividades. Cada usuario debe comprobar la información y actuar con prudencia.</p>
+
+      <h3>6. Disponibilidad</h3>
+      <p>El servicio puede sufrir interrupciones, errores o pérdida de disponibilidad. Mientras se ofrece gratuitamente y en fase inicial, no se garantiza continuidad permanente ni ausencia total de fallos.</p>
+
+      <h3>7. Propiedad intelectual</h3>
+      <p>La marca, interfaz, textos propios y código de Brinkkando están protegidos por la normativa aplicable. El usuario conserva los derechos sobre el contenido que aporte y autoriza su tratamiento para prestar el servicio.</p>
+
+      <h3>8. Suspensión y baja</h3>
+      <p>Las cuentas o Brinkkandos que incumplan estas condiciones pueden suspenderse o eliminarse. El usuario puede solicitar la supresión de su cuenta mediante el canal indicado en la Política de privacidad.</p>
+
+      <h3>9. Ley aplicable</h3>
+      <p>Estas condiciones se interpretan conforme a la legislación española, sin perjuicio de los derechos imperativos que correspondan al consumidor.</p>
+    </>
+  },
+  cookies:{
+    eyebrow:'COOKIES',
+    title:'Política de cookies y almacenamiento local',
+    content:<>
+      <h3>1. Situación actual</h3>
+      <p>La versión actual de Brinkkando no incorpora publicidad ni herramientas propias de analítica o seguimiento comercial.</p>
+
+      <h3>2. Tecnologías necesarias</h3>
+      <p>Supabase Auth puede utilizar almacenamiento local del navegador y tecnologías equivalentes para mantener la sesión iniciada y proteger el acceso. Son necesarias para prestar el servicio solicitado.</p>
+
+      <h3>3. Cookies no esenciales</h3>
+      <p>Mientras Brinkkando no instale cookies analíticas, publicitarias o de personalización no solicitada, no se muestra un banner de aceptación. Si se incorporan estas tecnologías, esta política y el mecanismo de consentimiento deberán actualizarse antes de activarlas.</p>
+
+      <h3>4. Control</h3>
+      <p>Puedes borrar el almacenamiento y las cookies desde la configuración del navegador. Si eliminas los datos de sesión, tendrás que volver a iniciar sesión.</p>
+    </>
+  },
+  legal:{
+    eyebrow:'INFORMACIÓN LEGAL',
+    title:'Aviso legal',
+    content:<>
+      <h3>1. Titular</h3>
+      <p>Titular: <strong>{LEGAL_OWNER}</strong></p>
+      <p>Correo de contacto: <strong>{LEGAL_EMAIL}</strong></p>
+      <p>País de establecimiento: <strong>{LEGAL_COUNTRY}</strong></p>
+
+      <h3>2. Servicio</h3>
+      <p>Brinkkando es una aplicación web para organizar planes y dinámicas privadas entre grupos. En esta fase se ofrece gratuitamente y sin garantías comerciales adicionales.</p>
+
+      <h3>3. Uso de la web</h3>
+      <p>El acceso implica utilizar el servicio de forma lícita, respetar a otros usuarios y no intentar comprometer su funcionamiento, sus datos o sus sistemas.</p>
+
+      <h3>4. Enlaces externos</h3>
+      <p>Los usuarios pueden añadir enlaces a mapas, reservas o servicios de terceros. Brinkkando no controla ni responde del contenido, disponibilidad o condiciones de esas páginas.</p>
+
+      <h3>5. Contacto</h3>
+      <p>Para cuestiones legales, de privacidad o relacionadas con el servicio, utiliza <strong>{LEGAL_EMAIL}</strong>.</p>
+    </>
+  }
+}
+
+function LegalModal({section,onClose}){
+  const legal=legalSections[section]
+  if(!legal)return null
+  return <div className="backdrop" style={{zIndex:50}}>
+    <section className="card modal" style={{maxHeight:'88vh',overflowY:'auto'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:'12px',marginBottom:'12px'}}>
+        <div><p className="eyebrow">{legal.eyebrow}</p><h2 style={{marginBottom:0}}>{legal.title}</h2></div>
+        <button type="button" className="icon" onClick={onClose}><X/></button>
+      </div>
+      <div style={{lineHeight:1.55}}>{legal.content}</div>
+      <small style={{display:'block',color:'var(--muted)',marginTop:'18px'}}>Última actualización: {LEGAL_UPDATED}</small>
+    </section>
+  </div>
+}
+
+function LegalLinks({onOpen,compact=false}){
+  return <footer style={{
+    marginTop:compact?'14px':'28px',
+    padding:'18px 8px',
+    textAlign:'center',
+    color:'var(--muted)',
+    fontSize:'.78rem'
+  }}>
+    <div style={{display:'flex',justifyContent:'center',gap:'10px',flexWrap:'wrap'}}>
+      <button type="button" onClick={()=>onOpen('legal')} style={{border:0,background:'transparent',color:'inherit',textDecoration:'underline'}}>Aviso legal</button>
+      <button type="button" onClick={()=>onOpen('privacy')} style={{border:0,background:'transparent',color:'inherit',textDecoration:'underline'}}>Privacidad</button>
+      <button type="button" onClick={()=>onOpen('cookies')} style={{border:0,background:'transparent',color:'inherit',textDecoration:'underline'}}>Cookies</button>
+      <button type="button" onClick={()=>onOpen('terms')} style={{border:0,background:'transparent',color:'inherit',textDecoration:'underline'}}>Términos</button>
+    </div>
+    <div style={{marginTop:'8px'}}>© 2026 Brinkkando · v{APP_VERSION}</div>
+  </footer>
+}
+
+function Auth(){
+  const[register,setRegister]=useState(false)
+  const[f,setF]=useState({nickname:'',email:'',password:''})
+  const[accepted,setAccepted]=useState(false)
+  const[legalOpen,setLegalOpen]=useState(null)
+  const[msg,setMsg]=useState('')
+  const[busy,setBusy]=useState(false)
+
+  async function submit(e){
+    e.preventDefault()
+    if(register&&!accepted){
+      setMsg('Debes aceptar los Términos de uso y la Política de privacidad.')
+      return
+    }
+    setBusy(true)
+    setMsg('')
+    const r=register
+      ?await supabase.auth.signUp({
+        email:f.email.trim(),
+        password:f.password,
+        options:{
+          data:{
+            nickname:f.nickname.trim(),
+            legal_version:APP_VERSION,
+            legal_accepted_at:new Date().toISOString()
+          },
+          emailRedirectTo:`${window.location.origin}/?email_confirmed=1`
+        }
+      })
+      :await supabase.auth.signInWithPassword({
+        email:f.email.trim(),
+        password:f.password
+      })
+    if(r.error)setMsg(r.error.message)
+    else if(register)setMsg('Cuenta creada. Revisa el correo si se exige confirmación.')
+    setBusy(false)
+  }
+
+  return <main className="auth">
+    <section className="brand">
+      <div className="mark"><Compass size={42}/></div>
+      <p className="eyebrow">BRINKKANDO</p>
+      <h1>Cada plan merece un Brinkkando.</h1>
+      <p className="lead">Crea un Brinkkando, invita a tus Brinkkers y convierte cualquier plan en un juego compartido.</p>
+    </section>
+
+    <form className="card authCard" onSubmit={submit}>
+      <div className="switch">
+        <button type="button" className={!register?'active':''} onClick={()=>setRegister(false)}>Entrar</button>
+        <button type="button" className={register?'active':''} onClick={()=>setRegister(true)}>Crear cuenta</button>
+      </div>
+
+      {register&&<label>¿Cómo te llamamos?
+        <input required value={f.nickname} onChange={e=>setF({...f,nickname:e.target.value})} placeholder="Tu nick"/>
+      </label>}
+
+      <label>Email
+        <input required type="email" value={f.email} onChange={e=>setF({...f,email:e.target.value})}/>
+      </label>
+
+      <label>Contraseña
+        <input required minLength="6" type="password" value={f.password} onChange={e=>setF({...f,password:e.target.value})}/>
+      </label>
+
+      {register&&<label style={{display:'flex',alignItems:'flex-start',gap:'9px',fontWeight:'700',fontSize:'.82rem',lineHeight:1.4}}>
+        <input type="checkbox" required checked={accepted} onChange={e=>setAccepted(e.target.checked)}
+          style={{width:'18px',height:'18px',marginTop:'2px',flexShrink:0}}/>
+        <span>
+          Acepto los{' '}
+          <button type="button" onClick={()=>setLegalOpen('terms')} style={{border:0,background:'transparent',padding:0,color:'inherit',textDecoration:'underline',fontWeight:'900'}}>Términos de uso</button>
+          {' '}y he leído la{' '}
+          <button type="button" onClick={()=>setLegalOpen('privacy')} style={{border:0,background:'transparent',padding:0,color:'inherit',textDecoration:'underline',fontWeight:'900'}}>Política de privacidad</button>.
+        </span>
+      </label>}
+
+      <button className="primary wide" disabled={busy}>
+        {busy?'Un momento…':register?'Crear mi cuenta':'Entrar'}
+      </button>
+      {msg&&<p className="msg">{msg}</p>}
+      <LegalLinks onOpen={setLegalOpen} compact/>
+    </form>
+
+    {legalOpen&&<LegalModal section={legalOpen} onClose={()=>setLegalOpen(null)}/>}
+  </main>
+}
 
 function Modal({type,onClose,onDone}){const[game,setGame]=useState(emptyGame),[code,setCode]=useState(''),[msg,setMsg]=useState(''),[busy,setBusy]=useState(false);async function submit(e){e.preventDefault();setBusy(true);let r;if(type==='create')r=await supabase.rpc('create_tripquest_game',{p_name:game.name.trim(),p_emoji:game.emoji||'🧭',p_start_date:game.start_date,p_end_date:game.end_date,p_description:game.description.trim()||null});else r=await supabase.rpc('join_tripquest_game',{p_invite_code:code.trim().toUpperCase()});if(r.error)setMsg(r.error.message);else onDone();setBusy(false)}return <div className="backdrop"><form className="card modal" onSubmit={submit}><button type="button" className="icon" onClick={onClose}><ArrowLeft/></button>{type==='create'?<><p className="eyebrow">NUEVO BRINKKANDO</p><h2>¿Cómo empieza vuestra historia?</h2><label>Nombre<input required value={game.name} onChange={e=>setGame({...game,name:e.target.value})} placeholder="Galicia 2026"/></label><label>Emoji<input required maxLength="4" value={game.emoji} onChange={e=>setGame({...game,emoji:e.target.value})}/></label><div className="cols"><label>Empieza<input required type="date" value={game.start_date} onChange={e=>setGame({...game,start_date:e.target.value})}/></label><label>Termina<input required type="date" value={game.end_date} onChange={e=>setGame({...game,end_date:e.target.value})}/></label></div><label>Descripción<textarea rows="3" value={game.description} onChange={e=>setGame({...game,description:e.target.value})}/></label></>:<><p className="eyebrow">UNIRME</p><h2>Introduce el código</h2><input required className="code" maxLength="6" value={code} onChange={e=>setCode(e.target.value.toUpperCase())} placeholder="A7K2P9"/></>}<button className="primary wide" disabled={busy}>{busy?'Un momento…':type==='create'?'Crear Brinkkando':'Unirme'}</button>{msg&&<p className="msg">{msg}</p>}</form></div>}
 
@@ -1056,7 +1287,7 @@ function Game({membership,onBack}){
     {id:'auction',label:'🔨 Subasta',detail:'Objetos y pujas'},
     {id:'adminAdvantages',label:'🎒 Ventajas',detail:'Objetos e inventario'},
     {id:'stages',label:'📅 Plan',detail:'Trayectos y alojamientos'},
-    {id:'brinkkers',label:'👥 Brinkkers',detail:'Ver Brinkkers'},
+    {id:'brinkkers',label:'👥 Brinkkers',detail:'Ver participantes'},
     {id:'settings',label:'⚙️ Ajustes',detail:'Configuración y reinicio'}
   ];
 
@@ -1106,13 +1337,13 @@ function Game({membership,onBack}){
     <header className="top">
       <button className="icon" onClick={page==='home'?onBack:()=>setPage('home')}><ArrowLeft/></button>
       <div>
-        <p className="eyebrow">{g.emoji} BRINKKANDO</p>
+        <p className="eyebrow">{g.emoji} AVENTURA</p>
         <h1>{title}</h1>
       </div>
     </header>
 
     {owner&&<div className="mode">
-      <button className={mode==='player'?'active':''} onClick={()=>changeMode('player')}><UserRound size={18}/>Mi Brinkkando</button>
+      <button className={mode==='player'?'active':''} onClick={()=>changeMode('player')}><UserRound size={18}/>Mi aventura</button>
       <button className={mode==='admin'?'active':''} onClick={()=>changeMode('admin')} style={{position:'relative'}}>
         <Settings size={18}/>Administrar
         {notificationCounts.admin>0&&<span style={{position:'absolute',right:'7px',top:'5px',width:'9px',height:'9px',borderRadius:'50%',background:'#e05b4f',border:'2px solid white'}}/>}
@@ -1130,7 +1361,7 @@ function Game({membership,onBack}){
       {mode==='admin'&&<section className="card" style={{marginTop:'14px',padding:'16px 18px'}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'12px',flexWrap:'wrap'}}>
           <div>
-            <p className="eyebrow" style={{marginBottom:'4px'}}>CÓDIGO DEL BRINKKANDO</p>
+            <p className="eyebrow" style={{marginBottom:'4px'}}>CÓDIGO DE INVITACIÓN</p>
             <strong style={{fontSize:'1.1rem',letterSpacing:'.12em'}}>{g.invite_code}</strong>
           </div>
           <button className="secondary" onClick={copyCode}><Copy size={17}/>{copied?'Copiado':'Copiar'}</button>
@@ -1144,8 +1375,8 @@ function Game({membership,onBack}){
         }}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'14px'}}>
             <div>
-              <p className="eyebrow" style={{marginBottom:'5px'}}>BRINKKERS</p>
-              <strong style={{fontSize:'1.08rem'}}>{brinkkers.length} {brinkkers.length===1?'Brinkker':'Brinkkers'}</strong>
+              <p className="eyebrow" style={{marginBottom:'5px'}}>QUESTERS</p>
+              <strong style={{fontSize:'1.08rem'}}>{brinkkers.length} {brinkkers.length===1?'participante':'participantes'}</strong>
             </div>
             <div style={{display:'flex',alignItems:'center',justifyContent:'flex-end'}}>
               {brinkkers.slice(0,5).map((q,index)=><div key={q.user_id} style={{
@@ -1286,7 +1517,7 @@ function Game({membership,onBack}){
     </>:page==='ranking'?<>
       <section className="card" style={{padding:'22px'}}>
         <p className="eyebrow">CLASIFICACIÓN</p>
-        <h2 style={{marginBottom:'7px'}}>Así va vuestro Brinkkando</h2>
+        <h2 style={{marginBottom:'7px'}}>Así va el Brinkkando</h2>
         <p style={{color:'var(--muted)',marginBottom:0}}>Los puntos pertenecen únicamente a este Brinkkando.</p>
       </section>
       <section style={{display:'grid',gap:'10px',marginTop:'14px'}}>
@@ -1344,9 +1575,9 @@ function Game({membership,onBack}){
     </>:page==='packs'&&mode==='admin'?<>
       <section className="card" style={{padding:'22px'}}>
         <p className="eyebrow">BIBLIOTECA DE PACKS</p>
-        <h2 style={{marginBottom:'7px'}}>Elige qué tipo de Brinkkando quieres jugar</h2>
+        <h2 style={{marginBottom:'7px'}}>Elige qué tipo de viaje quieres jugar</h2>
         <p style={{color:'var(--muted)',marginBottom:0}}>
-          En las rondas aleatorias solo se usarán los packs y pruebas que estén activos.
+          Solo se usarán en las rondas aleatorias los packs y pruebas que estén activos.
         </p>
       </section>
 
@@ -1597,7 +1828,7 @@ function Game({membership,onBack}){
       </form>
     </>:page==='brinkkers'?<>
       <section className="card" style={{padding:'22px'}}>
-        <p className="eyebrow">{mode==='admin'?'GESTIÓN DE LA BRINKKANDO':'BRINKKERS'}</p>
+        <p className="eyebrow">{mode==='admin'?'GESTIÓN DE LA AVENTURA':'COMPAÑEROS DE VIAJE'}</p>
         <h2 style={{marginBottom:'8px'}}>{brinkkers.length} {brinkkers.length===1?'Brinkker':'Brinkkers'}</h2>
       </section>
       <section style={{display:'grid',gap:'10px',marginTop:'14px'}}>
@@ -1898,7 +2129,7 @@ function Game({membership,onBack}){
       <section className="card" style={{padding:'20px',marginTop:'14px'}}>
         <p className="eyebrow">ELIMINAR BRINKKANDO</p>
         <p style={{color:'var(--muted)',marginBottom:0}}>
-          La eliminación definitiva sigue disponible desde el menú ⋮ del Brinkkando en «Mis Brinkkandos», donde exige escribir su nombre exacto.
+          La eliminación definitiva sigue disponible desde el menú ⋮ de el Brinkkando en «Mis Brinkkandos», donde exige escribir su nombre exacto.
         </p>
       </section>
 
@@ -1906,7 +2137,7 @@ function Game({membership,onBack}){
     </>:page==='stages'?<>
       {mode==='admin'&&<form className="card" onSubmit={saveStage} style={{padding:'22px'}}>
         <p className="eyebrow">{editingStageId?'EDITAR JORNADA':'NUEVA JORNADA'}</p>
-        <h2 style={{marginBottom:'14px'}}>Plan del Brinkkando</h2>
+        <h2 style={{marginBottom:'14px'}}>Plan del viaje</h2>
 
         <label>Fecha
           <input type="date" value={stageForm.stage_date}
@@ -2036,7 +2267,7 @@ function Game({membership,onBack}){
       </form>}
 
       <section style={{marginTop:mode==='admin'?'22px':0}}>
-        <p className="eyebrow">{mode==='admin'?'JORNADAS CREADAS':'PLAN DEL BRINKKANDO'}</p>
+        <p className="eyebrow">{mode==='admin'?'JORNADAS CREADAS':'PLAN DEL VIAJE'}</p>
         <div style={{display:'grid',gap:'11px'}}>
           {stagesLoading&&<article className="card" style={{padding:'17px'}}>Cargando Plan…</article>}
           {!stagesLoading&&stages.map(stage=>{
@@ -2218,6 +2449,7 @@ function Game({membership,onBack}){
   </main>
 }
 function Dashboard({session}){
+  const[legalOpen,setLegalOpen]=useState(null);
   const[memberships,setMemberships]=useState([]);
   const[loading,setLoading]=useState(true);
   const[modal,setModal]=useState(null);
@@ -2351,7 +2583,7 @@ function Dashboard({session}){
     const isOwner=deleteMembership.role==='owner';
 
     if(isOwner&&deleteText.trim()!==deleteMembership.games.name){
-      setDeleteMessage('Escribe exactamente el nombre del Brinkkando.');
+      setDeleteMessage('Escribe exactamente el nombre de el Brinkkando.');
       setDeleteBusy(false);
       return;
     }
@@ -2374,7 +2606,7 @@ function Dashboard({session}){
   return <main className="shell">
     <header className="top">
       <div>
-        <p className="eyebrow">BIENVENIDO, BRINKKER</p>
+        <p className="eyebrow">BIENVENIDO, QUESTER</p>
         <h1>Hola, {nick}</h1>
       </div>
       <div style={{display:'flex',gap:'8px'}}>
@@ -2423,14 +2655,14 @@ function Dashboard({session}){
           </button>}
           <button className="secondary wide" style={{justifyContent:'flex-start',color:m.role==='owner'?'#a13f3f':'inherit'}} onClick={()=>openDelete(m)}>
             {m.role==='owner'?<Trash2 size={17}/>:<DoorOpen size={17}/>}
-            {m.role==='owner'?'Eliminar Brinkkando':'Salir del Brinkkando'}
+            {m.role==='owner'?'Eliminar Brinkkando':'Salir de el Brinkkando'}
           </button>
         </div>}
       </article>)}
     </section>:<section className="card empty">
       <div>🌍</div>
-      <p className="eyebrow">TU PRIMERA BRINKKANDO</p>
-      <h2>El próximo Brinkkando puede empezar hoy.</h2>
+      <p className="eyebrow">TU PRIMERA AVENTURA</p>
+      <h2>El viaje puede empezar hoy.</h2>
       <p>Crea un Brinkkando o únete con un código.</p>
     </section>}
 
@@ -2439,7 +2671,7 @@ function Dashboard({session}){
     {editingMembership&&<div className="backdrop">
       <form className="card modal" onSubmit={saveAdventure}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'12px',marginBottom:'12px'}}>
-          <div><p className="eyebrow">EDITAR BRINKKANDO</p><h2 style={{marginBottom:0}}>{editingMembership.games.name}</h2></div>
+          <div><p className="eyebrow">EDITAR AVENTURA</p><h2 style={{marginBottom:0}}>{editingMembership.games.name}</h2></div>
           <button type="button" className="icon" onClick={()=>setEditingMembership(null)}><X/></button>
         </div>
         <label>Nombre<input required value={editGame.name} onChange={e=>setEditGame({...editGame,name:e.target.value})}/></label>
@@ -2458,14 +2690,14 @@ function Dashboard({session}){
       <section className="card modal">
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'12px',marginBottom:'12px'}}>
           <div>
-            <p className="eyebrow">{deleteMembership.role==='owner'?'ELIMINAR BRINKKANDO':'SALIR DE LA BRINKKANDO'}</p>
+            <p className="eyebrow">{deleteMembership.role==='owner'?'ELIMINAR BRINKKANDO':'SALIR DE LA AVENTURA'}</p>
             <h2 style={{marginBottom:0}}>{deleteMembership.games.name}</h2>
           </div>
           <button type="button" className="icon" onClick={()=>setDeleteMembership(null)}><X/></button>
         </div>
 
         {deleteMembership.role==='owner'?<>
-          <p style={{color:'var(--muted)'}}>Se borrarán definitivamente los Brinkkers, puntos, retos, jornadas, subastas y objetos de este Brinkkando.</p>
+          <p style={{color:'var(--muted)'}}>Se borrarán definitivamente Brinkkers, puntos, retos, etapas, subastas y ventajas de este Brinkkando.</p>
           <label>Escribe el nombre exacto para confirmar
             <input value={deleteText} onChange={e=>setDeleteText(e.target.value)} placeholder={deleteMembership.games.name}/>
           </label>
@@ -2473,10 +2705,10 @@ function Dashboard({session}){
             border:0,borderRadius:'13px',padding:'13px 16px',fontWeight:'900',background:'#a13f3f',color:'white'
           }}>{deleteBusy?'Eliminando…':'Eliminar definitivamente'}</button>
         </>:<>
-          <p style={{color:'var(--muted)'}}>Dejarás de ver este Brinkkando y se eliminarán tus datos de participación.</p>
+          <p style={{color:'var(--muted)'}}>Dejarás de ver este Brinkkando y tus datos de participación se eliminarán de ella.</p>
           <button className="wide" onClick={confirmDeleteOrLeave} disabled={deleteBusy} style={{
             border:0,borderRadius:'13px',padding:'13px 16px',fontWeight:'900',background:'#a13f3f',color:'white'
-          }}>{deleteBusy?'Saliendo…':'Salir del Brinkkando'}</button>
+          }}>{deleteBusy?'Saliendo…':'Salir de el Brinkkando'}</button>
         </>}
         {deleteMessage&&<p className="msg">{deleteMessage}</p>}
       </section>
@@ -2499,11 +2731,25 @@ function Dashboard({session}){
         </div></label>
         <button className="primary wide" disabled={profileSaving}>{profileSaving?'Guardando…':'Guardar cambios'}</button>
         {profileMessage&&<p className="msg">{profileMessage}</p>}
+
+        <section style={{marginTop:'20px',paddingTop:'16px',borderTop:'1px solid #e1ddd2'}}>
+          <p className="eyebrow">CUENTA Y DATOS</p>
+          <p style={{color:'var(--muted)',fontSize:'.85rem'}}>
+            Para solicitar la eliminación de tu cuenta y datos, escribe al correo indicado en Privacidad desde el email de tu cuenta.
+          </p>
+          <button type="button" className="secondary wide" onClick={()=>setLegalOpen('privacy')}>
+            Ver privacidad y contacto
+          </button>
+        </section>
       </form>
     </div>}
+
+    <LegalLinks onOpen={setLegalOpen}/>
+    {legalOpen&&<LegalModal section={legalOpen} onClose={()=>setLegalOpen(null)}/>}
   </main>
 }
 function EmailConfirmed({session,onContinue}){
+  const[legalOpen,setLegalOpen]=useState(null)
   return <main className="auth">
     <section className="brand">
       <div className="mark"><CheckCircle2 size={42}/></div>
@@ -2518,7 +2764,9 @@ function EmailConfirmed({session,onContinue}){
       <button className="primary wide" onClick={onContinue}>
         {session?'Entrar en Brinkkando':'Ir al inicio de sesión'}
       </button>
+      <LegalLinks onOpen={setLegalOpen} compact/>
     </section>
+    {legalOpen&&<LegalModal section={legalOpen} onClose={()=>setLegalOpen(null)}/>}
   </main>
 }
 
@@ -2538,7 +2786,7 @@ export default function App(){
     setConfirmed(false)
   }
 
-  if(!ready)return <div className="splash"><Compass size={48}/><span><strong>Brinkkando</strong><small style={{display:'block',color:'var(--muted)',fontSize:'.65rem'}}>v1.0</small></span></div>;
+  if(!ready)return <div className="splash"><Compass size={48}/><span><strong>Brinkkando</strong><small style={{display:'block',color:'var(--muted)',fontSize:'.65rem'}}>v{APP_VERSION}</small></span></div>;
   if(confirmed)return <EmailConfirmed session={session} onContinue={continueAfterConfirmation}/>;
   return session?<Dashboard session={session}/>:<Auth/>
 }
