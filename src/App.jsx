@@ -109,12 +109,12 @@ function Game({membership,onBack}){
     accommodation_notes:''
   });
   const[settingsForm,setSettingsForm]=useState({
-    name:g.name||'',
-    emoji:g.emoji||'🧭',
-    start_date:g.start_date||'',
-    end_date:g.end_date||'',
-    description:g.description||'',
-    join_enabled:g.join_enabled!==false
+    name:membership.games?.name||'',
+    emoji:membership.games?.emoji||'🧭',
+    start_date:membership.games?.start_date||'',
+    end_date:membership.games?.end_date||'',
+    description:membership.games?.description||'',
+    join_enabled:membership.games?.join_enabled!==false
   });
   const[settingsBusy,setSettingsBusy]=useState(false);
   const[settingsMessage,setSettingsMessage]=useState('');
