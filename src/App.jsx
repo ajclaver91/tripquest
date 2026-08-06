@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react'
-import {Compass,Plus,KeyRound,LogOut,ArrowLeft,Settings,UserRound,CalendarDays,Copy,Share2,Crown,Users,X,Home,Trophy,Target,Backpack,Star,CheckCircle2,MoreVertical,Pencil,Trash2,DoorOpen,Lock,Handshake,Send,Check,Clock3,Shuffle,PackageOpen,Map,Gift,ShieldCheck,Play,Archive,Undo2,Gavel,Dices,Save,LockKeyhole} from 'lucide-react'
+import {Compass,Plus,KeyRound,LogOut,ArrowLeft,Settings,UserRound,CalendarDays,Copy,Share2,Crown,Users,X,Home,Trophy,Target,Backpack,Star,CheckCircle2,MoreVertical,Pencil,Trash2,DoorOpen,Lock,Handshake,Send,Check,Clock3,Shuffle,PackageOpen,Map,Gift,ShieldCheck,Play,Archive,Undo2,Gavel,Dices,Save,LockKeyhole,Hotel,Navigation,Clock,ExternalLink,ChevronDown,ChevronUp,GripVertical} from 'lucide-react'
 import {supabase} from './supabase'
 
 const emptyGame={name:'',emoji:'🧭',start_date:'',end_date:'',description:''}
@@ -79,6 +79,36 @@ function Game({membership,onBack}){
   const[auctionMessage,setAuctionMessage]=useState('');
   const[newLot,setNewLot]=useState({advantage_id:'',minimum_bid:'10'});
   const[myBids,setMyBids]=useState({});
+  const[stages,setStages]=useState([]);
+  const[stagesLoading,setStagesLoading]=useState(false);
+  const[stageBusy,setStageBusy]=useState(false);
+  const[stageMessage,setStageMessage]=useState('');
+  const[editingStageId,setEditingStageId]=useState(null);
+  const[expandedStageId,setExpandedStageId]=useState(null);
+  const[stageForm,setStageForm]=useState({
+    stage_date:'',
+    same_place:false,
+    transport_mode:'bicycle',
+    origin:'',
+    destination:'',
+    distance_km:'',
+    elevation_m:'',
+    duration_text:'',
+    route_url:'',
+    route_button_text:'Abrir trayecto',
+    day_description:'',
+    activities:'',
+    day_notes:'',
+    same_accommodation:false,
+    accommodation_name:'',
+    accommodation_address:'',
+    booking_url:'',
+    booked_by_user_id:'',
+    booking_reference:'',
+    check_in_time:'',
+    accommodation_notes:''
+  });
+
 
 
   const g=membership.games;
@@ -88,6 +118,7 @@ function Game({membership,onBack}){
     loadQuesters();
     loadDailyChallenges();
     loadAuction();
+    loadStages();
     loadNotificationCounts();
   },[g.id]);
 
@@ -250,6 +281,147 @@ function Game({membership,onBack}){
       await loadNotificationCounts();
     }
   }
+
+  function blankStageForm(){
+    return {
+      stage_date:'',
+      same_place:false,
+      transport_mode:'bicycle',
+      origin:'',
+      destination:'',
+      distance_km:'',
+      elevation_m:'',
+      duration_text:'',
+      route_url:'',
+      route_button_text:'Abrir trayecto',
+      day_description:'',
+      activities:'',
+      day_notes:'',
+      same_accommodation:false,
+      accommodation_name:'',
+      accommodation_address:'',
+      booking_url:'',
+      booked_by_user_id:'',
+      booking_reference:'',
+      check_in_time:'',
+      accommodation_notes:''
+    };
+  }
+
+  async function loadStages(){
+    setStagesLoading(true);
+    const{data,error}=await supabase.rpc('list_tripquest_stages',{p_game_id:g.id});
+    if(error){
+      console.error('Error cargando Plan:',error);
+      setStages([]);
+      setStageMessage(error.message);
+    }else{
+      setStages(data||[]);
+    }
+    setStagesLoading(false);
+  }
+
+  function editStage(stage){
+    setEditingStageId(stage.stage_id);
+    setStageForm({
+      stage_date:stage.stage_date||'',
+      same_place:stage.same_place,
+      transport_mode:stage.transport_mode||'bicycle',
+      origin:stage.origin||'',
+      destination:stage.destination||'',
+      distance_km:stage.distance_km??'',
+      elevation_m:stage.elevation_m??'',
+      duration_text:stage.duration_text||'',
+      route_url:stage.route_url||'',
+      route_button_text:stage.route_button_text||'Abrir trayecto',
+      day_description:stage.day_description||'',
+      activities:stage.activities||'',
+      day_notes:stage.day_notes||'',
+      same_accommodation:stage.same_accommodation,
+      accommodation_name:stage.accommodation_name||'',
+      accommodation_address:stage.accommodation_address||'',
+      booking_url:stage.booking_url||'',
+      booked_by_user_id:stage.booked_by_user_id||'',
+      booking_reference:stage.booking_reference||'',
+      check_in_time:stage.check_in_time||'',
+      accommodation_notes:stage.accommodation_notes||''
+    });
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+
+  async function saveStage(e){
+    e.preventDefault();
+    setStageBusy(true);
+    setStageMessage('');
+    const distance=stageForm.same_place||stageForm.distance_km===''?null:Number(stageForm.distance_km);
+    const elevation=stageForm.same_place||stageForm.elevation_m===''?null:Number(stageForm.elevation_m);
+    const{error}=await supabase.rpc('save_tripquest_stage',{
+      p_stage_id:editingStageId,
+      p_game_id:g.id,
+      p_stage_date:stageForm.stage_date||null,
+      p_same_place:stageForm.same_place,
+      p_transport_mode:stageForm.same_place?null:stageForm.transport_mode,
+      p_origin:stageForm.origin.trim(),
+      p_destination:stageForm.same_place?stageForm.origin.trim():stageForm.destination.trim(),
+      p_distance_km:Number.isFinite(distance)?distance:null,
+      p_elevation_m:Number.isFinite(elevation)?elevation:null,
+      p_duration_text:stageForm.same_place?null:(stageForm.duration_text.trim()||null),
+      p_route_url:stageForm.same_place?null:(stageForm.route_url.trim()||null),
+      p_route_button_text:stageForm.same_place?null:(stageForm.route_button_text.trim()||'Abrir trayecto'),
+      p_day_description:stageForm.day_description.trim()||null,
+      p_activities:stageForm.activities.trim()||null,
+      p_day_notes:stageForm.day_notes.trim()||null,
+      p_same_accommodation:stageForm.same_accommodation,
+      p_accommodation_name:stageForm.same_accommodation?null:(stageForm.accommodation_name.trim()||null),
+      p_accommodation_address:stageForm.same_accommodation?null:(stageForm.accommodation_address.trim()||null),
+      p_booking_url:stageForm.same_accommodation?null:(stageForm.booking_url.trim()||null),
+      p_booked_by_user_id:stageForm.same_accommodation?null:(stageForm.booked_by_user_id||null),
+      p_booking_reference:stageForm.same_accommodation?null:(stageForm.booking_reference.trim()||null),
+      p_check_in_time:stageForm.same_accommodation?null:(stageForm.check_in_time||null),
+      p_accommodation_notes:stageForm.same_accommodation?null:(stageForm.accommodation_notes.trim()||null)
+    });
+    if(error){
+      setStageMessage(error.message);
+    }else{
+      setStageMessage(editingStageId?'Jornada actualizada':'Jornada creada');
+      setEditingStageId(null);
+      setStageForm(blankStageForm());
+      await loadStages();
+    }
+    setStageBusy(false);
+  }
+
+  async function deleteStage(stageId){
+    if(!window.confirm('¿Borrar esta jornada del Plan?'))return;
+    setStageBusy(true);
+    const{error}=await supabase.rpc('delete_tripquest_stage',{p_stage_id:stageId});
+    setStageMessage(error?error.message:'Jornada eliminada');
+    await loadStages();
+    setStageBusy(false);
+  }
+
+  async function moveStage(stageId,direction){
+    setStageBusy(true);
+    const{error}=await supabase.rpc('move_tripquest_stage',{
+      p_stage_id:stageId,
+      p_direction:direction
+    });
+    if(error)setStageMessage(error.message);
+    await loadStages();
+    setStageBusy(false);
+  }
+
+  const transportLabels={
+    bicycle:'🚴 Bici',
+    walking:'🥾 A pie',
+    car:'🚗 Coche',
+    motorcycle:'🏍️ Moto',
+    train:'🚆 Tren',
+    bus:'🚌 Autobús',
+    boat:'⛴️ Barco',
+    plane:'✈️ Avión',
+    other:'🧭 Otro'
+  };
 
   async function loadAuction(){
     const{data,error}=await supabase.rpc('get_tripquest_current_auction',{p_game_id:g.id});
@@ -717,6 +889,7 @@ function Game({membership,onBack}){
       loadAdminAdvantages();
     }
     if(nextPage==='auction'){loadAuction();loadAuctionCatalog();}
+    if(nextPage==='stages'){loadStages();loadQuesters();}
     if(nextPage==='points'){
       loadQuesters();
       loadRanking();
@@ -748,7 +921,7 @@ function Game({membership,onBack}){
     {id:'points',label:'⭐ Puntos',detail:'Gestionar clasificación'},
     {id:'auction',label:'🔨 Subasta',detail:'Objetos y pujas'},
     {id:'adminAdvantages',label:'🎒 Ventajas',detail:'Objetos e inventario'},
-    {id:'stages',label:'🗺️ Etapas',detail:'Próximo sprint'},
+    {id:'stages',label:'📅 Plan',detail:'Trayectos y alojamientos'},
     {id:'questers',label:'👥 Questers',detail:'Ver participantes'},
     {id:'settings',label:'⚙️ Ajustes',detail:'Próximo sprint'}
   ];
@@ -757,7 +930,7 @@ function Game({membership,onBack}){
     {id:'home',label:'Inicio',icon:<Home size={20}/>},
     {id:'ranking',label:'Ranking',icon:<Trophy size={20}/>},
     {id:'challenges',label:'Retos',icon:<Target size={20}/>},
-    {id:'stages',label:'Etapas',icon:<Map size={20}/>},
+    {id:'stages',label:'Plan',icon:<Map size={20}/>},
     {id:'advantages',label:'Objetos',icon:<Backpack size={20}/>}
   ];
 
@@ -768,7 +941,7 @@ function Game({membership,onBack}){
     page==='challenges'?'Retos':
     page==='adminChallenges'?'Retos y sobres':
     page==='packs'?'Packs':
-    page==='stages'?'Etapas':
+    page==='stages'?'Plan':
     page==='auction'?'Subasta':
     page==='adminAdvantages'?'Objetos':
     page==='advantages'?'Objetos':
@@ -849,6 +1022,31 @@ function Game({membership,onBack}){
             </div>
           </div>
         </button>
+
+        {stages.length>0&&(()=>{
+          const today=new Date().toISOString().slice(0,10);
+          const current=stages.find(s=>s.stage_date===today)
+            ||stages.find(s=>s.stage_date&&s.stage_date>today)
+            ||stages[stages.length-1];
+          if(!current)return null;
+          return <button className="card" onClick={()=>openPage('stages')} style={{
+            width:'100%',marginTop:'14px',padding:'16px',
+            color:'inherit',textAlign:'left',border:'1px solid rgba(23,63,53,.11)
+          }}>
+            <p className="eyebrow" style={{marginBottom:'6px'}}>PLAN DE HOY</p>
+            <strong style={{fontSize:'1.08rem'}}>
+              {current.same_place?'🏡 Día en el mismo lugar':`${current.origin} → ${current.destination}`}
+            </strong>
+            <small style={{display:'block',color:'var(--muted)',marginTop:'5px'}}>
+              {current.same_place
+                ?current.origin
+                :`${transportLabels[current.transport_mode]||'🧭 Trayecto'}${current.distance_km!=null?` · ${current.distance_km} km`:''}`}
+            </small>
+            {current.resolved_accommodation_name&&<small style={{display:'block',marginTop:'6px'}}>
+              🏨 {current.resolved_accommodation_name}
+            </small>}
+          </button>
+        })()}
 
         {auction&&auction.status!=='draft'&&<section style={{marginTop:'20px'}}>
           <p className="eyebrow">SUBASTA</p>
@@ -1433,20 +1631,218 @@ function Game({membership,onBack}){
         </div>
       </section>
     </>:page==='stages'?<>
-      <section className="card" style={{padding:'22px'}}>
-        <p className="eyebrow">ETAPAS</p>
-        <h2 style={{marginBottom:'7px'}}>El recorrido de la aventura</h2>
-        <p style={{color:'var(--muted)',marginBottom:0}}>
-          Aquí aparecerán las etapas creadas por el Admin, con fecha, origen, destino,
-          distancia, descripción y enlace de ruta.
-        </p>
-      </section>
-      <section className="card" style={{padding:'18px',marginTop:'14px'}}>
-        <strong>🗺️ Próximo sprint</strong>
-        <p style={{color:'var(--muted)',marginBottom:0}}>
-          La sección ya queda integrada en la navegación. El siguiente desarrollo permitirá
-          crear y consultar las etapas reales del viaje.
-        </p>
+      {mode==='admin'&&<form className="card" onSubmit={saveStage} style={{padding:'22px'}}>
+        <p className="eyebrow">{editingStageId?'EDITAR JORNADA':'NUEVA JORNADA'}</p>
+        <h2 style={{marginBottom:'14px'}}>Plan del viaje</h2>
+
+        <label>Fecha
+          <input type="date" value={stageForm.stage_date}
+            onChange={e=>setStageForm({...stageForm,stage_date:e.target.value})}/>
+        </label>
+
+        <label style={{display:'flex',alignItems:'center',gap:'10px',fontWeight:'850'}}>
+          <input type="checkbox" checked={stageForm.same_place}
+            onChange={e=>setStageForm({...stageForm,same_place:e.target.checked})}
+            style={{width:'20px',height:'20px'}}/>
+          🏡 Día en el mismo lugar
+        </label>
+
+        <label>Lugar / Origen
+          <input value={stageForm.origin}
+            onChange={e=>setStageForm({...stageForm,origin:e.target.value})}
+            placeholder="Santiago de Compostela"/>
+        </label>
+
+        {!stageForm.same_place&&<>
+          <label>Destino
+            <input value={stageForm.destination}
+              onChange={e=>setStageForm({...stageForm,destination:e.target.value})}
+              placeholder="Pontevedra"/>
+          </label>
+          <label>Medio de transporte
+            <select value={stageForm.transport_mode}
+              onChange={e=>setStageForm({...stageForm,transport_mode:e.target.value})}>
+              {Object.entries(transportLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}
+            </select>
+          </label>
+          <div className="cols">
+            <label>Distancia (km)
+              <input type="number" min="0" step="0.1" value={stageForm.distance_km}
+                onChange={e=>setStageForm({...stageForm,distance_km:e.target.value})}/>
+            </label>
+            <label>Desnivel (m)
+              <input type="number" min="0" step="1" value={stageForm.elevation_m}
+                onChange={e=>setStageForm({...stageForm,elevation_m:e.target.value})}/>
+            </label>
+          </div>
+          <label>Duración estimada
+            <input value={stageForm.duration_text}
+              onChange={e=>setStageForm({...stageForm,duration_text:e.target.value})}
+              placeholder="3 h 30 min"/>
+          </label>
+          <label>Enlace del trayecto
+            <input type="url" value={stageForm.route_url}
+              onChange={e=>setStageForm({...stageForm,route_url:e.target.value})}
+              placeholder="Komoot, Maps, Wikiloc, billete…"/>
+          </label>
+          <label>Texto del botón
+            <input value={stageForm.route_button_text}
+              onChange={e=>setStageForm({...stageForm,route_button_text:e.target.value})}
+              placeholder="Abrir trayecto"/>
+          </label>
+        </>}
+
+        <p className="eyebrow" style={{marginTop:'20px'}}>PLAN DEL DÍA</p>
+        <label>Descripción
+          <textarea rows="3" value={stageForm.day_description}
+            onChange={e=>setStageForm({...stageForm,day_description:e.target.value})}/>
+        </label>
+        <label>Actividades
+          <textarea rows="3" value={stageForm.activities}
+            onChange={e=>setStageForm({...stageForm,activities:e.target.value})}
+            placeholder="Visita, comida, playa, festival…"/>
+        </label>
+        <label>Notas
+          <textarea rows="2" value={stageForm.day_notes}
+            onChange={e=>setStageForm({...stageForm,day_notes:e.target.value})}/>
+        </label>
+
+        <p className="eyebrow" style={{marginTop:'20px'}}>NOCHE</p>
+        <label style={{display:'flex',alignItems:'center',gap:'10px',fontWeight:'850'}}>
+          <input type="checkbox" checked={stageForm.same_accommodation}
+            onChange={e=>setStageForm({...stageForm,same_accommodation:e.target.checked})}
+            style={{width:'20px',height:'20px'}}/>
+          🏨 Mismo alojamiento que la noche anterior
+        </label>
+
+        {!stageForm.same_accommodation&&<>
+          <label>Alojamiento
+            <input value={stageForm.accommodation_name}
+              onChange={e=>setStageForm({...stageForm,accommodation_name:e.target.value})}
+              placeholder="Hotel, albergue, apartamento…"/>
+          </label>
+          <label>Dirección
+            <input value={stageForm.accommodation_address}
+              onChange={e=>setStageForm({...stageForm,accommodation_address:e.target.value})}/>
+          </label>
+          <label>Enlace de la reserva
+            <input type="url" value={stageForm.booking_url}
+              onChange={e=>setStageForm({...stageForm,booking_url:e.target.value})}/>
+          </label>
+          <label>Reservado por
+            <select value={stageForm.booked_by_user_id}
+              onChange={e=>setStageForm({...stageForm,booked_by_user_id:e.target.value})}>
+              <option value="">Sin asignar</option>
+              {questers.map(q=><option key={q.user_id} value={q.user_id}>{q.nickname}</option>)}
+            </select>
+          </label>
+          <div className="cols">
+            <label>Referencia
+              <input value={stageForm.booking_reference}
+                onChange={e=>setStageForm({...stageForm,booking_reference:e.target.value})}/>
+            </label>
+            <label>Check-in
+              <input type="time" value={stageForm.check_in_time}
+                onChange={e=>setStageForm({...stageForm,check_in_time:e.target.value})}/>
+            </label>
+          </div>
+          <label>Notas del alojamiento
+            <textarea rows="2" value={stageForm.accommodation_notes}
+              onChange={e=>setStageForm({...stageForm,accommodation_notes:e.target.value})}
+              placeholder="Bicis en el patio, pagar en efectivo…"/>
+          </label>
+        </>}
+
+        <div className="actions">
+          <button className="primary" disabled={stageBusy}><Save size={17}/>{editingStageId?'Guardar cambios':'Crear jornada'}</button>
+          {editingStageId&&<button type="button" className="secondary" onClick={()=>{
+            setEditingStageId(null);setStageForm(blankStageForm());
+          }}>Cancelar</button>}
+        </div>
+        {stageMessage&&<p className="msg">{stageMessage}</p>}
+      </form>}
+
+      <section style={{marginTop:mode==='admin'?'22px':0}}>
+        <p className="eyebrow">{mode==='admin'?'JORNADAS CREADAS':'PLAN DEL VIAJE'}</p>
+        <div style={{display:'grid',gap:'11px'}}>
+          {stagesLoading&&<article className="card" style={{padding:'17px'}}>Cargando Plan…</article>}
+          {!stagesLoading&&stages.map(stage=>{
+            const isExpanded=expandedStageId===stage.stage_id;
+            const today=new Date().toISOString().slice(0,10);
+            const state=stage.stage_date===today?'today':stage.stage_date&&stage.stage_date<today?'past':'future';
+            return <article className="card" key={stage.stage_id} style={{
+              padding:'17px',
+              border:state==='today'?'2px solid #2f7563':'1px solid rgba(23,63,53,.11)',
+              opacity:state==='past'?.72:1
+            }}>
+              <button type="button" onClick={()=>setExpandedStageId(isExpanded?null:stage.stage_id)}
+                style={{width:'100%',border:0,background:'transparent',padding:0,color:'inherit',textAlign:'left'}}>
+                <div style={{display:'flex',alignItems:'flex-start',gap:'11px'}}>
+                  <span style={{fontSize:'1.5rem'}}>{stage.same_place?'🏡':transportLabels[stage.transport_mode]?.split(' ')[0]||'🧭'}</span>
+                  <div style={{flex:1,minWidth:0}}>
+                    <small style={{display:'block',fontWeight:'900',color:'var(--muted)'}}>
+                      {stage.stage_date?new Date(`${stage.stage_date}T12:00:00`).toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'}):`Jornada ${stage.stage_position}`}
+                      {state==='today'?' · HOY':''}
+                    </small>
+                    <strong style={{display:'block',fontSize:'1.08rem',marginTop:'3px'}}>
+                      {stage.same_place?'Día en el mismo lugar':`${stage.origin} → ${stage.destination}`}
+                    </strong>
+                    {stage.same_place&&<small style={{display:'block',color:'var(--muted)'}}>{stage.origin}</small>}
+                    {!stage.same_place&&<small style={{display:'block',color:'var(--muted)'}}>
+                      {transportLabels[stage.transport_mode]}
+                      {stage.distance_km!=null?` · ${stage.distance_km} km`:''}
+                      {stage.elevation_m!=null?` · +${stage.elevation_m} m`:''}
+                      {stage.duration_text?` · ${stage.duration_text}`:''}
+                    </small>}
+                  </div>
+                  {isExpanded?<ChevronUp size={19}/>:<ChevronDown size={19}/>}
+                </div>
+              </button>
+
+              {isExpanded&&<div style={{marginTop:'14px',paddingTop:'13px',borderTop:'1px solid #e3ded2'}}>
+                {stage.day_description&&<p style={{marginTop:0}}>{stage.day_description}</p>}
+                {stage.activities&&<div style={{marginTop:'10px'}}><strong>📋 Plan del día</strong><p style={{color:'var(--muted)',whiteSpace:'pre-wrap'}}>{stage.activities}</p></div>}
+                {stage.day_notes&&<div><strong>📝 Notas</strong><p style={{color:'var(--muted)',whiteSpace:'pre-wrap'}}>{stage.day_notes}</p></div>}
+
+                {!stage.same_place&&stage.route_url&&<a className="primary wide" href={stage.route_url} target="_blank" rel="noreferrer"
+                  style={{textDecoration:'none',marginTop:'10px'}}>
+                  <Navigation size={17}/>{stage.route_button_text||'Abrir trayecto'}<ExternalLink size={15}/>
+                </a>}
+
+                {(stage.resolved_accommodation_name||stage.same_accommodation)&&<div style={{
+                  marginTop:'14px',padding:'13px',borderRadius:'13px',background:'#f3f0e8'
+                }}>
+                  <strong>🏨 Noche</strong>
+                  <p style={{margin:'6px 0 0'}}>
+                    {stage.resolved_accommodation_name||'Mismo alojamiento que la noche anterior'}
+                  </p>
+                  {stage.resolved_accommodation_address&&<small style={{display:'block',color:'var(--muted)'}}>{stage.resolved_accommodation_address}</small>}
+                  {stage.booked_by_nickname&&<small style={{display:'block',marginTop:'5px'}}>Reservado por {stage.booked_by_nickname}</small>}
+                  {stage.check_in_time&&<small style={{display:'block'}}>Check-in: {stage.check_in_time.slice(0,5)}</small>}
+                  {stage.booking_reference&&<details style={{marginTop:'7px'}}>
+                    <summary style={{fontWeight:'800'}}>Ver referencia de reserva</summary>
+                    <code>{stage.booking_reference}</code>
+                  </details>}
+                  {stage.accommodation_notes&&<p style={{color:'var(--muted)',whiteSpace:'pre-wrap'}}>{stage.accommodation_notes}</p>}
+                  {stage.resolved_booking_url&&<a className="secondary wide" href={stage.resolved_booking_url} target="_blank" rel="noreferrer"
+                    style={{textDecoration:'none',marginTop:'9px'}}>
+                    <Hotel size={17}/>Ver reserva<ExternalLink size={15}/>
+                  </a>}
+                </div>}
+
+                {mode==='admin'&&<div className="actions" style={{marginTop:'13px'}}>
+                  <button className="secondary" onClick={()=>editStage(stage)}><Pencil size={16}/>Editar</button>
+                  <button className="secondary" disabled={stageBusy} onClick={()=>moveStage(stage.stage_id,'up')}>↑ Subir</button>
+                  <button className="secondary" disabled={stageBusy} onClick={()=>moveStage(stage.stage_id,'down')}>↓ Bajar</button>
+                  <button className="secondary" disabled={stageBusy} onClick={()=>deleteStage(stage.stage_id)}><Trash2 size={16}/>Borrar</button>
+                </div>}
+              </div>}
+            </article>
+          })}
+          {!stagesLoading&&!stages.length&&<article className="card" style={{padding:'18px'}}>
+            {mode==='admin'?'Todavía no has creado ninguna jornada.':'El Admin todavía no ha preparado el Plan.'}
+          </article>}
+        </div>
       </section>
     </>:page==='advantages'?<>
       <section className="card" style={{padding:'22px'}}>
