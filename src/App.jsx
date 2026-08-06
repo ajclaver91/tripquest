@@ -3,9 +3,9 @@ import {Compass,Plus,KeyRound,LogOut,ArrowLeft,Settings,UserRound,CalendarDays,C
 import {supabase} from './supabase'
 
 const emptyGame={name:'',emoji:'🧭',start_date:'',end_date:'',description:''}
-const tripStatus=(s,e)=>{if(!s||!e)return'Fechas por definir';const t=new Date();t.setHours(0,0,0,0);const a=new Date(s+'T00:00:00'),b=new Date(e+'T00:00:00'),d=86400000;if(t<a){const n=Math.ceil((a-t)/d);return n===1?'Empieza mañana':`Empieza en ${n} días`}if(t>b)return'Aventura finalizada';return`Día ${Math.floor((t-a)/d)+1} de ${Math.floor((b-a)/d)+1}`}
+const tripStatus=(s,e)=>{if(!s||!e)return'Fechas por definir';const t=new Date();t.setHours(0,0,0,0);const a=new Date(s+'T00:00:00'),b=new Date(e+'T00:00:00'),d=86400000;if(t<a){const n=Math.ceil((a-t)/d);return n===1?'Empieza mañana':`Empieza en ${n} días`}if(t>b)return'Brinkkando finalizado';return`Día ${Math.floor((t-a)/d)+1} de ${Math.floor((b-a)/d)+1}`}
 
-function Auth(){const[register,setRegister]=useState(false),[f,setF]=useState({nickname:'',email:'',password:''}),[msg,setMsg]=useState(''),[busy,setBusy]=useState(false);async function submit(e){e.preventDefault();setBusy(true);setMsg('');const r=register?await supabase.auth.signUp({email:f.email.trim(),password:f.password,options:{data:{nickname:f.nickname.trim()},emailRedirectTo:`${window.location.origin}/?email_confirmed=1`}}):await supabase.auth.signInWithPassword({email:f.email.trim(),password:f.password});if(r.error)setMsg(r.error.message);else if(register)setMsg('Cuenta creada. Revisa el correo si se exige confirmación.');setBusy(false)}return <main className="auth"><section className="brand"><div className="mark"><Compass size={42}/></div><p className="eyebrow">BRINKKANDO</p><h1>Cada plan merece un Brinkkando.</h1><p className="lead">Crea un Brinkkando, invita a tus Brinkkers y convierte el viaje en un juego compartido.</p></section><form className="card authCard" onSubmit={submit}><div className="switch"><button type="button" className={!register?'active':''} onClick={()=>setRegister(false)}>Entrar</button><button type="button" className={register?'active':''} onClick={()=>setRegister(true)}>Crear cuenta</button></div>{register&&<label>¿Cómo te llamamos?<input required value={f.nickname} onChange={e=>setF({...f,nickname:e.target.value})} placeholder="Tu nick"/></label>}<label>Email<input required type="email" value={f.email} onChange={e=>setF({...f,email:e.target.value})}/></label><label>Contraseña<input required minLength="6" type="password" value={f.password} onChange={e=>setF({...f,password:e.target.value})}/></label><button className="primary wide" disabled={busy}>{busy?'Un momento…':register?'Crear mi cuenta':'Entrar'}</button>{msg&&<p className="msg">{msg}</p>}</form></main>}
+function Auth(){const[register,setRegister]=useState(false),[f,setF]=useState({nickname:'',email:'',password:''}),[msg,setMsg]=useState(''),[busy,setBusy]=useState(false);async function submit(e){e.preventDefault();setBusy(true);setMsg('');const r=register?await supabase.auth.signUp({email:f.email.trim(),password:f.password,options:{data:{nickname:f.nickname.trim()},emailRedirectTo:`${window.location.origin}/?email_confirmed=1`}}):await supabase.auth.signInWithPassword({email:f.email.trim(),password:f.password});if(r.error)setMsg(r.error.message);else if(register)setMsg('Cuenta creada. Revisa el correo si se exige confirmación.');setBusy(false)}return <main className="auth"><section className="brand"><div className="mark"><Compass size={42}/></div><p className="eyebrow">BRINKKANDO</p><h1>Cada plan merece un Brinkkando.</h1><p className="lead">Crea un Brinkkando, invita a tus Brinkkers y convierte cualquier plan en un juego compartido.</p></section><form className="card authCard" onSubmit={submit}><div className="switch"><button type="button" className={!register?'active':''} onClick={()=>setRegister(false)}>Entrar</button><button type="button" className={register?'active':''} onClick={()=>setRegister(true)}>Crear cuenta</button></div>{register&&<label>¿Cómo te llamamos?<input required value={f.nickname} onChange={e=>setF({...f,nickname:e.target.value})} placeholder="Tu nick"/></label>}<label>Email<input required type="email" value={f.email} onChange={e=>setF({...f,email:e.target.value})}/></label><label>Contraseña<input required minLength="6" type="password" value={f.password} onChange={e=>setF({...f,password:e.target.value})}/></label><button className="primary wide" disabled={busy}>{busy?'Un momento…':register?'Crear mi cuenta':'Entrar'}</button>{msg&&<p className="msg">{msg}</p>}</form></main>}
 
 function Modal({type,onClose,onDone}){const[game,setGame]=useState(emptyGame),[code,setCode]=useState(''),[msg,setMsg]=useState(''),[busy,setBusy]=useState(false);async function submit(e){e.preventDefault();setBusy(true);let r;if(type==='create')r=await supabase.rpc('create_tripquest_game',{p_name:game.name.trim(),p_emoji:game.emoji||'🧭',p_start_date:game.start_date,p_end_date:game.end_date,p_description:game.description.trim()||null});else r=await supabase.rpc('join_tripquest_game',{p_invite_code:code.trim().toUpperCase()});if(r.error)setMsg(r.error.message);else onDone();setBusy(false)}return <div className="backdrop"><form className="card modal" onSubmit={submit}><button type="button" className="icon" onClick={onClose}><ArrowLeft/></button>{type==='create'?<><p className="eyebrow">NUEVO BRINKKANDO</p><h2>¿Cómo empieza vuestra historia?</h2><label>Nombre<input required value={game.name} onChange={e=>setGame({...game,name:e.target.value})} placeholder="Galicia 2026"/></label><label>Emoji<input required maxLength="4" value={game.emoji} onChange={e=>setGame({...game,emoji:e.target.value})}/></label><div className="cols"><label>Empieza<input required type="date" value={game.start_date} onChange={e=>setGame({...game,start_date:e.target.value})}/></label><label>Termina<input required type="date" value={game.end_date} onChange={e=>setGame({...game,end_date:e.target.value})}/></label></div><label>Descripción<textarea rows="3" value={game.description} onChange={e=>setGame({...game,description:e.target.value})}/></label></>:<><p className="eyebrow">UNIRME</p><h2>Introduce el código</h2><input required className="code" maxLength="6" value={code} onChange={e=>setCode(e.target.value.toUpperCase())} placeholder="A7K2P9"/></>}<button className="primary wide" disabled={busy}>{busy?'Un momento…':type==='create'?'Crear Brinkkando':'Unirme'}</button>{msg&&<p className="msg">{msg}</p>}</form></div>}
 
@@ -1056,7 +1056,7 @@ function Game({membership,onBack}){
     {id:'auction',label:'🔨 Subasta',detail:'Objetos y pujas'},
     {id:'adminAdvantages',label:'🎒 Ventajas',detail:'Objetos e inventario'},
     {id:'stages',label:'📅 Plan',detail:'Trayectos y alojamientos'},
-    {id:'brinkkers',label:'👥 Brinkkers',detail:'Ver participantes'},
+    {id:'brinkkers',label:'👥 Brinkkers',detail:'Ver Brinkkers'},
     {id:'settings',label:'⚙️ Ajustes',detail:'Configuración y reinicio'}
   ];
 
@@ -1106,13 +1106,13 @@ function Game({membership,onBack}){
     <header className="top">
       <button className="icon" onClick={page==='home'?onBack:()=>setPage('home')}><ArrowLeft/></button>
       <div>
-        <p className="eyebrow">{g.emoji} AVENTURA</p>
+        <p className="eyebrow">{g.emoji} BRINKKANDO</p>
         <h1>{title}</h1>
       </div>
     </header>
 
     {owner&&<div className="mode">
-      <button className={mode==='player'?'active':''} onClick={()=>changeMode('player')}><UserRound size={18}/>Mi aventura</button>
+      <button className={mode==='player'?'active':''} onClick={()=>changeMode('player')}><UserRound size={18}/>Mi Brinkkando</button>
       <button className={mode==='admin'?'active':''} onClick={()=>changeMode('admin')} style={{position:'relative'}}>
         <Settings size={18}/>Administrar
         {notificationCounts.admin>0&&<span style={{position:'absolute',right:'7px',top:'5px',width:'9px',height:'9px',borderRadius:'50%',background:'#e05b4f',border:'2px solid white'}}/>}
@@ -1130,7 +1130,7 @@ function Game({membership,onBack}){
       {mode==='admin'&&<section className="card" style={{marginTop:'14px',padding:'16px 18px'}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'12px',flexWrap:'wrap'}}>
           <div>
-            <p className="eyebrow" style={{marginBottom:'4px'}}>CÓDIGO DE INVITACIÓN</p>
+            <p className="eyebrow" style={{marginBottom:'4px'}}>CÓDIGO DEL BRINKKANDO</p>
             <strong style={{fontSize:'1.1rem',letterSpacing:'.12em'}}>{g.invite_code}</strong>
           </div>
           <button className="secondary" onClick={copyCode}><Copy size={17}/>{copied?'Copiado':'Copiar'}</button>
@@ -1144,8 +1144,8 @@ function Game({membership,onBack}){
         }}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'14px'}}>
             <div>
-              <p className="eyebrow" style={{marginBottom:'5px'}}>QUESTERS</p>
-              <strong style={{fontSize:'1.08rem'}}>{brinkkers.length} {brinkkers.length===1?'participante':'participantes'}</strong>
+              <p className="eyebrow" style={{marginBottom:'5px'}}>BRINKKERS</p>
+              <strong style={{fontSize:'1.08rem'}}>{brinkkers.length} {brinkkers.length===1?'Brinkker':'Brinkkers'}</strong>
             </div>
             <div style={{display:'flex',alignItems:'center',justifyContent:'flex-end'}}>
               {brinkkers.slice(0,5).map((q,index)=><div key={q.user_id} style={{
@@ -1286,7 +1286,7 @@ function Game({membership,onBack}){
     </>:page==='ranking'?<>
       <section className="card" style={{padding:'22px'}}>
         <p className="eyebrow">CLASIFICACIÓN</p>
-        <h2 style={{marginBottom:'7px'}}>Así va el Brinkkando</h2>
+        <h2 style={{marginBottom:'7px'}}>Así va vuestro Brinkkando</h2>
         <p style={{color:'var(--muted)',marginBottom:0}}>Los puntos pertenecen únicamente a este Brinkkando.</p>
       </section>
       <section style={{display:'grid',gap:'10px',marginTop:'14px'}}>
@@ -1344,9 +1344,9 @@ function Game({membership,onBack}){
     </>:page==='packs'&&mode==='admin'?<>
       <section className="card" style={{padding:'22px'}}>
         <p className="eyebrow">BIBLIOTECA DE PACKS</p>
-        <h2 style={{marginBottom:'7px'}}>Elige qué tipo de viaje quieres jugar</h2>
+        <h2 style={{marginBottom:'7px'}}>Elige qué tipo de Brinkkando quieres jugar</h2>
         <p style={{color:'var(--muted)',marginBottom:0}}>
-          Solo se usarán en las rondas aleatorias los packs y pruebas que estén activos.
+          En las rondas aleatorias solo se usarán los packs y pruebas que estén activos.
         </p>
       </section>
 
@@ -1597,7 +1597,7 @@ function Game({membership,onBack}){
       </form>
     </>:page==='brinkkers'?<>
       <section className="card" style={{padding:'22px'}}>
-        <p className="eyebrow">{mode==='admin'?'GESTIÓN DE LA AVENTURA':'COMPAÑEROS DE VIAJE'}</p>
+        <p className="eyebrow">{mode==='admin'?'GESTIÓN DE LA BRINKKANDO':'BRINKKERS'}</p>
         <h2 style={{marginBottom:'8px'}}>{brinkkers.length} {brinkkers.length===1?'Brinkker':'Brinkkers'}</h2>
       </section>
       <section style={{display:'grid',gap:'10px',marginTop:'14px'}}>
@@ -1898,7 +1898,7 @@ function Game({membership,onBack}){
       <section className="card" style={{padding:'20px',marginTop:'14px'}}>
         <p className="eyebrow">ELIMINAR BRINKKANDO</p>
         <p style={{color:'var(--muted)',marginBottom:0}}>
-          La eliminación definitiva sigue disponible desde el menú ⋮ de el Brinkkando en «Mis Brinkkandos», donde exige escribir su nombre exacto.
+          La eliminación definitiva sigue disponible desde el menú ⋮ del Brinkkando en «Mis Brinkkandos», donde exige escribir su nombre exacto.
         </p>
       </section>
 
@@ -1906,7 +1906,7 @@ function Game({membership,onBack}){
     </>:page==='stages'?<>
       {mode==='admin'&&<form className="card" onSubmit={saveStage} style={{padding:'22px'}}>
         <p className="eyebrow">{editingStageId?'EDITAR JORNADA':'NUEVA JORNADA'}</p>
-        <h2 style={{marginBottom:'14px'}}>Plan del viaje</h2>
+        <h2 style={{marginBottom:'14px'}}>Plan del Brinkkando</h2>
 
         <label>Fecha
           <input type="date" value={stageForm.stage_date}
@@ -2036,7 +2036,7 @@ function Game({membership,onBack}){
       </form>}
 
       <section style={{marginTop:mode==='admin'?'22px':0}}>
-        <p className="eyebrow">{mode==='admin'?'JORNADAS CREADAS':'PLAN DEL VIAJE'}</p>
+        <p className="eyebrow">{mode==='admin'?'JORNADAS CREADAS':'PLAN DEL BRINKKANDO'}</p>
         <div style={{display:'grid',gap:'11px'}}>
           {stagesLoading&&<article className="card" style={{padding:'17px'}}>Cargando Plan…</article>}
           {!stagesLoading&&stages.map(stage=>{
@@ -2351,7 +2351,7 @@ function Dashboard({session}){
     const isOwner=deleteMembership.role==='owner';
 
     if(isOwner&&deleteText.trim()!==deleteMembership.games.name){
-      setDeleteMessage('Escribe exactamente el nombre de el Brinkkando.');
+      setDeleteMessage('Escribe exactamente el nombre del Brinkkando.');
       setDeleteBusy(false);
       return;
     }
@@ -2374,7 +2374,7 @@ function Dashboard({session}){
   return <main className="shell">
     <header className="top">
       <div>
-        <p className="eyebrow">BIENVENIDO, QUESTER</p>
+        <p className="eyebrow">BIENVENIDO, BRINKKER</p>
         <h1>Hola, {nick}</h1>
       </div>
       <div style={{display:'flex',gap:'8px'}}>
@@ -2423,14 +2423,14 @@ function Dashboard({session}){
           </button>}
           <button className="secondary wide" style={{justifyContent:'flex-start',color:m.role==='owner'?'#a13f3f':'inherit'}} onClick={()=>openDelete(m)}>
             {m.role==='owner'?<Trash2 size={17}/>:<DoorOpen size={17}/>}
-            {m.role==='owner'?'Eliminar Brinkkando':'Salir de el Brinkkando'}
+            {m.role==='owner'?'Eliminar Brinkkando':'Salir del Brinkkando'}
           </button>
         </div>}
       </article>)}
     </section>:<section className="card empty">
       <div>🌍</div>
-      <p className="eyebrow">TU PRIMERA AVENTURA</p>
-      <h2>El viaje puede empezar hoy.</h2>
+      <p className="eyebrow">TU PRIMERA BRINKKANDO</p>
+      <h2>El próximo Brinkkando puede empezar hoy.</h2>
       <p>Crea un Brinkkando o únete con un código.</p>
     </section>}
 
@@ -2439,7 +2439,7 @@ function Dashboard({session}){
     {editingMembership&&<div className="backdrop">
       <form className="card modal" onSubmit={saveAdventure}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'12px',marginBottom:'12px'}}>
-          <div><p className="eyebrow">EDITAR AVENTURA</p><h2 style={{marginBottom:0}}>{editingMembership.games.name}</h2></div>
+          <div><p className="eyebrow">EDITAR BRINKKANDO</p><h2 style={{marginBottom:0}}>{editingMembership.games.name}</h2></div>
           <button type="button" className="icon" onClick={()=>setEditingMembership(null)}><X/></button>
         </div>
         <label>Nombre<input required value={editGame.name} onChange={e=>setEditGame({...editGame,name:e.target.value})}/></label>
@@ -2458,14 +2458,14 @@ function Dashboard({session}){
       <section className="card modal">
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'12px',marginBottom:'12px'}}>
           <div>
-            <p className="eyebrow">{deleteMembership.role==='owner'?'ELIMINAR BRINKKANDO':'SALIR DE LA AVENTURA'}</p>
+            <p className="eyebrow">{deleteMembership.role==='owner'?'ELIMINAR BRINKKANDO':'SALIR DE LA BRINKKANDO'}</p>
             <h2 style={{marginBottom:0}}>{deleteMembership.games.name}</h2>
           </div>
           <button type="button" className="icon" onClick={()=>setDeleteMembership(null)}><X/></button>
         </div>
 
         {deleteMembership.role==='owner'?<>
-          <p style={{color:'var(--muted)'}}>Se borrarán definitivamente Brinkkers, puntos, retos, etapas, subastas y ventajas de este Brinkkando.</p>
+          <p style={{color:'var(--muted)'}}>Se borrarán definitivamente los Brinkkers, puntos, retos, jornadas, subastas y objetos de este Brinkkando.</p>
           <label>Escribe el nombre exacto para confirmar
             <input value={deleteText} onChange={e=>setDeleteText(e.target.value)} placeholder={deleteMembership.games.name}/>
           </label>
@@ -2473,10 +2473,10 @@ function Dashboard({session}){
             border:0,borderRadius:'13px',padding:'13px 16px',fontWeight:'900',background:'#a13f3f',color:'white'
           }}>{deleteBusy?'Eliminando…':'Eliminar definitivamente'}</button>
         </>:<>
-          <p style={{color:'var(--muted)'}}>Dejarás de ver este Brinkkando y tus datos de participación se eliminarán de ella.</p>
+          <p style={{color:'var(--muted)'}}>Dejarás de ver este Brinkkando y se eliminarán tus datos de participación.</p>
           <button className="wide" onClick={confirmDeleteOrLeave} disabled={deleteBusy} style={{
             border:0,borderRadius:'13px',padding:'13px 16px',fontWeight:'900',background:'#a13f3f',color:'white'
-          }}>{deleteBusy?'Saliendo…':'Salir de el Brinkkando'}</button>
+          }}>{deleteBusy?'Saliendo…':'Salir del Brinkkando'}</button>
         </>}
         {deleteMessage&&<p className="msg">{deleteMessage}</p>}
       </section>
