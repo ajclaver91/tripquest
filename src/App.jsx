@@ -1031,7 +1031,7 @@ function Game({membership,onBack}){
           if(!current)return null;
           return <button className="card" onClick={()=>openPage('stages')} style={{
             width:'100%',marginTop:'14px',padding:'16px',
-            color:'inherit',textAlign:'left',border:'1px solid rgba(23,63,53,.11)
+            color:'inherit',textAlign:'left',border:'1px solid rgba(23,63,53,.11)'
           }}>
             <p className="eyebrow" style={{marginBottom:'6px'}}>PLAN DE HOY</p>
             <strong style={{fontSize:'1.08rem'}}>
