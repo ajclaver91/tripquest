@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react'
-import {Compass,Plus,KeyRound,LogOut,ArrowLeft,Settings,UserRound,CalendarDays,Copy,Share2,Crown,Users,X,Home,Trophy,Target,Backpack,Star,CheckCircle2,MoreVertical,Pencil,Trash2,DoorOpen,Lock,Handshake,Send,Check,Clock3,Shuffle,PackageOpen,Map,Gift,ShieldCheck,Play,Archive,Undo2,Gavel,Dices,Save,LockKeyhole,Hotel,Navigation,Clock,ExternalLink,ChevronDown,ChevronUp,GripVertical} from 'lucide-react'
+import {Compass,Plus,KeyRound,LogOut,ArrowLeft,Settings,UserRound,CalendarDays,Copy,Share2,Crown,Users,X,Home,Trophy,Target,Backpack,Star,CheckCircle2,MoreVertical,Pencil,Trash2,DoorOpen,Lock,Handshake,Send,Check,Clock3,Shuffle,PackageOpen,Map,Gift,ShieldCheck,Play,Archive,Undo2,Gavel,Dices,Save,LockKeyhole,Hotel,Navigation,Clock,ExternalLink,ChevronDown,ChevronUp,GripVertical,Power,RefreshCcw,Eraser,Database,UserPlus,UserMinus} from 'lucide-react'
 import {supabase} from './supabase'
 
 const emptyGame={name:'',emoji:'🧭',start_date:'',end_date:'',description:''}
@@ -108,6 +108,24 @@ function Game({membership,onBack}){
     check_in_time:'',
     accommodation_notes:''
   });
+  const[settingsForm,setSettingsForm]=useState({
+    name:g.name||'',
+    emoji:g.emoji||'🧭',
+    start_date:g.start_date||'',
+    end_date:g.end_date||'',
+    description:g.description||'',
+    join_enabled:g.join_enabled!==false
+  });
+  const[settingsBusy,setSettingsBusy]=useState(false);
+  const[settingsMessage,setSettingsMessage]=useState('');
+  const[dangerConfirm,setDangerConfirm]=useState('');
+  const[editingAdvantage,setEditingAdvantage]=useState(null);
+  const[editAdvantageForm,setEditAdvantageForm]=useState({
+    name:'',
+    emoji:'🎁',
+    description:''
+  });
+
 
 
 
@@ -280,6 +298,121 @@ function Game({membership,onBack}){
       await loadMySpecialChallenges();
       await loadNotificationCounts();
     }
+  }
+
+  async function loadAdminSettings(){
+    const{data,error}=await supabase.rpc('get_tripquest_admin_settings',{
+      p_game_id:g.id
+    });
+    if(error){
+      setSettingsMessage(error.message);
+      return;
+    }
+    if(data?.length){
+      const row=data[0];
+      setSettingsForm({
+        name:row.game_name||g.name||'',
+        emoji:row.game_emoji||g.emoji||'🧭',
+        start_date:row.start_date||'',
+        end_date:row.end_date||'',
+        description:row.game_description||'',
+        join_enabled:row.join_enabled!==false
+      });
+    }
+  }
+
+  async function saveAdminSettings(e){
+    e.preventDefault();
+    setSettingsBusy(true);
+    setSettingsMessage('');
+    const{error}=await supabase.rpc('update_tripquest_admin_settings',{
+      p_game_id:g.id,
+      p_name:settingsForm.name.trim(),
+      p_emoji:settingsForm.emoji||'🧭',
+      p_start_date:settingsForm.start_date,
+      p_end_date:settingsForm.end_date,
+      p_description:settingsForm.description.trim()||null,
+      p_join_enabled:settingsForm.join_enabled
+    });
+    setSettingsMessage(error?error.message:'Ajustes guardados. Sal y vuelve a entrar para ver el nuevo nombre en toda la app.');
+    setSettingsBusy(false);
+  }
+
+  async function runAdminAction(action,confirmation=''){
+    if(confirmation&&dangerConfirm.trim()!==confirmation){
+      setSettingsMessage(`Escribe exactamente ${confirmation}`);
+      return;
+    }
+    setSettingsBusy(true);
+    setSettingsMessage('');
+    const{data,error}=await supabase.rpc('run_tripquest_admin_action',{
+      p_game_id:g.id,
+      p_action:action
+    });
+    setSettingsMessage(error?error.message:(data||'Acción completada'));
+    if(!error){
+      setDangerConfirm('');
+      await Promise.all([
+        loadQuesters(),
+        loadDailyChallenges(),
+        loadAuction(),
+        loadStages(),
+        loadAdminAdvantages(),
+        loadAdminChallenges()
+      ]);
+    }
+    setSettingsBusy(false);
+  }
+
+  function startEditAdvantage(item){
+    setEditingAdvantage(item.advantage_id);
+    setEditAdvantageForm({
+      name:item.name,
+      emoji:item.emoji||'🎁',
+      description:item.description||''
+    });
+  }
+
+  async function saveCustomAdvantage(e){
+    e.preventDefault();
+    setAdvantageBusy(true);
+    setAdvantageMessage('');
+    const{error}=await supabase.rpc('update_tripquest_custom_advantage',{
+      p_game_id:g.id,
+      p_advantage_id:editingAdvantage,
+      p_name:editAdvantageForm.name.trim(),
+      p_emoji:editAdvantageForm.emoji||'🎁',
+      p_description:editAdvantageForm.description.trim()
+    });
+    if(error)setAdvantageMessage(error.message);
+    else{
+      setEditingAdvantage(null);
+      setAdvantageMessage('Objeto actualizado');
+      await loadAdminAdvantages();
+    }
+    setAdvantageBusy(false);
+  }
+
+  async function deleteCustomAdvantage(advantageId){
+    if(!window.confirm('¿Borrar este objeto personalizado?'))return;
+    setAdvantageBusy(true);
+    const{error}=await supabase.rpc('delete_tripquest_custom_advantage',{
+      p_game_id:g.id,
+      p_advantage_id:advantageId
+    });
+    setAdvantageMessage(error?error.message:'Objeto eliminado');
+    await loadAdminAdvantages();
+    setAdvantageBusy(false);
+  }
+
+  async function removeAuctionLot(lotId){
+    setAuctionBusy(true);
+    const{error}=await supabase.rpc('remove_tripquest_auction_lot',{
+      p_lot_id:lotId
+    });
+    setAuctionMessage(error?error.message:'Objeto retirado de la subasta');
+    await loadAuction();
+    setAuctionBusy(false);
   }
 
   function blankStageForm(){
@@ -890,6 +1023,7 @@ function Game({membership,onBack}){
     }
     if(nextPage==='auction'){loadAuction();loadAuctionCatalog();}
     if(nextPage==='stages'){loadStages();loadQuesters();}
+    if(nextPage==='settings'){loadAdminSettings();}
     if(nextPage==='points'){
       loadQuesters();
       loadRanking();
@@ -923,7 +1057,7 @@ function Game({membership,onBack}){
     {id:'adminAdvantages',label:'🎒 Ventajas',detail:'Objetos e inventario'},
     {id:'stages',label:'📅 Plan',detail:'Trayectos y alojamientos'},
     {id:'questers',label:'👥 Questers',detail:'Ver participantes'},
-    {id:'settings',label:'⚙️ Ajustes',detail:'Próximo sprint'}
+    {id:'settings',label:'⚙️ Ajustes',detail:'Configuración y reinicio'}
   ];
 
   const playerNav=[
@@ -943,6 +1077,7 @@ function Game({membership,onBack}){
     page==='packs'?'Packs':
     page==='stages'?'Plan':
     page==='auction'?'Subasta':
+    page==='settings'?'Ajustes':
     page==='adminAdvantages'?'Objetos':
     page==='advantages'?'Objetos':
     g.name;
@@ -1496,6 +1631,10 @@ function Game({membership,onBack}){
             <small style={{display:'block',color:'var(--muted)'}}>{l.description}</small>
             <small style={{display:'block',fontWeight:'900',marginTop:'5px'}}>Mínima: {l.minimum_bid} pt · {l.lot_status}</small>
             {l.winner_nickname&&<small style={{display:'block'}}>🏆 {l.winner_nickname} · {l.winning_bid} pt</small>}
+            {auction.status==='draft'&&<button className="secondary" style={{marginTop:'9px'}}
+              disabled={auctionBusy} onClick={()=>removeAuctionLot(l.lot_id)}>
+              <Trash2 size={16}/>Quitar de la subasta
+            </button>}
           </article>)}
         </section>
         <section className="card" style={{padding:'18px',marginTop:'14px'}}>
@@ -1626,10 +1765,144 @@ function Game({membership,onBack}){
               <strong>{item.name}</strong>
               <small style={{display:'block',color:'var(--muted)'}}>{item.description}</small>
             </div>
-            <small style={{fontWeight:'900'}}>{item.is_standard?'Oficial':'Personalizado'}</small>
+            {item.is_standard
+              ?<small style={{fontWeight:'900'}}>Oficial</small>
+              :<div style={{display:'flex',gap:'6px',flexShrink:0}}>
+                <button className="secondary" disabled={advantageBusy}
+                  onClick={()=>startEditAdvantage(item)}><Pencil size={15}/></button>
+                <button className="secondary" disabled={advantageBusy}
+                  onClick={()=>deleteCustomAdvantage(item.advantage_id)}><Trash2 size={15}/></button>
+              </div>}
           </article>)}
         </div>
+
+        {editingAdvantage&&<form className="card" onSubmit={saveCustomAdvantage}
+          style={{padding:'18px',marginTop:'12px'}}>
+          <p className="eyebrow">EDITAR OBJETO PERSONALIZADO</p>
+          <div className="cols">
+            <label>Nombre<input value={editAdvantageForm.name}
+              onChange={e=>setEditAdvantageForm({...editAdvantageForm,name:e.target.value})}/></label>
+            <label>Emoji<input maxLength="4" value={editAdvantageForm.emoji}
+              onChange={e=>setEditAdvantageForm({...editAdvantageForm,emoji:e.target.value})}/></label>
+          </div>
+          <label>Descripción<textarea rows="3" value={editAdvantageForm.description}
+            onChange={e=>setEditAdvantageForm({...editAdvantageForm,description:e.target.value})}/></label>
+          <div className="actions">
+            <button className="primary" disabled={advantageBusy}><Save size={16}/>Guardar</button>
+            <button type="button" className="secondary" onClick={()=>setEditingAdvantage(null)}>Cancelar</button>
+          </div>
+        </form>}
       </section>
+    </>:page==='settings'&&mode==='admin'?<>
+      <form className="card" onSubmit={saveAdminSettings} style={{padding:'22px'}}>
+        <p className="eyebrow">AJUSTES BÁSICOS</p>
+        <h2 style={{marginBottom:'14px'}}>Configura la aventura</h2>
+
+        <div className="cols">
+          <label>Nombre
+            <input required value={settingsForm.name}
+              onChange={e=>setSettingsForm({...settingsForm,name:e.target.value})}/>
+          </label>
+          <label>Emoji
+            <input required maxLength="4" value={settingsForm.emoji}
+              onChange={e=>setSettingsForm({...settingsForm,emoji:e.target.value})}/>
+          </label>
+        </div>
+
+        <div className="cols">
+          <label>Empieza
+            <input required type="date" value={settingsForm.start_date}
+              onChange={e=>setSettingsForm({...settingsForm,start_date:e.target.value})}/>
+          </label>
+          <label>Termina
+            <input required type="date" value={settingsForm.end_date}
+              onChange={e=>setSettingsForm({...settingsForm,end_date:e.target.value})}/>
+          </label>
+        </div>
+
+        <label>Descripción
+          <textarea rows="3" value={settingsForm.description}
+            onChange={e=>setSettingsForm({...settingsForm,description:e.target.value})}/>
+        </label>
+
+        <label style={{display:'flex',alignItems:'center',gap:'10px',fontWeight:'850'}}>
+          <input type="checkbox" checked={settingsForm.join_enabled}
+            onChange={e=>setSettingsForm({...settingsForm,join_enabled:e.target.checked})}
+            style={{width:'20px',height:'20px'}}/>
+          {settingsForm.join_enabled?'🔓 Permitir nuevos Questers':'🔒 Incorporaciones cerradas'}
+        </label>
+
+        <button className="primary wide" disabled={settingsBusy}>
+          <Save size={17}/>{settingsBusy?'Guardando…':'Guardar ajustes'}
+        </button>
+      </form>
+
+      <section className="card" style={{padding:'20px',marginTop:'14px'}}>
+        <p className="eyebrow">CÓDIGO DE UNIÓN</p>
+        <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
+          <strong style={{fontSize:'1.25rem',letterSpacing:'.14em',flex:1}}>{g.invite_code}</strong>
+          <button className="secondary" onClick={copyCode}><Copy size={16}/>{copied?'Copiado':'Copiar'}</button>
+        </div>
+      </section>
+
+      <section style={{marginTop:'22px'}}>
+        <p className="eyebrow">MANTENIMIENTO</p>
+        <div style={{display:'grid',gap:'9px'}}>
+          <button className="card" disabled={settingsBusy}
+            onClick={()=>runAdminAction('clear_pending_challenges')}
+            style={{padding:'16px',border:'1px solid rgba(23,63,53,.11)',color:'inherit',textAlign:'left'}}>
+            <strong>🧹 Borrar sobres pendientes</strong>
+            <small style={{display:'block',color:'var(--muted)'}}>Elimina misiones aún no completadas ni aprobadas.</small>
+          </button>
+
+          <button className="card" disabled={settingsBusy}
+            onClick={()=>runAdminAction('clear_objects')}
+            style={{padding:'16px',border:'1px solid rgba(23,63,53,.11)',color:'inherit',textAlign:'left'}}>
+            <strong>🎒 Vaciar inventarios</strong>
+            <small style={{display:'block',color:'var(--muted)'}}>Retira todos los objetos disponibles y solicitados.</small>
+          </button>
+
+          <button className="card" disabled={settingsBusy}
+            onClick={()=>runAdminAction('force_close_auction')}
+            style={{padding:'16px',border:'1px solid rgba(23,63,53,.11)',color:'inherit',textAlign:'left'}}>
+            <strong>🔨 Cerrar subasta bloqueada</strong>
+            <small style={{display:'block',color:'var(--muted)'}}>Cierra la subasta activa sin adjudicar los lotes pendientes.</small>
+          </button>
+        </div>
+      </section>
+
+      <section className="card" style={{padding:'20px',marginTop:'22px',border:'1px solid #d7a1a1'}}>
+        <p className="eyebrow" style={{color:'#a13f3f'}}>ZONA PELIGROSA</p>
+        <p style={{color:'var(--muted)'}}>Estas acciones son irreversibles. Escribe la palabra solicitada antes de ejecutarlas.</p>
+
+        <label>Confirmación
+          <input value={dangerConfirm} onChange={e=>setDangerConfirm(e.target.value)}
+            placeholder="Escribe REINICIAR o PUNTOS"/>
+        </label>
+
+        <div style={{display:'grid',gap:'9px'}}>
+          <button type="button" disabled={settingsBusy}
+            onClick={()=>runAdminAction('reset_points','PUNTOS')}
+            style={{border:0,borderRadius:'13px',padding:'13px',fontWeight:'900',background:'#f1dfdf',color:'#8d3030'}}>
+            Reiniciar todos los puntos
+          </button>
+
+          <button type="button" disabled={settingsBusy}
+            onClick={()=>runAdminAction('reset_game','REINICIAR')}
+            style={{border:0,borderRadius:'13px',padding:'13px',fontWeight:'900',background:'#a13f3f',color:'white'}}>
+            Reiniciar completamente la aventura
+          </button>
+        </div>
+      </section>
+
+      <section className="card" style={{padding:'20px',marginTop:'14px'}}>
+        <p className="eyebrow">ELIMINAR AVENTURA</p>
+        <p style={{color:'var(--muted)',marginBottom:0}}>
+          La eliminación definitiva sigue disponible desde el menú ⋮ de la aventura en «Mis aventuras», donde exige escribir su nombre exacto.
+        </p>
+      </section>
+
+      {settingsMessage&&<p className="msg">{settingsMessage}</p>}
     </>:page==='stages'?<>
       {mode==='admin'&&<form className="card" onSubmit={saveStage} style={{padding:'22px'}}>
         <p className="eyebrow">{editingStageId?'EDITAR JORNADA':'NUEVA JORNADA'}</p>
