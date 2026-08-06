@@ -3,8 +3,8 @@ import {Compass,Plus,KeyRound,LogOut,ArrowLeft,Settings,UserRound,CalendarDays,C
 import {supabase} from './supabase'
 
 const APP_VERSION='1.0.0'
-const LEGAL_OWNER='Arturo Jorge Claver Insa'
-const LEGAL_EMAIL='ajclaver91@gmail.com'
+const LEGAL_OWNER='PENDIENTE: nombre completo o denominación del responsable'
+const LEGAL_EMAIL='PENDIENTE: correo de contacto'
 const LEGAL_COUNTRY='España'
 const LEGAL_UPDATED='6 de agosto de 2026'
 
@@ -154,6 +154,7 @@ function LegalLinks({onOpen,compact=false}){
 
 function Auth(){
   const[register,setRegister]=useState(false)
+  const[forgot,setForgot]=useState(false)
   const[f,setF]=useState({nickname:'',email:'',password:''})
   const[accepted,setAccepted]=useState(false)
   const[legalOpen,setLegalOpen]=useState(null)
@@ -168,6 +169,21 @@ function Auth(){
     }
     setBusy(true)
     setMsg('')
+
+    if(forgot){
+      const{error}=await supabase.auth.resetPasswordForEmail(
+        f.email.trim(),
+        {redirectTo:`${window.location.origin}/?password_recovery=1`}
+      )
+      setMsg(
+        error
+          ?error.message
+          :'Te hemos enviado un enlace. Revisa también la carpeta de spam.'
+      )
+      setBusy(false)
+      return
+    }
+
     const r=register
       ?await supabase.auth.signUp({
         email:f.email.trim(),
@@ -185,51 +201,116 @@ function Auth(){
         email:f.email.trim(),
         password:f.password
       })
+
     if(r.error)setMsg(r.error.message)
     else if(register)setMsg('Cuenta creada. Revisa el correo si se exige confirmación.')
     setBusy(false)
+  }
+
+  function showLogin(){
+    setForgot(false)
+    setRegister(false)
+    setMsg('')
   }
 
   return <main className="auth">
     <section className="brand">
       <div className="mark"><Compass size={42}/></div>
       <p className="eyebrow">BRINKKANDO</p>
-      <h1>Cada plan merece un Brinkkando.</h1>
-      <p className="lead">Crea un Brinkkando, invita a tus Brinkkers y convierte cualquier plan en un juego compartido.</p>
+      <h1>{forgot?'Recupera tu cuenta.':'Cada plan merece un Brinkkando.'}</h1>
+      <p className="lead">
+        {forgot
+          ?'Te enviaremos un enlace seguro para que puedas elegir una contraseña nueva.'
+          :'Crea un Brinkkando, invita a tus Brinkkers y convierte cualquier plan en un juego compartido.'}
+      </p>
     </section>
 
     <form className="card authCard" onSubmit={submit}>
-      <div className="switch">
-        <button type="button" className={!register?'active':''} onClick={()=>setRegister(false)}>Entrar</button>
-        <button type="button" className={register?'active':''} onClick={()=>setRegister(true)}>Crear cuenta</button>
-      </div>
+      {!forgot&&<div className="switch">
+        <button type="button" className={!register?'active':''}
+          onClick={()=>{setRegister(false);setMsg('')}}>
+          Entrar
+        </button>
+        <button type="button" className={register?'active':''}
+          onClick={()=>{setRegister(true);setMsg('')}}>
+          Crear cuenta
+        </button>
+      </div>}
 
-      {register&&<label>¿Cómo te llamamos?
-        <input required value={f.nickname} onChange={e=>setF({...f,nickname:e.target.value})} placeholder="Tu nick"/>
+      {forgot&&<>
+        <button type="button" className="secondary" style={{marginBottom:'14px'}}
+          onClick={showLogin}>
+          <ArrowLeft size={17}/>Volver
+        </button>
+        <p className="eyebrow">RECUPERAR CONTRASEÑA</p>
+        <h2 style={{marginBottom:'12px'}}>¿Cuál es tu correo?</h2>
+      </>}
+
+      {register&&!forgot&&<label>¿Cómo te llamamos?
+        <input required value={f.nickname}
+          onChange={e=>setF({...f,nickname:e.target.value})}
+          placeholder="Tu nick"/>
       </label>}
 
       <label>Email
-        <input required type="email" value={f.email} onChange={e=>setF({...f,email:e.target.value})}/>
+        <input required type="email" value={f.email}
+          onChange={e=>setF({...f,email:e.target.value})}/>
       </label>
 
-      <label>Contraseña
-        <input required minLength="6" type="password" value={f.password} onChange={e=>setF({...f,password:e.target.value})}/>
-      </label>
+      {!forgot&&<label>Contraseña
+        <input required minLength="6" type="password" value={f.password}
+          onChange={e=>setF({...f,password:e.target.value})}/>
+      </label>}
 
-      {register&&<label style={{display:'flex',alignItems:'flex-start',gap:'9px',fontWeight:'700',fontSize:'.82rem',lineHeight:1.4}}>
-        <input type="checkbox" required checked={accepted} onChange={e=>setAccepted(e.target.checked)}
+      {register&&!forgot&&<label style={{
+        display:'flex',
+        alignItems:'flex-start',
+        gap:'9px',
+        fontWeight:'700',
+        fontSize:'.82rem',
+        lineHeight:1.4
+      }}>
+        <input type="checkbox" required checked={accepted}
+          onChange={e=>setAccepted(e.target.checked)}
           style={{width:'18px',height:'18px',marginTop:'2px',flexShrink:0}}/>
         <span>
           Acepto los{' '}
-          <button type="button" onClick={()=>setLegalOpen('terms')} style={{border:0,background:'transparent',padding:0,color:'inherit',textDecoration:'underline',fontWeight:'900'}}>Términos de uso</button>
+          <button type="button" onClick={()=>setLegalOpen('terms')} style={{
+            border:0,background:'transparent',padding:0,color:'inherit',
+            textDecoration:'underline',fontWeight:'900'
+          }}>Términos de uso</button>
           {' '}y he leído la{' '}
-          <button type="button" onClick={()=>setLegalOpen('privacy')} style={{border:0,background:'transparent',padding:0,color:'inherit',textDecoration:'underline',fontWeight:'900'}}>Política de privacidad</button>.
+          <button type="button" onClick={()=>setLegalOpen('privacy')} style={{
+            border:0,background:'transparent',padding:0,color:'inherit',
+            textDecoration:'underline',fontWeight:'900'
+          }}>Política de privacidad</button>.
         </span>
       </label>}
 
       <button className="primary wide" disabled={busy}>
-        {busy?'Un momento…':register?'Crear mi cuenta':'Entrar'}
+        {busy
+          ?'Un momento…'
+          :forgot
+            ?'Enviar enlace'
+            :register
+              ?'Crear mi cuenta'
+              :'Entrar'}
       </button>
+
+      {!register&&!forgot&&<button type="button"
+        onClick={()=>{setForgot(true);setMsg('')}}
+        style={{
+          width:'100%',
+          border:0,
+          background:'transparent',
+          color:'var(--muted)',
+          textDecoration:'underline',
+          fontWeight:'850',
+          marginTop:'12px'
+        }}>
+        He olvidado mi contraseña
+      </button>}
+
       {msg&&<p className="msg">{msg}</p>}
       <LegalLinks onOpen={setLegalOpen} compact/>
     </form>
@@ -2748,6 +2829,71 @@ function Dashboard({session}){
     {legalOpen&&<LegalModal section={legalOpen} onClose={()=>setLegalOpen(null)}/>}
   </main>
 }
+function ResetPassword({onDone}){
+  const[password,setPassword]=useState('')
+  const[repeat,setRepeat]=useState('')
+  const[msg,setMsg]=useState('')
+  const[busy,setBusy]=useState(false)
+
+  async function submit(e){
+    e.preventDefault()
+    setMsg('')
+
+    if(password.length<6){
+      setMsg('La contraseña debe tener al menos 6 caracteres.')
+      return
+    }
+
+    if(password!==repeat){
+      setMsg('Las contraseñas no coinciden.')
+      return
+    }
+
+    setBusy(true)
+    const{error}=await supabase.auth.updateUser({password})
+
+    if(error){
+      setMsg(error.message)
+      setBusy(false)
+      return
+    }
+
+    await supabase.auth.signOut()
+    window.history.replaceState({},'',window.location.pathname)
+    setBusy(false)
+    onDone()
+  }
+
+  return <main className="auth">
+    <section className="brand">
+      <div className="mark"><KeyRound size={42}/></div>
+      <p className="eyebrow">NUEVA CONTRASEÑA</p>
+      <h1>Vuelve a Brinkkando.</h1>
+      <p className="lead">Elige una contraseña nueva para recuperar tu cuenta.</p>
+    </section>
+
+    <form className="card authCard" onSubmit={submit}>
+      <label>Nueva contraseña
+        <input required minLength="6" type="password" value={password}
+          onChange={e=>setPassword(e.target.value)}
+          autoComplete="new-password"/>
+      </label>
+
+      <label>Repite la contraseña
+        <input required minLength="6" type="password" value={repeat}
+          onChange={e=>setRepeat(e.target.value)}
+          autoComplete="new-password"/>
+      </label>
+
+      <button className="primary wide" disabled={busy}>
+        {busy?'Guardando…':'Guardar contraseña'}
+      </button>
+
+      {msg&&<p className="msg">{msg}</p>}
+    </form>
+  </main>
+}
+
 function EmailConfirmed({session,onContinue}){
   const[legalOpen,setLegalOpen]=useState(null)
   return <main className="auth">
@@ -2771,22 +2917,51 @@ function EmailConfirmed({session,onContinue}){
 }
 
 export default function App(){
-  const[session,setSession]=useState(null);
-  const[ready,setReady]=useState(false);
-  const[confirmed,setConfirmed]=useState(()=>new URLSearchParams(window.location.search).get('email_confirmed')==='1');
+  const[session,setSession]=useState(null)
+  const[ready,setReady]=useState(false)
+  const[recovering,setRecovering]=useState(
+    ()=>new URLSearchParams(window.location.search).get('password_recovery')==='1'
+  )
+  const[confirmed,setConfirmed]=useState(
+    ()=>new URLSearchParams(window.location.search).get('email_confirmed')==='1'
+  )
 
   useEffect(()=>{
-    supabase.auth.getSession().then(({data})=>{setSession(data.session);setReady(true)});
-    const{data}=supabase.auth.onAuthStateChange((_e,s)=>{setSession(s);setReady(true)});
+    supabase.auth.getSession().then(({data})=>{
+      setSession(data.session)
+      setReady(true)
+    })
+
+    const{data}=supabase.auth.onAuthStateChange((event,nextSession)=>{
+      setSession(nextSession)
+      if(event==='PASSWORD_RECOVERY')setRecovering(true)
+      setReady(true)
+    })
+
     return()=>data.subscription.unsubscribe()
-  },[]);
+  },[])
 
   function continueAfterConfirmation(){
-    window.history.replaceState({},'',window.location.pathname);
+    window.history.replaceState({},'',window.location.pathname)
     setConfirmed(false)
   }
 
-  if(!ready)return <div className="splash"><Compass size={48}/><span><strong>Brinkkando</strong><small style={{display:'block',color:'var(--muted)',fontSize:'.65rem'}}>v{APP_VERSION}</small></span></div>;
-  if(confirmed)return <EmailConfirmed session={session} onContinue={continueAfterConfirmation}/>;
+  function finishPasswordRecovery(){
+    setRecovering(false)
+    setSession(null)
+  }
+
+  if(!ready)return <div className="splash">
+    <Compass size={48}/>
+    <span>
+      <strong>Brinkkando</strong>
+      <small style={{display:'block',color:'var(--muted)',fontSize:'.65rem'}}>
+        v{APP_VERSION}
+      </small>
+    </span>
+  </div>
+
+  if(recovering)return <ResetPassword onDone={finishPasswordRecovery}/>
+  if(confirmed)return <EmailConfirmed session={session} onContinue={continueAfterConfirmation}/>
   return session?<Dashboard session={session}/>:<Auth/>
 }
