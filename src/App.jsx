@@ -5,17 +5,17 @@ import {supabase} from './supabase'
 const emptyGame={name:'',emoji:'🧭',start_date:'',end_date:'',description:''}
 const tripStatus=(s,e)=>{if(!s||!e)return'Fechas por definir';const t=new Date();t.setHours(0,0,0,0);const a=new Date(s+'T00:00:00'),b=new Date(e+'T00:00:00'),d=86400000;if(t<a){const n=Math.ceil((a-t)/d);return n===1?'Empieza mañana':`Empieza en ${n} días`}if(t>b)return'Aventura finalizada';return`Día ${Math.floor((t-a)/d)+1} de ${Math.floor((b-a)/d)+1}`}
 
-function Auth(){const[register,setRegister]=useState(false),[f,setF]=useState({nickname:'',email:'',password:''}),[msg,setMsg]=useState(''),[busy,setBusy]=useState(false);async function submit(e){e.preventDefault();setBusy(true);setMsg('');const r=register?await supabase.auth.signUp({email:f.email.trim(),password:f.password,options:{data:{nickname:f.nickname.trim()},emailRedirectTo:`${window.location.origin}/?email_confirmed=1`}}):await supabase.auth.signInWithPassword({email:f.email.trim(),password:f.password});if(r.error)setMsg(r.error.message);else if(register)setMsg('Cuenta creada. Revisa el correo si se exige confirmación.');setBusy(false)}return <main className="auth"><section className="brand"><div className="mark"><Compass size={42}/></div><p className="eyebrow">TRIPQUEST</p><h1>Haz que el viaje empiece antes de salir.</h1><p className="lead">Crea una aventura, invita a tus Questers y convierte el viaje en un juego compartido.</p></section><form className="card authCard" onSubmit={submit}><div className="switch"><button type="button" className={!register?'active':''} onClick={()=>setRegister(false)}>Entrar</button><button type="button" className={register?'active':''} onClick={()=>setRegister(true)}>Crear cuenta</button></div>{register&&<label>¿Cómo te llamamos?<input required value={f.nickname} onChange={e=>setF({...f,nickname:e.target.value})} placeholder="Tu nick"/></label>}<label>Email<input required type="email" value={f.email} onChange={e=>setF({...f,email:e.target.value})}/></label><label>Contraseña<input required minLength="6" type="password" value={f.password} onChange={e=>setF({...f,password:e.target.value})}/></label><button className="primary wide" disabled={busy}>{busy?'Un momento…':register?'Crear mi cuenta':'Entrar'}</button>{msg&&<p className="msg">{msg}</p>}</form></main>}
+function Auth(){const[register,setRegister]=useState(false),[f,setF]=useState({nickname:'',email:'',password:''}),[msg,setMsg]=useState(''),[busy,setBusy]=useState(false);async function submit(e){e.preventDefault();setBusy(true);setMsg('');const r=register?await supabase.auth.signUp({email:f.email.trim(),password:f.password,options:{data:{nickname:f.nickname.trim()},emailRedirectTo:`${window.location.origin}/?email_confirmed=1`}}):await supabase.auth.signInWithPassword({email:f.email.trim(),password:f.password});if(r.error)setMsg(r.error.message);else if(register)setMsg('Cuenta creada. Revisa el correo si se exige confirmación.');setBusy(false)}return <main className="auth"><section className="brand"><div className="mark"><Compass size={42}/></div><p className="eyebrow">BRINKKANDO</p><h1>Cada plan merece un Brinkkando.</h1><p className="lead">Crea un Brinkkando, invita a tus Brinkkers y convierte el viaje en un juego compartido.</p></section><form className="card authCard" onSubmit={submit}><div className="switch"><button type="button" className={!register?'active':''} onClick={()=>setRegister(false)}>Entrar</button><button type="button" className={register?'active':''} onClick={()=>setRegister(true)}>Crear cuenta</button></div>{register&&<label>¿Cómo te llamamos?<input required value={f.nickname} onChange={e=>setF({...f,nickname:e.target.value})} placeholder="Tu nick"/></label>}<label>Email<input required type="email" value={f.email} onChange={e=>setF({...f,email:e.target.value})}/></label><label>Contraseña<input required minLength="6" type="password" value={f.password} onChange={e=>setF({...f,password:e.target.value})}/></label><button className="primary wide" disabled={busy}>{busy?'Un momento…':register?'Crear mi cuenta':'Entrar'}</button>{msg&&<p className="msg">{msg}</p>}</form></main>}
 
-function Modal({type,onClose,onDone}){const[game,setGame]=useState(emptyGame),[code,setCode]=useState(''),[msg,setMsg]=useState(''),[busy,setBusy]=useState(false);async function submit(e){e.preventDefault();setBusy(true);let r;if(type==='create')r=await supabase.rpc('create_tripquest_game',{p_name:game.name.trim(),p_emoji:game.emoji||'🧭',p_start_date:game.start_date,p_end_date:game.end_date,p_description:game.description.trim()||null});else r=await supabase.rpc('join_tripquest_game',{p_invite_code:code.trim().toUpperCase()});if(r.error)setMsg(r.error.message);else onDone();setBusy(false)}return <div className="backdrop"><form className="card modal" onSubmit={submit}><button type="button" className="icon" onClick={onClose}><ArrowLeft/></button>{type==='create'?<><p className="eyebrow">NUEVA AVENTURA</p><h2>¿Cómo empieza vuestra historia?</h2><label>Nombre<input required value={game.name} onChange={e=>setGame({...game,name:e.target.value})} placeholder="Galicia 2026"/></label><label>Emoji<input required maxLength="4" value={game.emoji} onChange={e=>setGame({...game,emoji:e.target.value})}/></label><div className="cols"><label>Empieza<input required type="date" value={game.start_date} onChange={e=>setGame({...game,start_date:e.target.value})}/></label><label>Termina<input required type="date" value={game.end_date} onChange={e=>setGame({...game,end_date:e.target.value})}/></label></div><label>Descripción<textarea rows="3" value={game.description} onChange={e=>setGame({...game,description:e.target.value})}/></label></>:<><p className="eyebrow">UNIRME</p><h2>Introduce el código</h2><input required className="code" maxLength="6" value={code} onChange={e=>setCode(e.target.value.toUpperCase())} placeholder="A7K2P9"/></>}<button className="primary wide" disabled={busy}>{busy?'Un momento…':type==='create'?'Crear aventura':'Unirme'}</button>{msg&&<p className="msg">{msg}</p>}</form></div>}
+function Modal({type,onClose,onDone}){const[game,setGame]=useState(emptyGame),[code,setCode]=useState(''),[msg,setMsg]=useState(''),[busy,setBusy]=useState(false);async function submit(e){e.preventDefault();setBusy(true);let r;if(type==='create')r=await supabase.rpc('create_tripquest_game',{p_name:game.name.trim(),p_emoji:game.emoji||'🧭',p_start_date:game.start_date,p_end_date:game.end_date,p_description:game.description.trim()||null});else r=await supabase.rpc('join_tripquest_game',{p_invite_code:code.trim().toUpperCase()});if(r.error)setMsg(r.error.message);else onDone();setBusy(false)}return <div className="backdrop"><form className="card modal" onSubmit={submit}><button type="button" className="icon" onClick={onClose}><ArrowLeft/></button>{type==='create'?<><p className="eyebrow">NUEVO BRINKKANDO</p><h2>¿Cómo empieza vuestra historia?</h2><label>Nombre<input required value={game.name} onChange={e=>setGame({...game,name:e.target.value})} placeholder="Galicia 2026"/></label><label>Emoji<input required maxLength="4" value={game.emoji} onChange={e=>setGame({...game,emoji:e.target.value})}/></label><div className="cols"><label>Empieza<input required type="date" value={game.start_date} onChange={e=>setGame({...game,start_date:e.target.value})}/></label><label>Termina<input required type="date" value={game.end_date} onChange={e=>setGame({...game,end_date:e.target.value})}/></label></div><label>Descripción<textarea rows="3" value={game.description} onChange={e=>setGame({...game,description:e.target.value})}/></label></>:<><p className="eyebrow">UNIRME</p><h2>Introduce el código</h2><input required className="code" maxLength="6" value={code} onChange={e=>setCode(e.target.value.toUpperCase())} placeholder="A7K2P9"/></>}<button className="primary wide" disabled={busy}>{busy?'Un momento…':type==='create'?'Crear Brinkkando':'Unirme'}</button>{msg&&<p className="msg">{msg}</p>}</form></div>}
 
 function Game({membership,onBack}){
   const[mode,setMode]=useState('player');
   const[page,setPage]=useState('home');
   const[copied,setCopied]=useState(false);
-  const[questers,setQuesters]=useState([]);
-  const[questersLoading,setQuestersLoading]=useState(false);
-  const[questersError,setQuestersError]=useState('');
+  const[brinkkers,setBrinkkers]=useState([]);
+  const[brinkkersLoading,setBrinkkersLoading]=useState(false);
+  const[brinkkersError,setBrinkkersError]=useState('');
   const[ranking,setRanking]=useState([]);
   const[rankingLoading,setRankingLoading]=useState(false);
   const[rankingError,setRankingError]=useState('');
@@ -133,7 +133,7 @@ function Game({membership,onBack}){
   const owner=membership.role==='owner';
 
   useEffect(()=>{
-    loadQuesters();
+    loadBrinkkers();
     loadDailyChallenges();
     loadAuction();
     loadStages();
@@ -169,21 +169,21 @@ function Game({membership,onBack}){
     }
   }
 
-  async function loadQuesters(){
-    setQuestersLoading(true);
-    setQuestersError('');
+  async function loadBrinkkers(){
+    setBrinkkersLoading(true);
+    setBrinkkersError('');
     const{data,error}=await supabase.rpc('list_tripquest_game_members',{p_game_id:g.id});
     if(error){
-      console.error('Error cargando Questers:',error);
-      setQuesters([]);
-      setQuestersError(error.message);
+      console.error('Error cargando Brinkkers:',error);
+      setBrinkkers([]);
+      setBrinkkersError(error.message);
     }else{
-      setQuesters(data||[]);
+      setBrinkkers(data||[]);
       if(!pointsForm.user_id&&data?.length){
         setPointsForm(form=>({...form,user_id:data[0].user_id}));
       }
     }
-    setQuestersLoading(false);
+    setBrinkkersLoading(false);
   }
 
   async function loadPointHistory(){
@@ -221,7 +221,7 @@ function Game({membership,onBack}){
     setPointsMessage('');
     const amount=Number(pointsForm.amount);
     if(!pointsForm.user_id){
-      setPointsMessage('Selecciona un Quester.');
+      setPointsMessage('Selecciona un Brinkker.');
       setPointsBusy(false);
       return;
     }
@@ -353,7 +353,7 @@ function Game({membership,onBack}){
     if(!error){
       setDangerConfirm('');
       await Promise.all([
-        loadQuesters(),
+        loadBrinkkers(),
         loadDailyChallenges(),
         loadAuction(),
         loadStages(),
@@ -683,7 +683,7 @@ function Game({membership,onBack}){
     setAdvantageMessage('');
 
     if(!assignAdvantage.advantage_id||!assignAdvantage.user_id){
-      setAdvantageMessage('Selecciona un objeto y un Quester.');
+      setAdvantageMessage('Selecciona un objeto y un Brinkker.');
       setAdvantageBusy(false);
       return;
     }
@@ -933,7 +933,7 @@ function Game({membership,onBack}){
       return;
     }
     if(!challengeForm.recipient_ids.length){
-      setChallengeMessage('Selecciona al menos un Quester.');
+      setChallengeMessage('Selecciona al menos un Brinkker.');
       setChallengeBusy(false);
       return;
     }
@@ -1001,9 +1001,9 @@ function Game({membership,onBack}){
     setPage(nextPage);
     if(nextPage==='home'){
       loadDailyChallenges();
-      loadQuesters();
+      loadBrinkkers();
     }
-    if(nextPage==='questers')loadQuesters();
+    if(nextPage==='brinkkers')loadBrinkkers();
     if(nextPage==='ranking'){
       loadRanking();
       loadPointHistory();
@@ -1018,19 +1018,19 @@ function Game({membership,onBack}){
       markSectionRead('advantages');
     }
     if(nextPage==='adminAdvantages'){
-      loadQuesters();
+      loadBrinkkers();
       loadAdminAdvantages();
     }
     if(nextPage==='auction'){loadAuction();loadAuctionCatalog();}
-    if(nextPage==='stages'){loadStages();loadQuesters();}
+    if(nextPage==='stages'){loadStages();loadBrinkkers();}
     if(nextPage==='settings'){loadAdminSettings();}
     if(nextPage==='points'){
-      loadQuesters();
+      loadBrinkkers();
       loadRanking();
       loadPointHistory();
     }
     if(nextPage==='adminChallenges'){
-      loadQuesters();
+      loadBrinkkers();
       loadAdminChallenges();
     }
     if(nextPage==='packs'){
@@ -1045,7 +1045,7 @@ function Game({membership,onBack}){
       markSectionRead('admin');
     }else{
       loadDailyChallenges();
-      loadQuesters();
+      loadBrinkkers();
     }
   }
 
@@ -1056,7 +1056,7 @@ function Game({membership,onBack}){
     {id:'auction',label:'🔨 Subasta',detail:'Objetos y pujas'},
     {id:'adminAdvantages',label:'🎒 Ventajas',detail:'Objetos e inventario'},
     {id:'stages',label:'📅 Plan',detail:'Trayectos y alojamientos'},
-    {id:'questers',label:'👥 Questers',detail:'Ver participantes'},
+    {id:'brinkkers',label:'👥 Brinkkers',detail:'Ver participantes'},
     {id:'settings',label:'⚙️ Ajustes',detail:'Configuración y reinicio'}
   ];
 
@@ -1070,7 +1070,7 @@ function Game({membership,onBack}){
 
   const title=
     page==='ranking'?'Ranking':
-    page==='questers'?'Questers':
+    page==='brinkkers'?'Brinkkers':
     page==='points'?'Puntos':
     page==='challenges'?'Retos':
     page==='adminChallenges'?'Retos y sobres':
@@ -1122,9 +1122,9 @@ function Game({membership,onBack}){
     {page==='home'?<>
       <section className="card hero">
         <span>{g.emoji}</span>
-        <p className="eyebrow">{mode==='admin'?'MODO ADMIN':'TRIPQUEST'}</p>
+        <p className="eyebrow">{mode==='admin'?'MODO ADMIN':'BRINKKANDO'}</p>
         <h2>{tripStatus(g.start_date,g.end_date)}</h2>
-        <p>{g.description||'Haz que esta aventura sea inolvidable.'}</p>
+        <p>{g.description||'Haz que este Brinkkando sea inolvidable.'}</p>
       </section>
 
       {mode==='admin'&&<section className="card" style={{marginTop:'14px',padding:'16px 18px'}}>
@@ -1138,17 +1138,17 @@ function Game({membership,onBack}){
       </section>}
 
       {mode==='player'?<>
-        <button className="card" onClick={()=>openPage('questers')} style={{
+        <button className="card" onClick={()=>openPage('brinkkers')} style={{
           width:'100%',marginTop:'14px',padding:'18px',
           border:'1px solid rgba(23,63,53,.11)',color:'inherit',textAlign:'left'
         }}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'14px'}}>
             <div>
               <p className="eyebrow" style={{marginBottom:'5px'}}>QUESTERS</p>
-              <strong style={{fontSize:'1.08rem'}}>{questers.length} {questers.length===1?'participante':'participantes'}</strong>
+              <strong style={{fontSize:'1.08rem'}}>{brinkkers.length} {brinkkers.length===1?'participante':'participantes'}</strong>
             </div>
             <div style={{display:'flex',alignItems:'center',justifyContent:'flex-end'}}>
-              {questers.slice(0,5).map((q,index)=><div key={q.user_id} style={{
+              {brinkkers.slice(0,5).map((q,index)=><div key={q.user_id} style={{
                 width:'42px',height:'42px',borderRadius:'14px',
                 background:q.profile_color||'#e7eee9',display:'grid',
                 placeItems:'center',fontSize:'1.35rem',
@@ -1286,8 +1286,8 @@ function Game({membership,onBack}){
     </>:page==='ranking'?<>
       <section className="card" style={{padding:'22px'}}>
         <p className="eyebrow">CLASIFICACIÓN</p>
-        <h2 style={{marginBottom:'7px'}}>Así va la aventura</h2>
-        <p style={{color:'var(--muted)',marginBottom:0}}>Los puntos pertenecen únicamente a esta aventura.</p>
+        <h2 style={{marginBottom:'7px'}}>Así va el Brinkkando</h2>
+        <p style={{color:'var(--muted)',marginBottom:0}}>Los puntos pertenecen únicamente a este Brinkkando.</p>
       </section>
       <section style={{display:'grid',gap:'10px',marginTop:'14px'}}>
         {rankingLoading&&<article className="card" style={{padding:'18px'}}>Cargando clasificación…</article>}
@@ -1296,7 +1296,7 @@ function Game({membership,onBack}){
           <article className="card" key={q.user_id} style={{padding:'16px',display:'flex',alignItems:'center',gap:'13px',border:index<3?'1px solid rgba(214,166,62,.45)':'1px solid rgba(23,63,53,.11)'}}>
             <div style={{width:'34px',fontSize:index<3?'1.5rem':'1rem',fontWeight:'950',textAlign:'center'}}>{topThree[index]||`${index+1}.`}</div>
             <div style={{width:'50px',height:'50px',borderRadius:'16px',background:q.profile_color||'#e7eee9',display:'grid',placeItems:'center',fontSize:'1.65rem'}}>{q.avatar_emoji||'🧭'}</div>
-            <div style={{flex:1}}><strong>{q.nickname}</strong><small style={{display:'block',color:'var(--muted)'}}>{q.member_role==='owner'?'Creador · Admin':'Quester'}</small></div>
+            <div style={{flex:1}}><strong>{q.nickname}</strong><small style={{display:'block',color:'var(--muted)'}}>{q.member_role==='owner'?'Creador · Admin':'Brinkker'}</small></div>
             <strong style={{fontSize:'1.25rem'}}>{q.total_points} pt</strong>
           </article>
         )}
@@ -1333,7 +1333,7 @@ function Game({membership,onBack}){
           </div>
           <p style={{color:'var(--muted)'}}>{item.description}</p>
           {(item.kind==='secret_team'||item.kind==='random_team')&&<p style={{fontWeight:'800'}}>Equipo: {item.member_names}</p>}
-          <strong>⭐ {item.points} pt por Quester</strong>
+          <strong>⭐ {item.points} pt por Brinkker</strong>
           {(item.group_status==='pending'||item.group_status==='rejected')&&
             <button className="primary wide" style={{marginTop:'14px'}} onClick={()=>submitSpecial(item.group_id)}>
               <Send size={17}/>Enviar a revisión
@@ -1444,7 +1444,7 @@ function Game({membership,onBack}){
         <p className="eyebrow">RETOS DEL DÍA</p>
         <h2 style={{marginBottom:'7px'}}>Cinco retos automáticos cada día</h2>
         <p style={{color:'var(--muted)',marginBottom:0}}>
-          TripQuest selecciona los mismos cinco retos para todo el grupo y los renueva
+          Brinkkando selecciona los mismos cinco retos para todo el grupo y los renueva
           automáticamente cada madrugada. No requieren validación: cuando alguien los
           complete, asigna los puntos manualmente desde Puntos.
         </p>
@@ -1454,24 +1454,24 @@ function Game({membership,onBack}){
         <p className="eyebrow">SOBRES ALEATORIOS</p>
         <h2 style={{marginBottom:'8px'}}>Reparto completamente ciego</h2>
         <p style={{color:'var(--muted)'}}>
-          TripQuest elige y reparte las pruebas dentro de Supabase. Como Admin solo verás
+          Brinkkando elige y reparte las pruebas dentro de Supabase. Como Admin solo verás
           cuántos sobres o equipos se han creado, nunca las asignaciones.
         </p>
 
         <div style={{display:'grid',gap:'10px',marginTop:'16px'}}>
-          <button className="primary wide" disabled={roundBusy||questers.length<1}
+          <button className="primary wide" disabled={roundBusy||brinkkers.length<1}
             onClick={()=>distributeBlindEnvelopes('individual')}>
             <Lock size={18}/>{roundBusy?'Repartiendo…':'Enviar un sobre diferente a todos'}
           </button>
 
-          <button className="secondary wide" disabled={roundBusy||questers.length<2}
+          <button className="secondary wide" disabled={roundBusy||brinkkers.length<2}
             onClick={()=>distributeBlindEnvelopes('team')}>
             <Handshake size={18}/>{roundBusy?'Formando equipos…':'Crear equipos y repartir sobres'}
           </button>
         </div>
 
         <small style={{display:'block',color:'var(--muted)',marginTop:'12px'}}>
-          Los equipos se equilibran automáticamente. Nadie queda fuera; con tres Questers,
+          Los equipos se equilibran automáticamente. Nadie queda fuera; con tres Brinkkers,
           uno puede recibir una misión individual dentro de la ronda de equipos.
         </small>
       </section>
@@ -1516,7 +1516,7 @@ function Game({membership,onBack}){
             onChange={e=>setChallengeForm({...challengeForm,description:e.target.value})}
             placeholder="Explica lo que deben conseguir…"/>
         </label>
-        <label>Puntos por Quester
+        <label>Puntos por Brinkker
           <input type="number" min="0" step="1" value={challengeForm.points}
             onChange={e=>setChallengeForm({...challengeForm,points:e.target.value})}/>
         </label>
@@ -1526,16 +1526,16 @@ function Game({membership,onBack}){
           <button type="button" className="secondary"
             onClick={()=>setChallengeForm(form=>({
               ...form,
-              recipient_ids:form.recipient_ids.length===questers.length
+              recipient_ids:form.recipient_ids.length===brinkkers.length
                 ?[]
-                :questers.map(q=>q.user_id)
+                :brinkkers.map(q=>q.user_id)
             }))}>
-            {challengeForm.recipient_ids.length===questers.length?'Quitar todos':'Seleccionar todos'}
+            {challengeForm.recipient_ids.length===brinkkers.length?'Quitar todos':'Seleccionar todos'}
           </button>
         </div>
 
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:'8px',margin:'12px 0 16px'}}>
-          {questers.map(q=><button type="button" key={q.user_id}
+          {brinkkers.map(q=><button type="button" key={q.user_id}
             onClick={()=>toggleRecipient(q.user_id)} style={{
               border:challengeForm.recipient_ids.includes(q.user_id)
                 ?'2px solid #2f7563'
@@ -1589,24 +1589,24 @@ function Game({membership,onBack}){
         <p style={{color:'var(--muted)',marginBottom:0}}>Usa cantidades positivas para sumar y negativas para restar.</p>
       </section>
       <form className="card" onSubmit={adjustPoints} style={{padding:'20px',marginTop:'14px'}}>
-        <label>Quester<select value={pointsForm.user_id} onChange={e=>setPointsForm({...pointsForm,user_id:e.target.value})}><option value="">Selecciona un Quester</option>{questers.map(q=><option key={q.user_id} value={q.user_id}>{q.nickname}</option>)}</select></label>
+        <label>Brinkker<select value={pointsForm.user_id} onChange={e=>setPointsForm({...pointsForm,user_id:e.target.value})}><option value="">Selecciona un Brinkker</option>{brinkkers.map(q=><option key={q.user_id} value={q.user_id}>{q.nickname}</option>)}</select></label>
         <label>Puntos<input type="number" step="1" value={pointsForm.amount} onChange={e=>setPointsForm({...pointsForm,amount:e.target.value})}/></label>
         <label>Motivo<input value={pointsForm.reason} onChange={e=>setPointsForm({...pointsForm,reason:e.target.value})} placeholder="Reto completado, penalización…"/></label>
         <button className="primary wide" disabled={pointsBusy}><Star size={18}/>{pointsBusy?'Guardando…':'Registrar puntos'}</button>
         {pointsMessage&&<p className="msg">{pointsMessage}</p>}
       </form>
-    </>:page==='questers'?<>
+    </>:page==='brinkkers'?<>
       <section className="card" style={{padding:'22px'}}>
         <p className="eyebrow">{mode==='admin'?'GESTIÓN DE LA AVENTURA':'COMPAÑEROS DE VIAJE'}</p>
-        <h2 style={{marginBottom:'8px'}}>{questers.length} {questers.length===1?'Quester':'Questers'}</h2>
+        <h2 style={{marginBottom:'8px'}}>{brinkkers.length} {brinkkers.length===1?'Brinkker':'Brinkkers'}</h2>
       </section>
       <section style={{display:'grid',gap:'10px',marginTop:'14px'}}>
-        {questersLoading&&<article className="card" style={{padding:'18px'}}>Cargando Questers…</article>}
-        {questersError&&<article className="card" style={{padding:'18px',color:'#a13f3f'}}>{questersError}</article>}
-        {!questersLoading&&!questersError&&questers.map(q=>
+        {brinkkersLoading&&<article className="card" style={{padding:'18px'}}>Cargando Brinkkers…</article>}
+        {brinkkersError&&<article className="card" style={{padding:'18px',color:'#a13f3f'}}>{brinkkersError}</article>}
+        {!brinkkersLoading&&!brinkkersError&&brinkkers.map(q=>
           <article className="card" key={q.user_id} style={{padding:'17px',display:'flex',alignItems:'center',gap:'14px'}}>
             <div style={{width:'52px',height:'52px',borderRadius:'17px',background:q.profile_color||'#e7eee9',display:'grid',placeItems:'center',fontSize:'1.7rem'}}>{q.avatar_emoji||'🧭'}</div>
-            <div style={{flex:1}}><strong>{q.nickname}</strong><small style={{display:'block',color:'var(--muted)'}}>{q.member_role==='owner'?'Creador · Admin':'Quester'}</small></div>
+            <div style={{flex:1}}><strong>{q.nickname}</strong><small style={{display:'block',color:'var(--muted)'}}>{q.member_role==='owner'?'Creador · Admin':'Brinkker'}</small></div>
           </article>
         )}
       </section>
@@ -1649,7 +1649,7 @@ function Game({membership,onBack}){
         <p className="eyebrow">OBJETOS</p>
         <h2 style={{marginBottom:'7px'}}>Gestiona los objetos</h2>
         <p style={{color:'var(--muted)',marginBottom:0}}>
-          Asigna objetos oficiales o crea objetos personalizados para esta aventura.
+          Asigna objetos oficiales o crea objetos personalizados para este Brinkkando.
         </p>
       </section>
 
@@ -1665,11 +1665,11 @@ function Game({membership,onBack}){
               </option>)}
             </select>
           </label>
-          <label>Quester
+          <label>Brinkker
             <select value={assignAdvantage.user_id}
               onChange={e=>setAssignAdvantage({...assignAdvantage,user_id:e.target.value})}>
-              <option value="">Selecciona un Quester</option>
-              {questers.map(q=><option key={q.user_id} value={q.user_id}>{q.nickname}</option>)}
+              <option value="">Selecciona un Brinkker</option>
+              {brinkkers.map(q=><option key={q.user_id} value={q.user_id}>{q.nickname}</option>)}
             </select>
           </label>
           <button className="primary wide" disabled={advantageBusy}>
@@ -1796,7 +1796,7 @@ function Game({membership,onBack}){
     </>:page==='settings'&&mode==='admin'?<>
       <form className="card" onSubmit={saveAdminSettings} style={{padding:'22px'}}>
         <p className="eyebrow">AJUSTES BÁSICOS</p>
-        <h2 style={{marginBottom:'14px'}}>Configura la aventura</h2>
+        <h2 style={{marginBottom:'14px'}}>Configura el Brinkkando</h2>
 
         <div className="cols">
           <label>Nombre
@@ -1829,7 +1829,7 @@ function Game({membership,onBack}){
           <input type="checkbox" checked={settingsForm.join_enabled}
             onChange={e=>setSettingsForm({...settingsForm,join_enabled:e.target.checked})}
             style={{width:'20px',height:'20px'}}/>
-          {settingsForm.join_enabled?'🔓 Permitir nuevos Questers':'🔒 Incorporaciones cerradas'}
+          {settingsForm.join_enabled?'🔓 Permitir nuevos Brinkkers':'🔒 Incorporaciones cerradas'}
         </label>
 
         <button className="primary wide" disabled={settingsBusy}>
@@ -1838,7 +1838,7 @@ function Game({membership,onBack}){
       </form>
 
       <section className="card" style={{padding:'20px',marginTop:'14px'}}>
-        <p className="eyebrow">CÓDIGO DE UNIÓN</p>
+        <p className="eyebrow">CÓDIGO DEL BRINKKANDO</p>
         <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
           <strong style={{fontSize:'1.25rem',letterSpacing:'.14em',flex:1}}>{g.invite_code}</strong>
           <button className="secondary" onClick={copyCode}><Copy size={16}/>{copied?'Copiado':'Copiar'}</button>
@@ -1890,15 +1890,15 @@ function Game({membership,onBack}){
           <button type="button" disabled={settingsBusy}
             onClick={()=>runAdminAction('reset_game','REINICIAR')}
             style={{border:0,borderRadius:'13px',padding:'13px',fontWeight:'900',background:'#a13f3f',color:'white'}}>
-            Reiniciar completamente la aventura
+            Reiniciar completamente el Brinkkando
           </button>
         </div>
       </section>
 
       <section className="card" style={{padding:'20px',marginTop:'14px'}}>
-        <p className="eyebrow">ELIMINAR AVENTURA</p>
+        <p className="eyebrow">ELIMINAR BRINKKANDO</p>
         <p style={{color:'var(--muted)',marginBottom:0}}>
-          La eliminación definitiva sigue disponible desde el menú ⋮ de la aventura en «Mis aventuras», donde exige escribir su nombre exacto.
+          La eliminación definitiva sigue disponible desde el menú ⋮ de el Brinkkando en «Mis Brinkkandos», donde exige escribir su nombre exacto.
         </p>
       </section>
 
@@ -2006,7 +2006,7 @@ function Game({membership,onBack}){
             <select value={stageForm.booked_by_user_id}
               onChange={e=>setStageForm({...stageForm,booked_by_user_id:e.target.value})}>
               <option value="">Sin asignar</option>
-              {questers.map(q=><option key={q.user_id} value={q.user_id}>{q.nickname}</option>)}
+              {brinkkers.map(q=><option key={q.user_id} value={q.user_id}>{q.nickname}</option>)}
             </select>
           </label>
           <div className="cols">
@@ -2351,7 +2351,7 @@ function Dashboard({session}){
     const isOwner=deleteMembership.role==='owner';
 
     if(isOwner&&deleteText.trim()!==deleteMembership.games.name){
-      setDeleteMessage('Escribe exactamente el nombre de la aventura.');
+      setDeleteMessage('Escribe exactamente el nombre de el Brinkkando.');
       setDeleteBusy(false);
       return;
     }
@@ -2387,7 +2387,7 @@ function Dashboard({session}){
     </header>
 
     <section className="heading">
-      <div><p className="eyebrow">MIS AVENTURAS</p><h2>Mis aventuras</h2></div>
+      <div><p className="eyebrow">MIS BRINKKANDOS</p><h2>Mis Brinkkandos</h2></div>
       <div className="actions">
         <button className="primary" onClick={()=>setModal('create')}><Plus size={18}/>Crear</button>
         <button className="secondary" onClick={()=>setModal('join')}><KeyRound size={18}/>Unirme</button>
@@ -2419,11 +2419,11 @@ function Dashboard({session}){
           boxShadow:'0 18px 40px rgba(23,63,53,.22)'
         }}>
           {m.role==='owner'&&<button className="secondary wide" style={{justifyContent:'flex-start',marginBottom:'6px'}} onClick={()=>openEdit(m)}>
-            <Pencil size={17}/>Editar aventura
+            <Pencil size={17}/>Editar Brinkkando
           </button>}
           <button className="secondary wide" style={{justifyContent:'flex-start',color:m.role==='owner'?'#a13f3f':'inherit'}} onClick={()=>openDelete(m)}>
             {m.role==='owner'?<Trash2 size={17}/>:<DoorOpen size={17}/>}
-            {m.role==='owner'?'Eliminar aventura':'Salir de la aventura'}
+            {m.role==='owner'?'Eliminar Brinkkando':'Salir de el Brinkkando'}
           </button>
         </div>}
       </article>)}
@@ -2431,7 +2431,7 @@ function Dashboard({session}){
       <div>🌍</div>
       <p className="eyebrow">TU PRIMERA AVENTURA</p>
       <h2>El viaje puede empezar hoy.</h2>
-      <p>Crea una aventura o únete con un código.</p>
+      <p>Crea un Brinkkando o únete con un código.</p>
     </section>}
 
     {modal&&<Modal type={modal} onClose={()=>setModal(null)} onDone={()=>{setModal(null);load()}}/>}
@@ -2458,14 +2458,14 @@ function Dashboard({session}){
       <section className="card modal">
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'12px',marginBottom:'12px'}}>
           <div>
-            <p className="eyebrow">{deleteMembership.role==='owner'?'ELIMINAR AVENTURA':'SALIR DE LA AVENTURA'}</p>
+            <p className="eyebrow">{deleteMembership.role==='owner'?'ELIMINAR BRINKKANDO':'SALIR DE LA AVENTURA'}</p>
             <h2 style={{marginBottom:0}}>{deleteMembership.games.name}</h2>
           </div>
           <button type="button" className="icon" onClick={()=>setDeleteMembership(null)}><X/></button>
         </div>
 
         {deleteMembership.role==='owner'?<>
-          <p style={{color:'var(--muted)'}}>Se borrarán definitivamente Questers, puntos, retos, etapas, subastas y ventajas de esta aventura.</p>
+          <p style={{color:'var(--muted)'}}>Se borrarán definitivamente Brinkkers, puntos, retos, etapas, subastas y ventajas de este Brinkkando.</p>
           <label>Escribe el nombre exacto para confirmar
             <input value={deleteText} onChange={e=>setDeleteText(e.target.value)} placeholder={deleteMembership.games.name}/>
           </label>
@@ -2473,10 +2473,10 @@ function Dashboard({session}){
             border:0,borderRadius:'13px',padding:'13px 16px',fontWeight:'900',background:'#a13f3f',color:'white'
           }}>{deleteBusy?'Eliminando…':'Eliminar definitivamente'}</button>
         </>:<>
-          <p style={{color:'var(--muted)'}}>Dejarás de ver esta aventura y tus datos de participación se eliminarán de ella.</p>
+          <p style={{color:'var(--muted)'}}>Dejarás de ver este Brinkkando y tus datos de participación se eliminarán de ella.</p>
           <button className="wide" onClick={confirmDeleteOrLeave} disabled={deleteBusy} style={{
             border:0,borderRadius:'13px',padding:'13px 16px',fontWeight:'900',background:'#a13f3f',color:'white'
-          }}>{deleteBusy?'Saliendo…':'Salir de la aventura'}</button>
+          }}>{deleteBusy?'Saliendo…':'Salir de el Brinkkando'}</button>
         </>}
         {deleteMessage&&<p className="msg">{deleteMessage}</p>}
       </section>
@@ -2485,7 +2485,7 @@ function Dashboard({session}){
     {profileOpen&&<div className="backdrop">
       <form className="card modal" onSubmit={saveProfile}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'12px',marginBottom:'12px'}}>
-          <div><p className="eyebrow">MI PERFIL</p><h2 style={{marginBottom:0}}>Personaliza tu Quester</h2></div>
+          <div><p className="eyebrow">MI PERFIL</p><h2 style={{marginBottom:0}}>Personaliza tu Brinkker</h2></div>
           <button type="button" className="icon" onClick={()=>setProfileOpen(false)}><X/></button>
         </div>
         <div style={{width:'88px',height:'88px',borderRadius:'26px',background:profile.profile_color,display:'grid',placeItems:'center',fontSize:'3rem',margin:'8px auto 20px'}}>
@@ -2508,15 +2508,15 @@ function EmailConfirmed({session,onContinue}){
     <section className="brand">
       <div className="mark"><CheckCircle2 size={42}/></div>
       <p className="eyebrow">EMAIL CONFIRMADO</p>
-      <h1>¡Ya eres Quester!</h1>
-      <p className="lead">Tu correo se ha confirmado correctamente. Ya puedes acceder a TripQuest.</p>
+      <h1>¡Ya eres Brinkker!</h1>
+      <p className="lead">Tu correo se ha confirmado correctamente. Ya puedes acceder a Brinkkando.</p>
     </section>
     <section className="card authCard" style={{textAlign:'center'}}>
       <div style={{fontSize:'4rem',marginBottom:'12px'}}>🎉</div>
       <h2>Cuenta activada</h2>
       <p style={{color:'var(--muted)'}}>{session?'Tu sesión ya está lista.':'Inicia sesión con tu email y contraseña.'}</p>
       <button className="primary wide" onClick={onContinue}>
-        {session?'Entrar en TripQuest':'Ir al inicio de sesión'}
+        {session?'Entrar en Brinkkando':'Ir al inicio de sesión'}
       </button>
     </section>
   </main>
@@ -2538,7 +2538,7 @@ export default function App(){
     setConfirmed(false)
   }
 
-  if(!ready)return <div className="splash"><Compass size={48}/><strong>TripQuest</strong></div>;
+  if(!ready)return <div className="splash"><Compass size={48}/><span><strong>Brinkkando</strong><small style={{display:'block',color:'var(--muted)',fontSize:'.65rem'}}>v1.0</small></span></div>;
   if(confirmed)return <EmailConfirmed session={session} onContinue={continueAfterConfirmation}/>;
   return session?<Dashboard session={session}/>:<Auth/>
 }
