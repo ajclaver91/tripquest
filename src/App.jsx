@@ -1752,7 +1752,7 @@ function Game({membership,onBack,session}){
                 <button className="secondary" disabled={expenseBusy} onClick={()=>deleteExpense(item.expense_id)}><Trash2 size={15}/>Borrar</button>
               </div>}
             </article>)}
-            {!expensesLoading&&!expenses.length&&<article className="card" style={{padding:'16px'}}>Todavía no hay gastos.</article>}
+            {!expensesLoading&&!expenses.length&&<article className="card" style={{padding:'16px'}}>💶 Todavía no hay gastos.</article>}
           </div>
         </section>
 
@@ -1947,7 +1947,7 @@ function Game({membership,onBack,session}){
               </button>
             })}
             {!dailyLoading&&!dailyError&&!dailyChallenges.length&&<article className="card" style={{padding:'13px 15px'}}>
-              No hay retos disponibles para hoy.
+              ✨ No hay retos disponibles para hoy.
             </article>}
           </div>
         </section>
