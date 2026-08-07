@@ -342,6 +342,8 @@ function Game({membership,onBack,session}){
   const[pointsMessage,setPointsMessage]=useState('');
   const[pointHistory,setPointHistory]=useState([]);
   const[historyLoading,setHistoryLoading]=useState(false);
+  const[historyOpen,setHistoryOpen]=useState(false);
+  const[historyShowAll,setHistoryShowAll]=useState(false);
   const[notificationCounts,setNotificationCounts]=useState({ranking:0,challenges:0,advantages:0,admin:0});
 
   const[dailyChallenges,setDailyChallenges]=useState([]);
@@ -1566,26 +1568,63 @@ function Game({membership,onBack,session}){
 
     {page==='home'?<>
       <section className="card hero" style={{
-        padding:'18px',
-        border:'1px solid rgba(23,63,53,.10)',
-        boxShadow:'0 10px 26px rgba(23,63,53,.07)'
+        padding:'16px',
+        border:'1px solid rgba(23,63,53,.09)',
+        boxShadow:'0 8px 22px rgba(23,63,53,.06)'
       }}>
-        <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
+        <div style={{display:'grid',gridTemplateColumns:'46px minmax(0,1fr)',alignItems:'center',gap:'11px'}}>
           <div style={{
-            width:'48px',height:'48px',borderRadius:'16px',
+            width:'46px',height:'46px',borderRadius:'15px',
             background:'#eef3ef',display:'grid',placeItems:'center',
-            fontSize:'1.65rem',flexShrink:0
+            fontSize:'1.55rem'
           }}>{g.emoji}</div>
           <div style={{minWidth:0}}>
-            <p className="eyebrow" style={{marginBottom:'3px'}}>
+            <p className="eyebrow" style={{marginBottom:'2px'}}>
               {mode==='admin'?'MODO ADMIN':mode==='expenses'?'GASTOS':'BRINKKANDO'}
             </p>
-            <h2 style={{marginBottom:'3px'}}>{tripStatus(g.start_date,g.end_date)}</h2>
-            <p style={{margin:0,color:'var(--muted)',lineHeight:1.4}}>
+            <h2 style={{margin:'0 0 2px',fontSize:'1.42rem'}}>
+              {tripStatus(g.start_date,g.end_date)}
+            </h2>
+            <p style={{
+              margin:0,color:'var(--muted)',fontSize:'.9rem',
+              lineHeight:1.35
+            }}>
               {g.description||'Haz que este Brinkkando sea inolvidable.'}
             </p>
           </div>
         </div>
+
+        {mode==='player'&&<button type="button" onClick={()=>openPage('brinkkers')} style={{
+          width:'100%',
+          marginTop:'12px',
+          padding:'9px 0 0',
+          border:0,
+          borderTop:'1px solid rgba(23,63,53,.08)',
+          background:'transparent',
+          color:'inherit',
+          display:'flex',
+          alignItems:'center',
+          justifyContent:'space-between',
+          gap:'10px',
+          textAlign:'left'
+        }}>
+          <span>
+            <strong style={{fontSize:'.9rem'}}>{brinkkers.length} {brinkkers.length===1?'Brinkker':'Brinkkers'}</strong>
+          </span>
+          <span style={{display:'flex',alignItems:'center'}}>
+            {brinkkers.slice(0,5).map((q,index)=><span key={q.user_id} style={{
+              width:'30px',height:'30px',borderRadius:'10px',
+              background:q.profile_color||'#e7eee9',
+              display:'grid',placeItems:'center',
+              fontSize:'1rem',
+              marginLeft:index===0?0:'-6px',
+              border:'2px solid #fffdf7'
+            }}>{q.avatar_emoji||'🧭'}</span>)}
+            {brinkkers.length>5&&<small style={{marginLeft:'7px',fontWeight:'900',color:'var(--muted)'}}>
+              +{brinkkers.length-5}
+            </small>}
+          </span>
+        </button>}
       </section>
 
       {mode==='admin'&&<section className="card" style={{marginTop:'14px',padding:'16px 18px'}}>
@@ -1783,27 +1822,6 @@ function Game({membership,onBack,session}){
           </div>
         </section>
       </>:mode==='player'?<>
-        <button className="card" onClick={()=>openPage('brinkkers')} style={{
-          width:'100%',marginTop:'12px',padding:'15px 16px',
-          border:'1px solid rgba(23,63,53,.09)',color:'inherit',textAlign:'left',
-          boxShadow:'none'
-        }}>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'14px'}}>
-            <div>
-              <p className="eyebrow" style={{marginBottom:'5px'}}>QUESTERS</p>
-              <strong style={{fontSize:'1.08rem'}}>{brinkkers.length} {brinkkers.length===1?'participante':'participantes'}</strong>
-            </div>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'flex-end'}}>
-              {brinkkers.slice(0,5).map((q,index)=><div key={q.user_id} style={{
-                width:'42px',height:'42px',borderRadius:'14px',
-                background:q.profile_color||'#e7eee9',display:'grid',
-                placeItems:'center',fontSize:'1.35rem',
-                marginLeft:index===0?0:'-8px',border:'3px solid #fffdf7'
-              }}>{q.avatar_emoji||'🧭'}</div>)}
-            </div>
-          </div>
-        </button>
-
         {stages.length>0&&(()=>{
           const today=new Date().toISOString().slice(0,10);
           const current=stages.find(s=>s.stage_date===today)
@@ -1811,7 +1829,7 @@ function Game({membership,onBack,session}){
             ||stages[stages.length-1];
           if(!current)return null;
           return <button className="card" onClick={()=>openPage('stages')} style={{
-            width:'100%',marginTop:'10px',padding:'15px 16px',
+            width:'100%',marginTop:'10px',padding:'13px 15px',
             color:'inherit',textAlign:'left',
             border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'
           }}>
@@ -1983,64 +2001,126 @@ function Game({membership,onBack,session}){
       </section>}
     </>:page==='ranking'?<>
       <section className="card" style={{
-        padding:'18px',
+        padding:'14px 15px',
         border:'1px solid rgba(23,63,53,.09)',
         boxShadow:'none'
       }}>
-        <p className="eyebrow" style={{marginBottom:'3px'}}>CLASIFICACIÓN</p>
-        <h2 style={{marginBottom:'4px'}}>Así va el Brinkkando</h2>
-        <p style={{color:'var(--muted)',marginBottom:0,fontSize:'.88rem'}}>
-          Los puntos pertenecen únicamente a este Brinkkando.
-        </p>
+        <p className="eyebrow" style={{marginBottom:'2px'}}>CLASIFICACIÓN</p>
+        <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:'10px'}}>
+          <h2 style={{margin:0,fontSize:'1.25rem'}}>Así va el Brinkkando</h2>
+          <small style={{color:'var(--muted)',fontWeight:'800'}}>{ranking.length} Brinkkers</small>
+        </div>
       </section>
-      <section style={{display:'grid',gap:'8px',marginTop:'12px'}}>
+      <section style={{display:'grid',gap:'5px',marginTop:'8px'}}>
         {rankingLoading&&<article className="card" style={{padding:'18px'}}>Cargando clasificación…</article>}
         {rankingError&&<article className="card" style={{padding:'18px',color:'#a13f3f'}}>{rankingError}</article>}
         {!rankingLoading&&!rankingError&&ranking.map((q,index)=>
           <article className="card" key={q.user_id} style={{
-            padding:'12px 14px',
+            padding:'8px 11px',
             display:'grid',
-            gridTemplateColumns:'30px 42px minmax(0,1fr) auto',
+            gridTemplateColumns:'26px 34px minmax(0,1fr) auto',
             alignItems:'center',
-            gap:'10px',
-            border:index<3?'1px solid rgba(214,166,62,.35)':'1px solid rgba(23,63,53,.08)',
+            gap:'8px',
+            minHeight:'50px',
+            border:index<3?'1px solid rgba(214,166,62,.28)':'1px solid rgba(23,63,53,.07)',
             boxShadow:'none'
           }}>
             <div style={{
-              width:'30px',
-              fontSize:index<3?'1.35rem':'.88rem',
+              width:'26px',
+              fontSize:index<3?'1.15rem':'.8rem',
               fontWeight:'950',
               textAlign:'center'
             }}>{topThree[index]||`${index+1}.`}</div>
             <div style={{
-              width:'42px',height:'42px',borderRadius:'13px',
+              width:'34px',height:'34px',borderRadius:'10px',
               background:q.profile_color||'#e7eee9',
-              display:'grid',placeItems:'center',fontSize:'1.35rem'
+              display:'grid',placeItems:'center',fontSize:'1.12rem'
             }}>{q.avatar_emoji||'🧭'}</div>
-            <div style={{minWidth:0}}>
-              <strong style={{display:'block',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{q.nickname}</strong>
-              <small style={{display:'block',color:'var(--muted)',fontSize:'.76rem'}}>
-                {q.member_role==='owner'?'Creador · Admin':'Brinkker'}
-              </small>
-            </div>
-            <div style={{textAlign:'right'}}>
-              <strong style={{fontSize:'1.12rem',display:'block'}}>{q.total_points}</strong>
-              <small style={{color:'var(--muted)',fontWeight:'800'}}>pt</small>
-            </div>
+            <strong style={{
+              minWidth:0,overflow:'hidden',textOverflow:'ellipsis',
+              whiteSpace:'nowrap',fontSize:'.9rem'
+            }}>{q.nickname}</strong>
+            <strong style={{fontSize:'.95rem',whiteSpace:'nowrap'}}>
+              {q.total_points} <small style={{fontSize:'.68rem',color:'var(--muted)'}}>pt</small>
+            </strong>
           </article>
         )}
       </section>
-      <section style={{marginTop:'22px'}}>
-        <p className="eyebrow" style={{marginBottom:'3px'}}>ÚLTIMOS MOVIMIENTOS</p>
-        <div style={{display:'grid',gap:'8px'}}>
-          {historyLoading&&<article className="card" style={{padding:'16px'}}>Cargando historial…</article>}
-          {!historyLoading&&pointHistory.map(move=><article className="card" key={move.movement_id} style={{padding:'14px 16px',display:'flex',alignItems:'center',gap:'12px',minWidth:0}}>
-            <div style={{width:'42px',height:'42px',borderRadius:'14px',background:move.profile_color||'#e7eee9',display:'grid',placeItems:'center',fontSize:'1.35rem'}}>{move.avatar_emoji||'🧭'}</div>
-            <div style={{flex:1}}><strong>{move.nickname}</strong><small style={{display:'block',color:'var(--muted)'}}>{move.reason}</small></div>
-            <strong style={{color:move.amount>0?'#24715a':'#a13f3f'}}>{move.amount>0?'+':''}{move.amount}</strong>
-          </article>)}
-          {!historyLoading&&!pointHistory.length&&<article className="card" style={{padding:'16px'}}>Todavía no hay movimientos.</article>}
-        </div>
+      <section className="card" style={{
+        marginTop:'10px',
+        padding:'0',
+        overflow:'hidden',
+        border:'1px solid rgba(23,63,53,.08)',
+        boxShadow:'none'
+      }}>
+        <button type="button" onClick={()=>setHistoryOpen(!historyOpen)} style={{
+          width:'100%',
+          border:0,
+          background:'transparent',
+          color:'inherit',
+          padding:'12px 14px',
+          display:'flex',
+          alignItems:'center',
+          justifyContent:'space-between',
+          gap:'10px',
+          textAlign:'left'
+        }}>
+          <span>
+            <strong style={{display:'block',fontSize:'.9rem'}}>Últimos movimientos</strong>
+            <small style={{color:'var(--muted)'}}>{pointHistory.length} movimientos</small>
+          </span>
+          <ChevronDown size={18} style={{
+            transform:historyOpen?'rotate(180deg)':'rotate(0deg)',
+            transition:'transform .18s ease'
+          }}/>
+        </button>
+
+        {historyOpen&&<div style={{
+          borderTop:'1px solid rgba(23,63,53,.07)',
+          padding:'4px 12px 10px'
+        }}>
+          {historyLoading&&<p style={{margin:'9px 0',color:'var(--muted)',fontSize:'.82rem'}}>
+            Cargando historial…
+          </p>}
+
+          {!historyLoading&&pointHistory.slice(0,historyShowAll?pointHistory.length:10).map(move=>
+            <div key={move.movement_id} style={{
+              display:'grid',
+              gridTemplateColumns:'minmax(0,1fr) auto',
+              gap:'9px',
+              padding:'7px 2px',
+              borderBottom:'1px solid rgba(23,63,53,.055)',
+              alignItems:'baseline'
+            }}>
+              <span style={{
+                minWidth:0,fontSize:'.8rem',
+                overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'
+              }}>
+                <strong>{move.nickname}</strong>
+                <span style={{color:'var(--muted)'}}> · {move.reason}</span>
+              </span>
+              <strong style={{
+                fontSize:'.8rem',
+                color:move.amount>0?'#24715a':'#a13f3f',
+                whiteSpace:'nowrap'
+              }}>{move.amount>0?'+':''}{move.amount}</strong>
+            </div>
+          )}
+
+          {!historyLoading&&!pointHistory.length&&<p style={{
+            margin:'9px 2px',color:'var(--muted)',fontSize:'.82rem'
+          }}>Todavía no hay movimientos.</p>}
+
+          {!historyLoading&&pointHistory.length>10&&<button type="button"
+            onClick={()=>setHistoryShowAll(!historyShowAll)}
+            style={{
+              width:'100%',border:0,background:'transparent',
+              color:'#2f7563',fontWeight:'900',fontSize:'.78rem',
+              padding:'10px 4px 2px'
+            }}>
+            {historyShowAll?'Ver menos':`Ver todos (${pointHistory.length})`}
+          </button>}
+        </div>}
       </section>
     </>:page==='challenges'?<>
       <section className="card" style={{padding:'18px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
