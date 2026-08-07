@@ -1829,13 +1829,47 @@ function Game({membership,onBack,session}){
           <article className="card" style={{padding:'16px'}}>
             <strong>{auction.status==='tiebreak'?'Desempate en curso':'Subasta abierta'}</strong>
             <div style={{display:'grid',gap:'9px',marginTop:'10px'}}>
-              {auctionLots.filter(l=>['open','tiebreak'].includes(l.lot_status)).map(lot=><div key={lot.lot_id} style={{border:'1px solid #ddd7ca',borderRadius:'13px',padding:'12px'}}>
-                <strong>{lot.emoji} {lot.advantage_name}</strong>
-                <small style={{display:'block',color:'var(--muted)',margin:'4px 0'}}>{lot.description}</small>
-                <small style={{fontWeight:'900'}}>Mínima: {lot.minimum_bid} pt{lot.lot_status==='tiebreak'?` · Desempate desde ${lot.tie_floor} pt`:''}</small>
-                {lot.can_bid&&<div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:'8px',marginTop:'8px'}}>
-                  <input type="number" value={myBids[lot.lot_id]??''} onChange={e=>setMyBids({...myBids,[lot.lot_id]:e.target.value})}/>
-                  <button className="primary" disabled={auctionBusy} onClick={()=>saveBid(lot)}><Save size={16}/>Guardar</button>
+              {auctionLots.filter(l=>['open','tiebreak'].includes(l.lot_status)).map(lot=><div key={lot.lot_id} style={{
+                border:'1px solid rgba(23,63,53,.09)',
+                borderRadius:'13px',
+                padding:'12px 13px',
+                background:'#fffdf7'
+              }}>
+                <div style={{display:'grid',gridTemplateColumns:'36px minmax(0,1fr) auto',gap:'10px',alignItems:'start'}}>
+                  <div style={{
+                    width:'36px',height:'36px',borderRadius:'11px',
+                    background:'#eef3ef',display:'grid',placeItems:'center',
+                    fontSize:'1.2rem'
+                  }}>{lot.emoji}</div>
+                  <div style={{minWidth:0}}>
+                    <strong style={{display:'block'}}>{lot.advantage_name}</strong>
+                    <small style={{display:'block',color:'var(--muted)',marginTop:'2px',lineHeight:1.35}}>
+                      {lot.description}
+                    </small>
+                  </div>
+                  <span style={{
+                    fontSize:'.73rem',fontWeight:'900',
+                    padding:'5px 7px',borderRadius:'999px',
+                    background:'#f3f0e8',whiteSpace:'nowrap'
+                  }}>
+                    mín. {lot.minimum_bid} pt
+                  </span>
+                </div>
+                {lot.lot_status==='tiebreak'&&<small style={{
+                  display:'block',marginTop:'7px',fontWeight:'900',color:'#a56b1a'
+                }}>Desempate desde {lot.tie_floor} pt</small>}
+                {lot.can_bid&&<div style={{
+                  display:'grid',gridTemplateColumns:'minmax(0,1fr) auto',
+                  gap:'8px',marginTop:'9px'
+                }}>
+                  <input type="number" value={myBids[lot.lot_id]??''}
+                    onChange={e=>setMyBids({...myBids,[lot.lot_id]:e.target.value})}
+                    placeholder="Tu puja"/>
+                  <button className="primary" disabled={auctionBusy}
+                    onClick={()=>saveBid(lot)}
+                    style={{padding:'9px 11px'}}>
+                    <Save size={15}/>Guardar
+                  </button>
                 </div>}
               </div>)}
             </div>
@@ -1942,20 +1976,51 @@ function Game({membership,onBack,session}){
         )}
       </section>}
     </>:page==='ranking'?<>
-      <section className="card" style={{padding:'22px'}}>
-        <p className="eyebrow">CLASIFICACIÓN</p>
-        <h2 style={{marginBottom:'7px'}}>Así va el Brinkkando</h2>
-        <p style={{color:'var(--muted)',marginBottom:0}}>Los puntos pertenecen únicamente a este Brinkkando.</p>
+      <section className="card" style={{
+        padding:'18px',
+        border:'1px solid rgba(23,63,53,.09)',
+        boxShadow:'none'
+      }}>
+        <p className="eyebrow" style={{marginBottom:'3px'}}>CLASIFICACIÓN</p>
+        <h2 style={{marginBottom:'4px'}}>Así va el Brinkkando</h2>
+        <p style={{color:'var(--muted)',marginBottom:0,fontSize:'.88rem'}}>
+          Los puntos pertenecen únicamente a este Brinkkando.
+        </p>
       </section>
       <section style={{display:'grid',gap:'10px',marginTop:'14px'}}>
         {rankingLoading&&<article className="card" style={{padding:'18px'}}>Cargando clasificación…</article>}
         {rankingError&&<article className="card" style={{padding:'18px',color:'#a13f3f'}}>{rankingError}</article>}
         {!rankingLoading&&!rankingError&&ranking.map((q,index)=>
-          <article className="card" key={q.user_id} style={{padding:'16px',display:'flex',alignItems:'center',gap:'13px',border:index<3?'1px solid rgba(214,166,62,.45)':'1px solid rgba(23,63,53,.11)'}}>
-            <div style={{width:'34px',fontSize:index<3?'1.5rem':'1rem',fontWeight:'950',textAlign:'center'}}>{topThree[index]||`${index+1}.`}</div>
-            <div style={{width:'50px',height:'50px',borderRadius:'16px',background:q.profile_color||'#e7eee9',display:'grid',placeItems:'center',fontSize:'1.65rem'}}>{q.avatar_emoji||'🧭'}</div>
-            <div style={{flex:1}}><strong>{q.nickname}</strong><small style={{display:'block',color:'var(--muted)'}}>{q.member_role==='owner'?'Creador · Admin':'Brinkker'}</small></div>
-            <strong style={{fontSize:'1.25rem'}}>{q.total_points} pt</strong>
+          <article className="card" key={q.user_id} style={{
+            padding:'12px 14px',
+            display:'grid',
+            gridTemplateColumns:'30px 42px minmax(0,1fr) auto',
+            alignItems:'center',
+            gap:'10px',
+            border:index<3?'1px solid rgba(214,166,62,.35)':'1px solid rgba(23,63,53,.08)',
+            boxShadow:'none'
+          }}>
+            <div style={{
+              width:'30px',
+              fontSize:index<3?'1.35rem':'.88rem',
+              fontWeight:'950',
+              textAlign:'center'
+            }}>{topThree[index]||`${index+1}.`}</div>
+            <div style={{
+              width:'42px',height:'42px',borderRadius:'13px',
+              background:q.profile_color||'#e7eee9',
+              display:'grid',placeItems:'center',fontSize:'1.35rem'
+            }}>{q.avatar_emoji||'🧭'}</div>
+            <div style={{minWidth:0}}>
+              <strong style={{display:'block',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{q.nickname}</strong>
+              <small style={{display:'block',color:'var(--muted)',fontSize:'.76rem'}}>
+                {q.member_role==='owner'?'Creador · Admin':'Brinkker'}
+              </small>
+            </div>
+            <div style={{textAlign:'right'}}>
+              <strong style={{fontSize:'1.12rem',display:'block'}}>{q.total_points}</strong>
+              <small style={{color:'var(--muted)',fontWeight:'800'}}>pt</small>
+            </div>
           </article>
         )}
       </section>
@@ -2269,9 +2334,16 @@ function Game({membership,onBack,session}){
         )}
       </section>
     </>:page==='auction'&&mode==='admin'?<>
-      <section className="card" style={{padding:'22px'}}>
-        <p className="eyebrow">SUBASTA</p><h2>Objetos y pujas</h2>
-        <p style={{color:'var(--muted)'}}>Elige objetos, define pujas mínimas y cierra cada ronda cuando quieras.</p>
+      <section className="card" style={{
+        padding:'18px',
+        border:'1px solid rgba(23,63,53,.09)',
+        boxShadow:'none'
+      }}>
+        <p className="eyebrow" style={{marginBottom:'3px'}}>SUBASTA</p>
+        <h2 style={{marginBottom:'4px'}}>Objetos y pujas</h2>
+        <p style={{color:'var(--muted)',marginBottom:0,fontSize:'.88rem'}}>
+          Elige objetos, define pujas mínimas y cierra cada ronda cuando quieras.
+        </p>
       </section>
       {!auction&&<button className="primary wide" style={{marginTop:'14px'}} onClick={createAuction} disabled={auctionBusy}><Gavel size={18}/>Crear subasta</button>}
       {auction&&<>
@@ -2284,14 +2356,39 @@ function Game({membership,onBack,session}){
           </div>
         </section>}
         <section style={{display:'grid',gap:'9px',marginTop:'14px'}}>
-          {auctionLots.map(l=><article className="card" key={l.lot_id} style={{padding:'15px'}}>
-            <strong>{l.emoji} {l.advantage_name}</strong>
-            <small style={{display:'block',color:'var(--muted)'}}>{l.description}</small>
-            <small style={{display:'block',fontWeight:'900',marginTop:'5px'}}>Mínima: {l.minimum_bid} pt · {l.lot_status}</small>
-            {l.winner_nickname&&<small style={{display:'block'}}>🏆 {l.winner_nickname} · {l.winning_bid} pt</small>}
-            {auction.status==='draft'&&<button className="secondary" style={{marginTop:'9px'}}
+          {auctionLots.map(l=><article className="card" key={l.lot_id} style={{
+            padding:'13px 14px',
+            border:'1px solid rgba(23,63,53,.09)',
+            boxShadow:'none'
+          }}>
+            <div style={{display:'grid',gridTemplateColumns:'40px minmax(0,1fr) auto',gap:'10px',alignItems:'start'}}>
+              <div style={{
+                width:'40px',height:'40px',borderRadius:'12px',
+                background:'#eef3ef',display:'grid',placeItems:'center',
+                fontSize:'1.3rem'
+              }}>{l.emoji}</div>
+              <div style={{minWidth:0}}>
+                <strong style={{display:'block'}}>{l.advantage_name}</strong>
+                <small style={{display:'block',color:'var(--muted)',marginTop:'2px',lineHeight:1.35}}>
+                  {l.description}
+                </small>
+                {l.winner_nickname&&<small style={{display:'block',marginTop:'5px',fontWeight:'900'}}>
+                  🏆 {l.winner_nickname} · {l.winning_bid} pt
+                </small>}
+              </div>
+              <span style={{
+                fontSize:'.72rem',fontWeight:'900',
+                padding:'5px 7px',borderRadius:'999px',
+                background:'#f3f0e8',whiteSpace:'nowrap'
+              }}>{l.minimum_bid} pt</span>
+            </div>
+            <small style={{
+              display:'block',color:'var(--muted)',
+              marginTop:'7px',fontWeight:'800'
+            }}>{l.lot_status}</small>
+            {auction.status==='draft'&&<button className="secondary" style={{marginTop:'8px',padding:'8px 10px'}}
               disabled={auctionBusy} onClick={()=>removeAuctionLot(l.lot_id)}>
-              <Trash2 size={16}/>Quitar de la subasta
+              <Trash2 size={15}/>Quitar
             </button>}
           </article>)}
         </section>
@@ -2303,10 +2400,14 @@ function Game({membership,onBack,session}){
         </section>
       </>}
     </>:page==='adminAdvantages'&&mode==='admin'?<>
-      <section className="card" style={{padding:'22px'}}>
-        <p className="eyebrow">OBJETOS</p>
-        <h2 style={{marginBottom:'7px'}}>Gestiona los objetos</h2>
-        <p style={{color:'var(--muted)',marginBottom:0}}>
+      <section className="card" style={{
+        padding:'18px',
+        border:'1px solid rgba(23,63,53,.09)',
+        boxShadow:'none'
+      }}>
+        <p className="eyebrow" style={{marginBottom:'3px'}}>OBJETOS</p>
+        <h2 style={{marginBottom:'4px'}}>Gestiona los objetos</h2>
+        <p style={{color:'var(--muted)',marginBottom:0,fontSize:'.88rem'}}>
           Asigna objetos oficiales o crea objetos personalizados para este Brinkkando.
         </p>
       </section>
@@ -2757,39 +2858,57 @@ function Game({membership,onBack,session}){
         </div>
       </section>
     </>:page==='advantages'?<>
-      <section className="card" style={{padding:'22px'}}>
-        <p className="eyebrow">TU INVENTARIO</p>
-        <h2 style={{marginBottom:'7px'}}>Tus objetos</h2>
-        <p style={{color:'var(--muted)',marginBottom:0}}>
+      <section className="card" style={{
+        padding:'18px',
+        border:'1px solid rgba(23,63,53,.09)',
+        boxShadow:'none'
+      }}>
+        <p className="eyebrow" style={{marginBottom:'3px'}}>TU INVENTARIO</p>
+        <h2 style={{marginBottom:'4px'}}>Tus objetos</h2>
+        <p style={{color:'var(--muted)',marginBottom:0,fontSize:'.88rem'}}>
           Solicita usar un objeto y el Admin confirmará cuándo se consume.
         </p>
       </section>
 
       <section style={{display:'grid',gap:'10px',marginTop:'14px'}}>
         {myAdvantages.map(item=><article className="card" key={item.assignment_id}
-          style={{padding:'18px'}}>
-          <div style={{display:'flex',alignItems:'flex-start',gap:'13px'}}>
-            <div style={{width:'54px',height:'54px',borderRadius:'17px',background:'#eef3ef',
-              display:'grid',placeItems:'center',fontSize:'1.8rem'}}>
-              {item.emoji}
+          style={{
+            padding:'14px',
+            border:'1px solid rgba(23,63,53,.09)',
+            boxShadow:'none'
+          }}>
+          <div style={{display:'grid',gridTemplateColumns:'44px minmax(0,1fr) auto',alignItems:'start',gap:'11px'}}>
+            <div style={{
+              width:'44px',height:'44px',borderRadius:'14px',
+              background:'#eef3ef',display:'grid',placeItems:'center',
+              fontSize:'1.45rem'
+            }}>{item.emoji}</div>
+            <div style={{minWidth:0}}>
+              <strong style={{fontSize:'.98rem',display:'block'}}>{item.advantage_name}</strong>
+              <small style={{
+                display:'block',color:'var(--muted)',
+                marginTop:'3px',lineHeight:1.35
+              }}>{item.description}</small>
             </div>
-            <div style={{flex:1}}>
-              <strong style={{fontSize:'1.08rem'}}>{item.advantage_name}</strong>
-              <p style={{color:'var(--muted)',margin:'6px 0 10px'}}>{item.description}</p>
-              <small style={{fontWeight:'900'}}>
-                {item.assignment_status==='available'
-                  ?'Disponible'
-                  :item.assignment_status==='requested'
-                    ?'Esperando confirmación'
-                    :'Usada'}
-              </small>
-            </div>
+            <span style={{
+              fontSize:'.72rem',fontWeight:'900',
+              padding:'6px 8px',borderRadius:'999px',
+              background:item.assignment_status==='available'?'#eef6f2':'#f3f0e8',
+              color:item.assignment_status==='available'?'#24715a':'var(--muted)',
+              whiteSpace:'nowrap'
+            }}>
+              {item.assignment_status==='available'
+                ?'Disponible'
+                :item.assignment_status==='requested'
+                  ?'Solicitada'
+                  :'Usada'}
+            </span>
           </div>
           {item.assignment_status==='available'&&
-            <button className="primary wide" style={{marginTop:'13px'}}
+            <button className="primary" style={{marginTop:'11px',width:'100%',padding:'9px 12px'}}
               disabled={advantageBusy}
               onClick={()=>requestAdvantageUse(item.assignment_id)}>
-              <Play size={17}/>Solicitar uso
+              <Play size={16}/>Solicitar uso
             </button>}
         </article>)}
         {!myAdvantages.length&&<article className="card" style={{padding:'18px'}}>
