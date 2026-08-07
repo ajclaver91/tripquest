@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react'
-import {Compass,Plus,KeyRound,LogOut,ArrowLeft,Settings,UserRound,CalendarDays,Copy,Share2,Crown,Users,X,Home,Trophy,Target,Backpack,Star,CheckCircle2,MoreVertical,Pencil,Trash2,DoorOpen,Lock,Handshake,Send,Check,Clock3,Shuffle,PackageOpen,Map,Gift,ShieldCheck,Play,Archive,Undo2,Gavel,Dices,Save,LockKeyhole,Hotel,Navigation,Clock,ExternalLink,ChevronDown,ChevronUp,GripVertical,Power,RefreshCcw,Eraser,Database,UserPlus,UserMinus} from 'lucide-react'
+import {Compass,Plus,KeyRound,LogOut,ArrowLeft,Settings,UserRound,CalendarDays,Copy,Share2,Crown,Users,X,Home,Trophy,Target,Backpack,Star,CheckCircle2,MoreVertical,Pencil,Trash2,DoorOpen,Lock,Handshake,Send,Check,Clock3,Shuffle,PackageOpen,Map,Gift,ShieldCheck,Play,Archive,Undo2,Gavel,Dices,Save,LockKeyhole,Hotel,Navigation,Clock,ExternalLink,ChevronDown,ChevronUp,GripVertical,Power,RefreshCcw,Eraser,Database,UserPlus,UserMinus,Wallet,Receipt,ArrowRightLeft} from 'lucide-react'
 import {supabase} from './supabase'
 
 const APP_VERSION='1.0.0'
@@ -321,7 +321,7 @@ function Auth(){
 
 function Modal({type,onClose,onDone}){const[game,setGame]=useState(emptyGame),[code,setCode]=useState(''),[msg,setMsg]=useState(''),[busy,setBusy]=useState(false);async function submit(e){e.preventDefault();setBusy(true);let r;if(type==='create')r=await supabase.rpc('create_tripquest_game',{p_name:game.name.trim(),p_emoji:game.emoji||'🧭',p_start_date:game.start_date,p_end_date:game.end_date,p_description:game.description.trim()||null});else r=await supabase.rpc('join_tripquest_game',{p_invite_code:code.trim().toUpperCase()});if(r.error)setMsg(r.error.message);else onDone();setBusy(false)}return <div className="backdrop"><form className="card modal" onSubmit={submit}><button type="button" className="icon" onClick={onClose}><ArrowLeft/></button>{type==='create'?<><p className="eyebrow">NUEVO BRINKKANDO</p><h2>¿Cómo empieza vuestra historia?</h2><label>Nombre<input required value={game.name} onChange={e=>setGame({...game,name:e.target.value})} placeholder="Galicia 2026"/></label><label>Emoji<input required maxLength="4" value={game.emoji} onChange={e=>setGame({...game,emoji:e.target.value})}/></label><div className="cols"><label>Empieza<input required type="date" value={game.start_date} onChange={e=>setGame({...game,start_date:e.target.value})}/></label><label>Termina<input required type="date" value={game.end_date} onChange={e=>setGame({...game,end_date:e.target.value})}/></label></div><label>Descripción<textarea rows="3" value={game.description} onChange={e=>setGame({...game,description:e.target.value})}/></label></>:<><p className="eyebrow">UNIRME</p><h2>Introduce el código</h2><input required className="code" maxLength="6" value={code} onChange={e=>setCode(e.target.value.toUpperCase())} placeholder="A7K2P9"/></>}<button className="primary wide" disabled={busy}>{busy?'Un momento…':type==='create'?'Crear Brinkkando':'Unirme'}</button>{msg&&<p className="msg">{msg}</p>}</form></div>}
 
-function Game({membership,onBack}){
+function Game({membership,onBack,session}){
   const[mode,setMode]=useState('player');
   const[page,setPage]=useState('home');
   const[copied,setCopied]=useState(false);
@@ -391,6 +391,13 @@ function Game({membership,onBack}){
   const[auctionMessage,setAuctionMessage]=useState('');
   const[newLot,setNewLot]=useState({advantage_id:'',minimum_bid:'10'});
   const[myBids,setMyBids]=useState({});
+  const[expenses,setExpenses]=useState([]);
+  const[expenseBalances,setExpenseBalances]=useState([]);
+  const[expensesLoading,setExpensesLoading]=useState(false);
+  const[expenseBusy,setExpenseBusy]=useState(false);
+  const[expenseMessage,setExpenseMessage]=useState('');
+  const[editingExpenseId,setEditingExpenseId]=useState(null);
+  const[expenseForm,setExpenseForm]=useState({description:'',amount:'',payer_user_id:'',participant_ids:[],notes:''});
   const[stages,setStages]=useState([]);
   const[stagesLoading,setStagesLoading]=useState(false);
   const[stageBusy,setStageBusy]=useState(false);
@@ -449,6 +456,7 @@ function Game({membership,onBack}){
     loadDailyChallenges();
     loadAuction();
     loadStages();
+    loadExpenses();
     loadNotificationCounts();
   },[g.id]);
 
@@ -611,6 +619,127 @@ function Game({membership,onBack}){
       await loadNotificationCounts();
     }
   }
+
+  function blankExpenseForm(){
+    return {description:'',amount:'',payer_user_id:'',participant_ids:[],notes:''};
+  }
+
+  async function loadExpenses(){
+    setExpensesLoading(true);
+    const [expenseResult,balanceResult]=await Promise.all([
+      supabase.rpc('list_tripquest_expenses',{p_game_id:g.id}),
+      supabase.rpc('list_tripquest_expense_balances',{p_game_id:g.id})
+    ]);
+    if(expenseResult.error){
+      console.error('Error cargando gastos:',expenseResult.error);
+      setExpenses([]);
+      setExpenseMessage(expenseResult.error.message);
+    }else setExpenses(expenseResult.data||[]);
+    if(balanceResult.error){
+      console.error('Error cargando balances:',balanceResult.error);
+      setExpenseBalances([]);
+    }else setExpenseBalances(balanceResult.data||[]);
+    setExpensesLoading(false);
+  }
+
+  function toggleExpenseParticipant(userId){
+    setExpenseForm(form=>({
+      ...form,
+      participant_ids:form.participant_ids.includes(userId)
+        ?form.participant_ids.filter(id=>id!==userId)
+        :[...form.participant_ids,userId]
+    }));
+  }
+
+  function toggleAllExpenseParticipants(){
+    setExpenseForm(form=>({
+      ...form,
+      participant_ids:form.participant_ids.length===brinkkers.length?[]:brinkkers.map(q=>q.user_id)
+    }));
+  }
+
+  async function saveExpense(e){
+    e.preventDefault();
+    setExpenseBusy(true);
+    setExpenseMessage('');
+    const amount=Number(expenseForm.amount);
+    if(!expenseForm.description.trim()){
+      setExpenseMessage('Escribe el concepto del gasto.');setExpenseBusy(false);return;
+    }
+    if(!Number.isFinite(amount)||amount<=0){
+      setExpenseMessage('Escribe un importe válido.');setExpenseBusy(false);return;
+    }
+    if(!expenseForm.payer_user_id){
+      setExpenseMessage('Selecciona quién pagó.');setExpenseBusy(false);return;
+    }
+    if(!expenseForm.participant_ids.length){
+      setExpenseMessage('Selecciona al menos un Brinkker.');setExpenseBusy(false);return;
+    }
+    const{error}=await supabase.rpc('save_tripquest_expense',{
+      p_expense_id:editingExpenseId,
+      p_game_id:g.id,
+      p_description:expenseForm.description.trim(),
+      p_amount:amount,
+      p_payer_user_id:expenseForm.payer_user_id,
+      p_participant_ids:expenseForm.participant_ids,
+      p_notes:expenseForm.notes.trim()||null
+    });
+    if(error)setExpenseMessage(error.message);
+    else{
+      setExpenseMessage(editingExpenseId?'Gasto actualizado':'Gasto añadido');
+      setEditingExpenseId(null);
+      setExpenseForm(blankExpenseForm());
+      await loadExpenses();
+    }
+    setExpenseBusy(false);
+  }
+
+  async function editExpense(item){
+    setExpenseBusy(true);
+    setExpenseMessage('');
+    const{data,error}=await supabase.rpc('get_tripquest_expense_participants',{p_expense_id:item.expense_id});
+    if(error){setExpenseMessage(error.message);setExpenseBusy(false);return;}
+    setEditingExpenseId(item.expense_id);
+    setExpenseForm({
+      description:item.description||'',
+      amount:String(item.amount??''),
+      payer_user_id:item.payer_user_id||'',
+      participant_ids:(data||[]).map(row=>row.user_id),
+      notes:item.notes||''
+    });
+    setExpenseBusy(false);
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+
+  async function deleteExpense(expenseId){
+    if(!window.confirm('¿Eliminar este gasto?'))return;
+    setExpenseBusy(true);
+    const{error}=await supabase.rpc('delete_tripquest_expense',{p_expense_id:expenseId});
+    setExpenseMessage(error?error.message:'Gasto eliminado');
+    if(!error){
+      if(editingExpenseId===expenseId){setEditingExpenseId(null);setExpenseForm(blankExpenseForm());}
+      await loadExpenses();
+    }
+    setExpenseBusy(false);
+  }
+
+  function expenseTransfers(){
+    const creditors=expenseBalances.filter(r=>Number(r.balance)>0.005).map(r=>({nickname:r.nickname,amount:Number(r.balance)})).sort((a,b)=>b.amount-a.amount);
+    const debtors=expenseBalances.filter(r=>Number(r.balance)<-0.005).map(r=>({nickname:r.nickname,amount:-Number(r.balance)})).sort((a,b)=>b.amount-a.amount);
+    const transfers=[];
+    let i=0,j=0;
+    while(i<debtors.length&&j<creditors.length){
+      const amount=Math.min(debtors[i].amount,creditors[j].amount);
+      if(amount>=0.005)transfers.push({from:debtors[i].nickname,to:creditors[j].nickname,amount});
+      debtors[i].amount-=amount;creditors[j].amount-=amount;
+      if(debtors[i].amount<0.005)i++;
+      if(creditors[j].amount<0.005)j++;
+    }
+    return transfers;
+  }
+
+  const totalExpenses=expenses.reduce((sum,item)=>sum+Number(item.amount||0),0);
+  const myExpenseBalance=expenseBalances.find(row=>row.user_id===session?.user?.id);
 
   async function loadAdminSettings(){
     const{data,error}=await supabase.rpc('get_tripquest_admin_settings',{
@@ -1355,6 +1484,14 @@ function Game({membership,onBack}){
     setPage('home');
     if(nextMode==='admin'){
       markSectionRead('admin');
+    }else if(nextMode==='expenses'){
+      loadBrinkkers();
+      loadExpenses();
+      setExpenseForm(form=>({
+        ...form,
+        payer_user_id:form.payer_user_id||session?.user?.id||'',
+        participant_ids:form.participant_ids.length?form.participant_ids:brinkkers.map(q=>q.user_id)
+      }));
     }else{
       loadDailyChallenges();
       loadBrinkkers();
@@ -1418,23 +1555,24 @@ function Game({membership,onBack}){
     <header className="top">
       <button className="icon" onClick={page==='home'?onBack:()=>setPage('home')}><ArrowLeft/></button>
       <div>
-        <p className="eyebrow">{g.emoji} AVENTURA</p>
+        <p className="eyebrow">{g.emoji} BRINKKANDO</p>
         <h1>{title}</h1>
       </div>
     </header>
 
-    {owner&&<div className="mode">
-      <button className={mode==='player'?'active':''} onClick={()=>changeMode('player')}><UserRound size={18}/>Mi aventura</button>
-      <button className={mode==='admin'?'active':''} onClick={()=>changeMode('admin')} style={{position:'relative'}}>
+    <div className="mode" style={{gridTemplateColumns:owner?'repeat(3,minmax(0,1fr))':'repeat(2,minmax(0,1fr))'}}>
+      <button className={mode==='player'?'active':''} onClick={()=>changeMode('player')}><UserRound size={18}/>Mi Brinkkando</button>
+      <button className={mode==='expenses'?'active':''} onClick={()=>changeMode('expenses')}><Wallet size={18}/>Gastos</button>
+      {owner&&<button className={mode==='admin'?'active':''} onClick={()=>changeMode('admin')} style={{position:'relative'}}>
         <Settings size={18}/>Administrar
         {notificationCounts.admin>0&&<span style={{position:'absolute',right:'7px',top:'5px',width:'9px',height:'9px',borderRadius:'50%',background:'#e05b4f',border:'2px solid white'}}/>}
-      </button>
-    </div>}
+      </button>}
+    </div>
 
     {page==='home'?<>
       <section className="card hero">
         <span>{g.emoji}</span>
-        <p className="eyebrow">{mode==='admin'?'MODO ADMIN':'BRINKKANDO'}</p>
+        <p className="eyebrow">{mode==='admin'?'MODO ADMIN':mode==='expenses'?'GASTOS':'BRINKKANDO'}</p>
         <h2>{tripStatus(g.start_date,g.end_date)}</h2>
         <p>{g.description||'Haz que este Brinkkando sea inolvidable.'}</p>
       </section>
@@ -1449,7 +1587,102 @@ function Game({membership,onBack}){
         </div>
       </section>}
 
-      {mode==='player'?<>
+      {mode==='expenses'?<>
+        <section className="card" style={{marginTop:'14px',padding:'18px'}}>
+          <p className="eyebrow">RESUMEN</p>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'9px'}}>
+            <div style={{padding:'13px',borderRadius:'14px',background:'#f3f0e8'}}>
+              <small style={{display:'block',color:'var(--muted)',fontWeight:'850'}}>TOTAL DEL GRUPO</small>
+              <strong style={{fontSize:'1.3rem'}}>{totalExpenses.toFixed(2)} €</strong>
+            </div>
+            <div style={{padding:'13px',borderRadius:'14px',background:'#f3f0e8'}}>
+              <small style={{display:'block',color:'var(--muted)',fontWeight:'850'}}>TU BALANCE</small>
+              <strong style={{fontSize:'1.3rem',color:Number(myExpenseBalance?.balance||0)>=0?'#24715a':'#a13f3f'}}>
+                {Number(myExpenseBalance?.balance||0)>0?'+':''}{Number(myExpenseBalance?.balance||0).toFixed(2)} €
+              </strong>
+            </div>
+          </div>
+          <small style={{display:'block',color:'var(--muted)',marginTop:'9px'}}>Si tu balance es positivo, el grupo te debe dinero.</small>
+        </section>
+
+        <form className="card" onSubmit={saveExpense} style={{padding:'18px',marginTop:'14px'}}>
+          <p className="eyebrow">{editingExpenseId?'EDITAR GASTO':'NUEVO GASTO'}</p>
+          <label>Concepto<input required value={expenseForm.description} onChange={e=>setExpenseForm({...expenseForm,description:e.target.value})} placeholder="Cena, hotel, gasolina…"/></label>
+          <label>Importe total (€)<input required type="number" min="0.01" step="0.01" value={expenseForm.amount} onChange={e=>setExpenseForm({...expenseForm,amount:e.target.value})} placeholder="84.00"/></label>
+          <label>¿Quién pagó?<select value={expenseForm.payer_user_id} onChange={e=>setExpenseForm({...expenseForm,payer_user_id:e.target.value})}>
+            <option value="">Selecciona un Brinkker</option>
+            {brinkkers.map(q=><option key={q.user_id} value={q.user_id}>{q.nickname}</option>)}
+          </select></label>
+
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px',margin:'15px 0 9px'}}>
+            <p className="eyebrow" style={{margin:0}}>¿QUIÉNES PARTICIPAN?</p>
+            <button type="button" className="secondary" onClick={toggleAllExpenseParticipants}>{expenseForm.participant_ids.length===brinkkers.length?'Quitar todos':'Todos'}</button>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'7px'}}>
+            {brinkkers.map(q=>{
+              const selected=expenseForm.participant_ids.includes(q.user_id);
+              return <button type="button" key={q.user_id} onClick={()=>toggleExpenseParticipant(q.user_id)} style={{
+                border:selected?'2px solid #2f7563':'1px solid #d8d3c6',borderRadius:'13px',padding:'10px',background:selected?'#eef6f2':'white',display:'flex',alignItems:'center',gap:'8px',color:'inherit',minWidth:0
+              }}>
+                <span style={{width:'25px',height:'25px',borderRadius:'8px',display:'grid',placeItems:'center',background:selected?'#2f7563':'#eef3ef',color:selected?'white':'#62736d',flexShrink:0}}>{selected?<Check size={15}/>:''}</span>
+                <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:'850'}}>{q.nickname}</span>
+              </button>
+            })}
+          </div>
+          {expenseForm.participant_ids.length>0&&Number(expenseForm.amount)>0&&<small style={{display:'block',marginTop:'9px',color:'var(--muted)',fontWeight:'800'}}>≈ {(Number(expenseForm.amount)/expenseForm.participant_ids.length).toFixed(2)} € por Brinkker</small>}
+          <label style={{marginTop:'12px'}}>Nota (opcional)<input value={expenseForm.notes} onChange={e=>setExpenseForm({...expenseForm,notes:e.target.value})} placeholder="Menú + bebidas"/></label>
+          <div className="actions">
+            <button className="primary" disabled={expenseBusy}><Receipt size={17}/>{expenseBusy?'Guardando…':editingExpenseId?'Guardar cambios':'Añadir gasto'}</button>
+            {editingExpenseId&&<button type="button" className="secondary" onClick={()=>{setEditingExpenseId(null);setExpenseForm(blankExpenseForm())}}>Cancelar</button>}
+          </div>
+          {expenseMessage&&<p className="msg">{expenseMessage}</p>}
+        </form>
+
+        <section style={{marginTop:'20px'}}>
+          <p className="eyebrow">HISTORIAL</p>
+          <div style={{display:'grid',gap:'9px'}}>
+            {expensesLoading&&<article className="card" style={{padding:'16px'}}>Cargando gastos…</article>}
+            {!expensesLoading&&expenses.map(item=><article className="card" key={item.expense_id} style={{padding:'15px'}}>
+              <div style={{display:'flex',alignItems:'flex-start',gap:'11px'}}>
+                <span style={{fontSize:'1.35rem'}}>💶</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <strong>{item.description}</strong>
+                  <small style={{display:'block',color:'var(--muted)'}}>Pagó {item.payer_nickname} · {item.participant_count} {item.participant_count===1?'Brinkker':'Brinkkers'}</small>
+                  <small style={{display:'block',color:'var(--muted)'}}>{item.participant_names}</small>
+                  {item.notes&&<small style={{display:'block',marginTop:'4px'}}>{item.notes}</small>}
+                </div>
+                <strong style={{whiteSpace:'nowrap'}}>{Number(item.amount).toFixed(2)} €</strong>
+              </div>
+              {item.can_edit&&<div className="actions" style={{marginTop:'9px'}}>
+                <button className="secondary" disabled={expenseBusy} onClick={()=>editExpense(item)}><Pencil size={15}/>Editar</button>
+                <button className="secondary" disabled={expenseBusy} onClick={()=>deleteExpense(item.expense_id)}><Trash2 size={15}/>Borrar</button>
+              </div>}
+            </article>)}
+            {!expensesLoading&&!expenses.length&&<article className="card" style={{padding:'16px'}}>Todavía no hay gastos.</article>}
+          </div>
+        </section>
+
+        <section className="card" style={{padding:'18px',marginTop:'20px'}}>
+          <p className="eyebrow">BALANCE</p>
+          <div style={{display:'grid',gap:'7px'}}>
+            {expenseBalances.map(row=><div key={row.user_id} style={{display:'flex',alignItems:'center',gap:'9px',padding:'9px 0',borderBottom:'1px solid #e5e0d5'}}>
+              <span style={{fontSize:'1.2rem'}}>{row.avatar_emoji||'🧭'}</span><strong style={{flex:1}}>{row.nickname}</strong>
+              <strong style={{color:Number(row.balance)>=0?'#24715a':'#a13f3f'}}>{Number(row.balance)>0?'+':''}{Number(row.balance).toFixed(2)} €</strong>
+            </div>)}
+          </div>
+        </section>
+
+        <section className="card" style={{padding:'18px',marginTop:'14px'}}>
+          <p className="eyebrow">SALDAR CUENTAS</p>
+          <h2 style={{marginBottom:'12px'}}>Quién paga a quién</h2>
+          <div style={{display:'grid',gap:'8px'}}>
+            {expenseTransfers().map((t,index)=><div key={`${t.from}-${t.to}-${index}`} style={{padding:'11px',borderRadius:'13px',background:'#f3f0e8',display:'grid',gridTemplateColumns:'minmax(0,1fr) auto minmax(0,1fr)',gap:'8px',alignItems:'center'}}>
+              <strong>{t.from}</strong><span style={{display:'grid',justifyItems:'center'}}><small style={{fontWeight:'950'}}>{t.amount.toFixed(2)} €</small><ArrowRightLeft size={16}/></span><strong style={{textAlign:'right'}}>{t.to}</strong>
+            </div>)}
+            {!expenseTransfers().length&&<p style={{margin:0,color:'var(--muted)'}}>Las cuentas están saldadas. 🎉</p>}
+          </div>
+        </section>
+      </>:mode==='player'?<>
         <button className="card" onClick={()=>openPage('brinkkers')} style={{
           width:'100%',marginTop:'14px',padding:'18px',
           border:'1px solid rgba(23,63,53,.11)',color:'inherit',textAlign:'left'
@@ -2680,7 +2913,7 @@ function Dashboard({session}){
     setDeleteBusy(false);
   }
 
-  if(selected)return <Game membership={selected} onBack={()=>setSelected(null)}/>;
+  if(selected)return <Game membership={selected} session={session} onBack={()=>setSelected(null)}/>;
 
   const nick=profile.nickname||session.user.user_metadata?.nickname||session.user.email?.split('@')[0];
 
