@@ -396,6 +396,7 @@ function Game({membership,onBack,session}){
   const[expensesLoading,setExpensesLoading]=useState(false);
   const[expenseBusy,setExpenseBusy]=useState(false);
   const[expenseMessage,setExpenseMessage]=useState('');
+  const[expenseFormOpen,setExpenseFormOpen]=useState(false);
   const[editingExpenseId,setEditingExpenseId]=useState(null);
   const[expenseForm,setExpenseForm]=useState({description:'',amount:'',payer_user_id:'',participant_ids:[],notes:''});
   const[stages,setStages]=useState([]);
@@ -683,6 +684,7 @@ function Game({membership,onBack,session}){
       setExpenseMessage(editingExpenseId?'Gasto actualizado':'Gasto añadido');
       setEditingExpenseId(null);
       setExpenseForm(blankExpenseForm());
+      setExpenseFormOpen(false);
       await loadExpenses();
     }
     setExpenseBusy(false);
@@ -1557,11 +1559,27 @@ function Game({membership,onBack,session}){
     </div>
 
     {page==='home'?<>
-      <section className="card hero">
-        <span>{g.emoji}</span>
-        <p className="eyebrow">{mode==='admin'?'MODO ADMIN':mode==='expenses'?'GASTOS':'BRINKKANDO'}</p>
-        <h2>{tripStatus(g.start_date,g.end_date)}</h2>
-        <p>{g.description||'Haz que este Brinkkando sea inolvidable.'}</p>
+      <section className="card hero" style={{
+        padding:'18px',
+        border:'1px solid rgba(23,63,53,.10)',
+        boxShadow:'0 10px 26px rgba(23,63,53,.07)'
+      }}>
+        <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
+          <div style={{
+            width:'48px',height:'48px',borderRadius:'16px',
+            background:'#eef3ef',display:'grid',placeItems:'center',
+            fontSize:'1.65rem',flexShrink:0
+          }}>{g.emoji}</div>
+          <div style={{minWidth:0}}>
+            <p className="eyebrow" style={{marginBottom:'3px'}}>
+              {mode==='admin'?'MODO ADMIN':mode==='expenses'?'GASTOS':'BRINKKANDO'}
+            </p>
+            <h2 style={{marginBottom:'3px'}}>{tripStatus(g.start_date,g.end_date)}</h2>
+            <p style={{margin:0,color:'var(--muted)',lineHeight:1.4}}>
+              {g.description||'Haz que este Brinkkando sea inolvidable.'}
+            </p>
+          </div>
+        </div>
       </section>
 
       {mode==='admin'&&<section className="card" style={{marginTop:'14px',padding:'16px 18px'}}>
@@ -1575,7 +1593,10 @@ function Game({membership,onBack,session}){
       </section>}
 
       {mode==='expenses'?<>
-        <section className="card" style={{marginTop:'14px',padding:'18px'}}>
+        <section className="card" style={{
+          marginTop:'12px',padding:'16px',
+          border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'
+        }}>
           <p className="eyebrow">RESUMEN</p>
           <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'9px'}}>
             <div style={{padding:'13px',borderRadius:'14px',background:'#f3f0e8'}}>
@@ -1592,44 +1613,130 @@ function Game({membership,onBack,session}){
           <small style={{display:'block',color:'var(--muted)',marginTop:'9px'}}>Si tu balance es positivo, el grupo te debe dinero.</small>
         </section>
 
-        <form className="card" onSubmit={saveExpense} style={{padding:'18px',marginTop:'14px'}}>
-          <p className="eyebrow">{editingExpenseId?'EDITAR GASTO':'NUEVO GASTO'}</p>
-          <label>Concepto<input required value={expenseForm.description} onChange={e=>setExpenseForm({...expenseForm,description:e.target.value})} placeholder="Cena, hotel, gasolina…"/></label>
-          <label>Importe total (€)<input required type="number" min="0.01" step="0.01" value={expenseForm.amount} onChange={e=>setExpenseForm({...expenseForm,amount:e.target.value})} placeholder="84.00"/></label>
-          <label>¿Quién pagó?<select value={expenseForm.payer_user_id} onChange={e=>setExpenseForm({...expenseForm,payer_user_id:e.target.value})}>
-            <option value="">Selecciona un Brinkker</option>
-            {brinkkers.map(q=><option key={q.user_id} value={q.user_id}>{q.nickname}</option>)}
-          </select></label>
-
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px',margin:'15px 0 9px'}}>
-            <p className="eyebrow" style={{margin:0}}>¿QUIÉNES PARTICIPAN?</p>
-            <button type="button" className="secondary" onClick={toggleAllExpenseParticipants}>{expenseForm.participant_ids.length===brinkkers.length?'Quitar todos':'Todos'}</button>
+        <div style={{
+          display:'flex',justifyContent:'space-between',alignItems:'center',
+          gap:'12px',marginTop:'14px'
+        }}>
+          <div>
+            <p className="eyebrow" style={{marginBottom:'2px'}}>MOVIMIENTOS</p>
+            <strong style={{fontSize:'1.03rem'}}>Gastos del grupo</strong>
           </div>
+          <button type="button" className="primary"
+            onClick={()=>{
+              if(expenseFormOpen){
+                setEditingExpenseId(null);
+                setExpenseForm(blankExpenseForm());
+                setExpenseFormOpen(false);
+              }else{
+                setExpenseFormOpen(true);
+              }
+            }}
+            style={{padding:'9px 11px'}}>
+            <Plus size={16}/>{expenseFormOpen?'Cerrar':'Añadir'}
+          </button>
+        </div>
+
+        {expenseFormOpen&&<form className="card" onSubmit={saveExpense} style={{
+          padding:'17px',marginTop:'10px',
+          border:'1px solid rgba(23,63,53,.10)',
+          boxShadow:'0 10px 24px rgba(23,63,53,.06)'
+        }}>
+          <p className="eyebrow">{editingExpenseId?'EDITAR GASTO':'NUEVO GASTO'}</p>
+
+          <label>Concepto
+            <input required value={expenseForm.description}
+              onChange={e=>setExpenseForm({...expenseForm,description:e.target.value})}
+              placeholder="Cena, hotel, gasolina…"/>
+          </label>
+
+          <label>Importe total (€)
+            <input required type="number" min="0.01" step="0.01"
+              value={expenseForm.amount}
+              onChange={e=>setExpenseForm({...expenseForm,amount:e.target.value})}
+              placeholder="84.00"/>
+          </label>
+
+          <label>¿Quién pagó?
+            <select value={expenseForm.payer_user_id}
+              onChange={e=>setExpenseForm({...expenseForm,payer_user_id:e.target.value})}>
+              <option value="">Selecciona un Brinkker</option>
+              {brinkkers.map(q=><option key={q.user_id} value={q.user_id}>{q.nickname}</option>)}
+            </select>
+          </label>
+
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px',margin:'14px 0 8px'}}>
+            <p className="eyebrow" style={{margin:0}}>¿QUIÉNES PARTICIPAN?</p>
+            <button type="button" className="secondary" onClick={toggleAllExpenseParticipants}>
+              {expenseForm.participant_ids.length===brinkkers.length?'Quitar todos':'Todos'}
+            </button>
+          </div>
+
           <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'7px'}}>
             {brinkkers.map(q=>{
               const selected=expenseForm.participant_ids.includes(q.user_id);
-              return <button type="button" key={q.user_id} onClick={()=>toggleExpenseParticipant(q.user_id)} style={{
-                border:selected?'2px solid #2f7563':'1px solid #d8d3c6',borderRadius:'13px',padding:'10px',background:selected?'#eef6f2':'white',display:'flex',alignItems:'center',gap:'8px',color:'inherit',minWidth:0
-              }}>
-                <span style={{width:'25px',height:'25px',borderRadius:'8px',display:'grid',placeItems:'center',background:selected?'#2f7563':'#eef3ef',color:selected?'white':'#62736d',flexShrink:0}}>{selected?<Check size={15}/>:''}</span>
-                <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:'850'}}>{q.nickname}</span>
+              return <button type="button" key={q.user_id}
+                onClick={()=>toggleExpenseParticipant(q.user_id)}
+                style={{
+                  border:selected?'2px solid #2f7563':'1px solid #d8d3c6',
+                  borderRadius:'12px',
+                  padding:'9px',
+                  background:selected?'#eef6f2':'white',
+                  display:'flex',
+                  alignItems:'center',
+                  gap:'7px',
+                  color:'inherit',
+                  textAlign:'left',
+                  minWidth:0
+                }}>
+                <span style={{
+                  width:'25px',height:'25px',borderRadius:'8px',
+                  display:'grid',placeItems:'center',
+                  background:selected?'#2f7563':'#eef3ef',
+                  color:selected?'white':'#62736d',
+                  flexShrink:0
+                }}>{selected?<Check size={15}/>:''}</span>
+                <span style={{
+                  overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
+                  fontWeight:'850',fontSize:'.88rem'
+                }}>{q.nickname}</span>
               </button>
             })}
           </div>
-          {expenseForm.participant_ids.length>0&&Number(expenseForm.amount)>0&&<small style={{display:'block',marginTop:'9px',color:'var(--muted)',fontWeight:'800'}}>≈ {(Number(expenseForm.amount)/expenseForm.participant_ids.length).toFixed(2)} € por Brinkker</small>}
-          <label style={{marginTop:'12px'}}>Nota (opcional)<input value={expenseForm.notes} onChange={e=>setExpenseForm({...expenseForm,notes:e.target.value})} placeholder="Menú + bebidas"/></label>
+
+          {expenseForm.participant_ids.length>0&&Number(expenseForm.amount)>0&&
+            <small style={{display:'block',marginTop:'9px',color:'var(--muted)',fontWeight:'800'}}>
+              ≈ {(Number(expenseForm.amount)/expenseForm.participant_ids.length).toFixed(2)} € por Brinkker
+            </small>}
+
+          <label style={{marginTop:'12px'}}>Nota
+            <input value={expenseForm.notes}
+              onChange={e=>setExpenseForm({...expenseForm,notes:e.target.value})}
+              placeholder="Opcional"/>
+          </label>
+
           <div className="actions">
-            <button className="primary" disabled={expenseBusy}><Receipt size={17}/>{expenseBusy?'Guardando…':editingExpenseId?'Guardar cambios':'Añadir gasto'}</button>
-            {editingExpenseId&&<button type="button" className="secondary" onClick={()=>{setEditingExpenseId(null);setExpenseForm(blankExpenseForm())}}>Cancelar</button>}
+            <button className="primary" disabled={expenseBusy}>
+              <Receipt size={17}/>{expenseBusy?'Guardando…':editingExpenseId?'Guardar cambios':'Añadir gasto'}
+            </button>
+            <button type="button" className="secondary" onClick={()=>{
+              setEditingExpenseId(null);
+              setExpenseForm(blankExpenseForm());
+              setExpenseFormOpen(false);
+            }}>Cancelar</button>
           </div>
+
           {expenseMessage&&<p className="msg">{expenseMessage}</p>}
-        </form>
+        </form>}
 
         <section style={{marginTop:'20px'}}>
           <p className="eyebrow">HISTORIAL</p>
           <div style={{display:'grid',gap:'9px'}}>
             {expensesLoading&&<article className="card" style={{padding:'16px'}}>Cargando gastos…</article>}
-            {!expensesLoading&&expenses.map(item=><article className="card" key={item.expense_id} style={{padding:'15px'}}>
+            {!expensesLoading&&expenses.map(item=><article className="card" key={item.expense_id} style={{
+              padding:'13px 14px',
+              border:'1px solid rgba(23,63,53,.09)',
+              boxShadow:'none'
+            }}>
               <div style={{display:'flex',alignItems:'flex-start',gap:'11px'}}>
                 <span style={{fontSize:'1.35rem'}}>💶</span>
                 <div style={{flex:1,minWidth:0}}>
@@ -1671,8 +1778,9 @@ function Game({membership,onBack,session}){
         </section>
       </>:mode==='player'?<>
         <button className="card" onClick={()=>openPage('brinkkers')} style={{
-          width:'100%',marginTop:'14px',padding:'18px',
-          border:'1px solid rgba(23,63,53,.11)',color:'inherit',textAlign:'left'
+          width:'100%',marginTop:'12px',padding:'15px 16px',
+          border:'1px solid rgba(23,63,53,.09)',color:'inherit',textAlign:'left',
+          boxShadow:'none'
         }}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'14px'}}>
             <div>
@@ -1697,8 +1805,9 @@ function Game({membership,onBack,session}){
             ||stages[stages.length-1];
           if(!current)return null;
           return <button className="card" onClick={()=>openPage('stages')} style={{
-            width:'100%',marginTop:'14px',padding:'16px',
-            color:'inherit',textAlign:'left',border:'1px solid rgba(23,63,53,.11)'
+            width:'100%',marginTop:'10px',padding:'15px 16px',
+            color:'inherit',textAlign:'left',
+            border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'
           }}>
             <p className="eyebrow" style={{marginBottom:'6px'}}>PLAN DE HOY</p>
             <strong style={{fontSize:'1.08rem'}}>
@@ -1808,10 +1917,27 @@ function Game({membership,onBack,session}){
             </article>}
           </div>
         </section>
-      </>:<section className="grid">
+      </>:<section style={{display:'grid',gap:'8px',marginTop:'14px'}}>
         {adminSections.map(section=>
-          <button className="card tile" style={{textAlign:'left',color:'inherit',border:'1px solid rgba(23,63,53,.11)'}} key={section.id} onClick={()=>openPage(section.id)}>
-            <strong>{section.label}</strong><small>{section.detail}</small>
+          <button className="card" key={section.id} onClick={()=>openPage(section.id)} style={{
+            width:'100%',
+            padding:'13px 14px',
+            display:'grid',
+            gridTemplateColumns:'minmax(0,1fr) auto',
+            alignItems:'center',
+            gap:'10px',
+            textAlign:'left',
+            color:'inherit',
+            border:'1px solid rgba(23,63,53,.09)',
+            boxShadow:'none'
+          }}>
+            <span style={{minWidth:0}}>
+              <strong style={{display:'block',fontSize:'.95rem'}}>{section.label}</strong>
+              <small style={{display:'block',color:'var(--muted)',marginTop:'2px'}}>
+                {section.detail}
+              </small>
+            </span>
+            <span style={{fontSize:'1.25rem',color:'var(--muted)',lineHeight:1}}>›</span>
           </button>
         )}
       </section>}
