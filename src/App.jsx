@@ -414,18 +414,12 @@ function Game({membership,onBack,session}){
     elevation_m:'',
     duration_text:'',
     route_url:'',
-    route_button_text:'Abrir trayecto',
     day_description:'',
-    activities:'',
-    day_notes:'',
     same_accommodation:false,
     accommodation_name:'',
-    accommodation_address:'',
     booking_url:'',
     booked_by_user_id:'',
-    booking_reference:'',
-    check_in_time:'',
-    accommodation_notes:''
+    accommodation_price:''
   });
   const[settingsForm,setSettingsForm]=useState({
     name:membership.games?.name||'',
@@ -867,24 +861,18 @@ function Game({membership,onBack,session}){
       elevation_m:'',
       duration_text:'',
       route_url:'',
-      route_button_text:'Abrir trayecto',
       day_description:'',
-      activities:'',
-      day_notes:'',
       same_accommodation:false,
       accommodation_name:'',
-      accommodation_address:'',
       booking_url:'',
       booked_by_user_id:'',
-      booking_reference:'',
-      check_in_time:'',
-      accommodation_notes:''
+      accommodation_price:''
     };
   }
 
   async function loadStages(){
     setStagesLoading(true);
-    const{data,error}=await supabase.rpc('list_tripquest_stages',{p_game_id:g.id});
+    const{data,error}=await supabase.rpc('list_brinkkando_stages',{p_game_id:g.id});
     if(error){
       console.error('Error cargando Plan:',error);
       setStages([]);
@@ -907,18 +895,12 @@ function Game({membership,onBack,session}){
       elevation_m:stage.elevation_m??'',
       duration_text:stage.duration_text||'',
       route_url:stage.route_url||'',
-      route_button_text:stage.route_button_text||'Abrir trayecto',
       day_description:stage.day_description||'',
-      activities:stage.activities||'',
-      day_notes:stage.day_notes||'',
       same_accommodation:stage.same_accommodation,
       accommodation_name:stage.accommodation_name||'',
-      accommodation_address:stage.accommodation_address||'',
       booking_url:stage.booking_url||'',
       booked_by_user_id:stage.booked_by_user_id||'',
-      booking_reference:stage.booking_reference||'',
-      check_in_time:stage.check_in_time||'',
-      accommodation_notes:stage.accommodation_notes||''
+      accommodation_price:stage.accommodation_price??''
     });
     window.scrollTo({top:0,behavior:'smooth'});
   }
@@ -927,9 +909,12 @@ function Game({membership,onBack,session}){
     e.preventDefault();
     setStageBusy(true);
     setStageMessage('');
+
     const distance=stageForm.same_place||stageForm.distance_km===''?null:Number(stageForm.distance_km);
     const elevation=stageForm.same_place||stageForm.elevation_m===''?null:Number(stageForm.elevation_m);
-    const{error}=await supabase.rpc('save_tripquest_stage',{
+    const price=stageForm.accommodation_price===''?null:Number(stageForm.accommodation_price);
+
+    const{error}=await supabase.rpc('save_brinkkando_stage',{
       p_stage_id:editingStageId,
       p_game_id:g.id,
       p_stage_date:stageForm.stage_date||null,
@@ -941,19 +926,14 @@ function Game({membership,onBack,session}){
       p_elevation_m:Number.isFinite(elevation)?elevation:null,
       p_duration_text:stageForm.same_place?null:(stageForm.duration_text.trim()||null),
       p_route_url:stageForm.same_place?null:(stageForm.route_url.trim()||null),
-      p_route_button_text:stageForm.same_place?null:(stageForm.route_button_text.trim()||'Abrir trayecto'),
       p_day_description:stageForm.day_description.trim()||null,
-      p_activities:stageForm.activities.trim()||null,
-      p_day_notes:stageForm.day_notes.trim()||null,
       p_same_accommodation:stageForm.same_accommodation,
       p_accommodation_name:stageForm.same_accommodation?null:(stageForm.accommodation_name.trim()||null),
-      p_accommodation_address:stageForm.same_accommodation?null:(stageForm.accommodation_address.trim()||null),
       p_booking_url:stageForm.same_accommodation?null:(stageForm.booking_url.trim()||null),
       p_booked_by_user_id:stageForm.same_accommodation?null:(stageForm.booked_by_user_id||null),
-      p_booking_reference:stageForm.same_accommodation?null:(stageForm.booking_reference.trim()||null),
-      p_check_in_time:stageForm.same_accommodation?null:(stageForm.check_in_time||null),
-      p_accommodation_notes:stageForm.same_accommodation?null:(stageForm.accommodation_notes.trim()||null)
+      p_accommodation_price:Number.isFinite(price)?price:null
     });
+
     if(error){
       setStageMessage(error.message);
     }else{
@@ -1561,10 +1541,17 @@ function Game({membership,onBack,session}){
     </header>
 
     <div className="mode" style={{gridTemplateColumns:owner?'repeat(3,minmax(0,1fr))':'repeat(2,minmax(0,1fr))'}}>
-      <button className={mode==='player'?'active':''} onClick={()=>changeMode('player')}><UserRound size={18}/>Mi Brinkkando</button>
-      <button className={mode==='expenses'?'active':''} onClick={()=>changeMode('expenses')}><Wallet size={18}/>Gastos</button>
-      {owner&&<button className={mode==='admin'?'active':''} onClick={()=>changeMode('admin')} style={{position:'relative'}}>
-        <Settings size={18}/>Administrar
+      <button className={mode==='player'?'active':''} onClick={()=>changeMode('player')}
+        style={{fontSize:'.76rem',padding:'9px 5px',gap:'5px'}}>
+        <UserRound size={16}/>Mi Brinkkando
+      </button>
+      <button className={mode==='expenses'?'active':''} onClick={()=>changeMode('expenses')}
+        style={{fontSize:'.76rem',padding:'9px 5px',gap:'5px'}}>
+        <Wallet size={16}/>Gastos
+      </button>
+      {owner&&<button className={mode==='admin'?'active':''} onClick={()=>changeMode('admin')}
+        style={{position:'relative',fontSize:'.76rem',padding:'9px 5px',gap:'5px'}}>
+        <Settings size={16}/>Administrar
         {notificationCounts.admin>0&&<span style={{position:'absolute',right:'7px',top:'5px',width:'9px',height:'9px',borderRadius:'50%',background:'#e05b4f',border:'2px solid white'}}/>}
       </button>}
     </div>
@@ -2451,7 +2438,7 @@ function Game({membership,onBack,session}){
     </>:page==='stages'?<>
       {mode==='admin'&&<form className="card" onSubmit={saveStage} style={{padding:'22px'}}>
         <p className="eyebrow">{editingStageId?'EDITAR JORNADA':'NUEVA JORNADA'}</p>
-        <h2 style={{marginBottom:'14px'}}>Plan del viaje</h2>
+        <h2 style={{marginBottom:'14px'}}>Plan del Brinkkando</h2>
 
         <label>Fecha
           <input type="date" value={stageForm.stage_date}
@@ -2465,7 +2452,7 @@ function Game({membership,onBack,session}){
           🏡 Día en el mismo lugar
         </label>
 
-        <label>Lugar / Origen
+        <label>{stageForm.same_place?'Lugar':'Origen'}
           <input value={stageForm.origin}
             onChange={e=>setStageForm({...stageForm,origin:e.target.value})}
             placeholder="Santiago de Compostela"/>
@@ -2477,12 +2464,14 @@ function Game({membership,onBack,session}){
               onChange={e=>setStageForm({...stageForm,destination:e.target.value})}
               placeholder="Pontevedra"/>
           </label>
+
           <label>Medio de transporte
             <select value={stageForm.transport_mode}
               onChange={e=>setStageForm({...stageForm,transport_mode:e.target.value})}>
               {Object.entries(transportLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}
             </select>
           </label>
+
           <div className="cols">
             <label>Distancia (km)
               <input type="number" min="0" step="0.1" value={stageForm.distance_km}
@@ -2493,39 +2482,28 @@ function Game({membership,onBack,session}){
                 onChange={e=>setStageForm({...stageForm,elevation_m:e.target.value})}/>
             </label>
           </div>
+
           <label>Duración estimada
             <input value={stageForm.duration_text}
               onChange={e=>setStageForm({...stageForm,duration_text:e.target.value})}
               placeholder="3 h 30 min"/>
           </label>
-          <label>Enlace del trayecto
+
+          <label>Enlace de la ruta
             <input type="url" value={stageForm.route_url}
               onChange={e=>setStageForm({...stageForm,route_url:e.target.value})}
-              placeholder="Komoot, Maps, Wikiloc, billete…"/>
-          </label>
-          <label>Texto del botón
-            <input value={stageForm.route_button_text}
-              onChange={e=>setStageForm({...stageForm,route_button_text:e.target.value})}
-              placeholder="Abrir trayecto"/>
+              placeholder="Maps, Komoot, Wikiloc, billete…"/>
           </label>
         </>}
 
         <p className="eyebrow" style={{marginTop:'20px'}}>PLAN DEL DÍA</p>
-        <label>Descripción
-          <textarea rows="3" value={stageForm.day_description}
-            onChange={e=>setStageForm({...stageForm,day_description:e.target.value})}/>
-        </label>
-        <label>Actividades
-          <textarea rows="3" value={stageForm.activities}
-            onChange={e=>setStageForm({...stageForm,activities:e.target.value})}
-            placeholder="Visita, comida, playa, festival…"/>
-        </label>
-        <label>Notas
-          <textarea rows="2" value={stageForm.day_notes}
-            onChange={e=>setStageForm({...stageForm,day_notes:e.target.value})}/>
+        <label>¿Qué hacemos hoy?
+          <textarea rows="5" value={stageForm.day_description}
+            onChange={e=>setStageForm({...stageForm,day_description:e.target.value})}
+            placeholder="Visitas, comida, playa, festival, horarios, cosas a tener en cuenta…"/>
         </label>
 
-        <p className="eyebrow" style={{marginTop:'20px'}}>NOCHE</p>
+        <p className="eyebrow" style={{marginTop:'20px'}}>ALOJAMIENTO</p>
         <label style={{display:'flex',alignItems:'center',gap:'10px',fontWeight:'850'}}>
           <input type="checkbox" checked={stageForm.same_accommodation}
             onChange={e=>setStageForm({...stageForm,same_accommodation:e.target.checked})}
@@ -2534,19 +2512,12 @@ function Game({membership,onBack,session}){
         </label>
 
         {!stageForm.same_accommodation&&<>
-          <label>Alojamiento
+          <label>Nombre del alojamiento
             <input value={stageForm.accommodation_name}
               onChange={e=>setStageForm({...stageForm,accommodation_name:e.target.value})}
               placeholder="Hotel, albergue, apartamento…"/>
           </label>
-          <label>Dirección
-            <input value={stageForm.accommodation_address}
-              onChange={e=>setStageForm({...stageForm,accommodation_address:e.target.value})}/>
-          </label>
-          <label>Enlace de la reserva
-            <input type="url" value={stageForm.booking_url}
-              onChange={e=>setStageForm({...stageForm,booking_url:e.target.value})}/>
-          </label>
+
           <label>Reservado por
             <select value={stageForm.booked_by_user_id}
               onChange={e=>setStageForm({...stageForm,booked_by_user_id:e.target.value})}>
@@ -2554,32 +2525,35 @@ function Game({membership,onBack,session}){
               {brinkkers.map(q=><option key={q.user_id} value={q.user_id}>{q.nickname}</option>)}
             </select>
           </label>
-          <div className="cols">
-            <label>Referencia
-              <input value={stageForm.booking_reference}
-                onChange={e=>setStageForm({...stageForm,booking_reference:e.target.value})}/>
-            </label>
-            <label>Check-in
-              <input type="time" value={stageForm.check_in_time}
-                onChange={e=>setStageForm({...stageForm,check_in_time:e.target.value})}/>
-            </label>
-          </div>
-          <label>Notas del alojamiento
-            <textarea rows="2" value={stageForm.accommodation_notes}
-              onChange={e=>setStageForm({...stageForm,accommodation_notes:e.target.value})}
-              placeholder="Bicis en el patio, pagar en efectivo…"/>
+
+          <label>Enlace de la reserva
+            <input type="url" value={stageForm.booking_url}
+              onChange={e=>setStageForm({...stageForm,booking_url:e.target.value})}
+              placeholder="Booking, Airbnb, web del alojamiento…"/>
           </label>
         </>}
 
+        <label>Precio del alojamiento
+          <div style={{position:'relative'}}>
+            <input type="number" min="0" step="0.01" value={stageForm.accommodation_price}
+              onChange={e=>setStageForm({...stageForm,accommodation_price:e.target.value})}
+              placeholder="0.00"
+              style={{paddingRight:'42px'}}/>
+            <span style={{position:'absolute',right:'15px',top:'50%',transform:'translateY(-50%)',fontWeight:'900'}}>€</span>
+          </div>
+        </label>
+
         <div className="actions">
-          <button className="primary" disabled={stageBusy}><Save size={17}/>{editingStageId?'Guardar cambios':'Crear jornada'}</button>
+          <button className="primary" disabled={stageBusy}>
+            <Save size={17}/>{editingStageId?'Guardar cambios':'Crear jornada'}
+          </button>
           {editingStageId&&<button type="button" className="secondary" onClick={()=>{
             setEditingStageId(null);setStageForm(blankStageForm());
           }}>Cancelar</button>}
         </div>
+
         {stageMessage&&<p className="msg">{stageMessage}</p>}
       </form>}
-
       <section style={{marginTop:mode==='admin'?'22px':0}}>
         <p className="eyebrow">{mode==='admin'?'JORNADAS CREADAS':'PLAN DEL VIAJE'}</p>
         <div style={{display:'grid',gap:'11px'}}>
@@ -2619,12 +2593,10 @@ function Game({membership,onBack,session}){
 
               {isExpanded&&<div style={{marginTop:'14px',paddingTop:'13px',borderTop:'1px solid #e3ded2'}}>
                 {stage.day_description&&<p style={{marginTop:0}}>{stage.day_description}</p>}
-                {stage.activities&&<div style={{marginTop:'10px'}}><strong>📋 Plan del día</strong><p style={{color:'var(--muted)',whiteSpace:'pre-wrap'}}>{stage.activities}</p></div>}
-                {stage.day_notes&&<div><strong>📝 Notas</strong><p style={{color:'var(--muted)',whiteSpace:'pre-wrap'}}>{stage.day_notes}</p></div>}
 
                 {!stage.same_place&&stage.route_url&&<a className="primary wide" href={stage.route_url} target="_blank" rel="noreferrer"
                   style={{textDecoration:'none',marginTop:'10px'}}>
-                  <Navigation size={17}/>{stage.route_button_text||'Abrir trayecto'}<ExternalLink size={15}/>
+                  <Navigation size={17}/>Abrir ruta<ExternalLink size={15}/>
                 </a>}
 
                 {(stage.resolved_accommodation_name||stage.same_accommodation)&&<div style={{
@@ -2634,14 +2606,10 @@ function Game({membership,onBack,session}){
                   <p style={{margin:'6px 0 0'}}>
                     {stage.resolved_accommodation_name||'Mismo alojamiento que la noche anterior'}
                   </p>
-                  {stage.resolved_accommodation_address&&<small style={{display:'block',color:'var(--muted)'}}>{stage.resolved_accommodation_address}</small>}
-                  {stage.booked_by_nickname&&<small style={{display:'block',marginTop:'5px'}}>Reservado por {stage.booked_by_nickname}</small>}
-                  {stage.check_in_time&&<small style={{display:'block'}}>Check-in: {stage.check_in_time.slice(0,5)}</small>}
-                  {stage.booking_reference&&<details style={{marginTop:'7px'}}>
-                    <summary style={{fontWeight:'800'}}>Ver referencia de reserva</summary>
-                    <code>{stage.booking_reference}</code>
-                  </details>}
-                  {stage.accommodation_notes&&<p style={{color:'var(--muted)',whiteSpace:'pre-wrap'}}>{stage.accommodation_notes}</p>}
+                  {stage.booked_by_nickname&&<small style={{display:'block',marginTop:'5px'}}>👤 Reservado por {stage.booked_by_nickname}</small>}
+                  {stage.accommodation_price!=null&&<small style={{display:'block',marginTop:'4px',fontWeight:'900'}}>
+                    💶 {Number(stage.accommodation_price).toFixed(2)} €
+                  </small>}
                   {stage.resolved_booking_url&&<a className="secondary wide" href={stage.resolved_booking_url} target="_blank" rel="noreferrer"
                     style={{textDecoration:'none',marginTop:'9px'}}>
                     <Hotel size={17}/>Ver reserva<ExternalLink size={15}/>
