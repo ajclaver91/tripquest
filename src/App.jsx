@@ -125,7 +125,7 @@ function LegalModal({section,onClose}){
   return <div className="backdrop" style={{zIndex:50}}>
     <section className="card modal" style={{maxHeight:'88vh',overflowY:'auto'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:'12px',marginBottom:'12px'}}>
-        <div><p className="eyebrow" style={{marginBottom:'3px'}}>{legal.eyebrow}</p><h2 style={{marginBottom:0}}>{legal.title}</h2></div>
+        <div><p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>{legal.eyebrow}</p><h2 style={{marginBottom:0}}>{legal.title}</h2></div>
         <button type="button" className="icon" onClick={onClose}><X/></button>
       </div>
       <div style={{lineHeight:1.55}}>{legal.content}</div>
@@ -216,7 +216,7 @@ function Auth(){
   return <main className="auth">
     <section className="brand">
       <div className="mark"><Compass size={42}/></div>
-      <p className="eyebrow" style={{marginBottom:'3px'}}>BRINKKANDO</p>
+      <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>BRINKKANDO</p>
       <h1>{forgot?'Recupera tu cuenta.':'Cada plan merece un Brinkkando.'}</h1>
       <p className="lead">
         {forgot
@@ -242,7 +242,7 @@ function Auth(){
           onClick={showLogin}>
           <ArrowLeft size={17}/>Volver
         </button>
-        <p className="eyebrow" style={{marginBottom:'3px'}}>RECUPERAR CONTRASEÑA</p>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>RECUPERAR CONTRASEÑA</p>
         <h2 style={{marginBottom:'12px'}}>¿Cuál es tu correo?</h2>
       </>}
 
@@ -322,7 +322,7 @@ function Auth(){
   </main>
 }
 
-function Modal({type,onClose,onDone}){const[game,setGame]=useState(emptyGame),[code,setCode]=useState(''),[msg,setMsg]=useState(''),[busy,setBusy]=useState(false);async function submit(e){e.preventDefault();setBusy(true);let r;if(type==='create')r=await supabase.rpc('create_tripquest_game',{p_name:game.name.trim(),p_emoji:game.emoji||'🧭',p_start_date:game.start_date,p_end_date:game.end_date,p_description:game.description.trim()||null});else r=await supabase.rpc('join_tripquest_game',{p_invite_code:code.trim().toUpperCase()});if(r.error)setMsg(r.error.message);else onDone();setBusy(false)}return <div className="backdrop"><form className="card modal" onSubmit={submit}><button type="button" className="icon" onClick={onClose}><ArrowLeft/></button>{type==='create'?<><p className="eyebrow" style={{marginBottom:'3px'}}>NUEVO BRINKKANDO</p><h2>¿Cómo empieza vuestra historia?</h2><label>Nombre<input required value={game.name} onChange={e=>setGame({...game,name:e.target.value})} placeholder="Galicia 2026"/></label><label>Emoji<input required maxLength="4" value={game.emoji} onChange={e=>setGame({...game,emoji:e.target.value})}/></label><div className="cols"><label>Empieza<input required type="date" value={game.start_date} onChange={e=>setGame({...game,start_date:e.target.value})}/></label><label>Termina<input required type="date" value={game.end_date} onChange={e=>setGame({...game,end_date:e.target.value})}/></label></div><label>Descripción<textarea rows="3" value={game.description} onChange={e=>setGame({...game,description:e.target.value})}/></label></>:<><p className="eyebrow" style={{marginBottom:'3px'}}>UNIRME</p><h2>Introduce el código</h2><input required className="code" maxLength="6" value={code} onChange={e=>setCode(e.target.value.toUpperCase())} placeholder="A7K2P9"/></>}<button className="primary wide" disabled={busy}>{busy?'Un momento…':type==='create'?'Crear Brinkkando':'Unirme'}</button>{msg&&<p className="msg" style={{
+function Modal({type,onClose,onDone}){const[game,setGame]=useState(emptyGame),[code,setCode]=useState(''),[msg,setMsg]=useState(''),[busy,setBusy]=useState(false);async function submit(e){e.preventDefault();setBusy(true);let r;if(type==='create')r=await supabase.rpc('create_tripquest_game',{p_name:game.name.trim(),p_emoji:game.emoji||'🧭',p_start_date:game.start_date,p_end_date:game.end_date,p_description:game.description.trim()||null});else r=await supabase.rpc('join_tripquest_game',{p_invite_code:code.trim().toUpperCase()});if(r.error)setMsg(r.error.message);else onDone();setBusy(false)}return <div className="backdrop"><form className="card modal" onSubmit={submit}><button type="button" className="icon" onClick={onClose}><ArrowLeft/></button>{type==='create'?<><p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>NUEVO BRINKKANDO</p><h2>¿Cómo empieza vuestra historia?</h2><label>Nombre<input required value={game.name} onChange={e=>setGame({...game,name:e.target.value})} placeholder="Galicia 2026"/></label><label>Emoji<input required maxLength="4" value={game.emoji} onChange={e=>setGame({...game,emoji:e.target.value})}/></label><div className="cols"><label>Empieza<input required type="date" value={game.start_date} onChange={e=>setGame({...game,start_date:e.target.value})}/></label><label>Termina<input required type="date" value={game.end_date} onChange={e=>setGame({...game,end_date:e.target.value})}/></label></div><label>Descripción<textarea rows="3" value={game.description} onChange={e=>setGame({...game,description:e.target.value})}/></label></>:<><p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>UNIRME</p><h2>Introduce el código</h2><input required className="code" maxLength="6" value={code} onChange={e=>setCode(e.target.value.toUpperCase())} placeholder="A7K2P9"/></>}<button className="primary wide" disabled={busy}>{busy?'Un momento…':type==='create'?'Crear Brinkkando':'Unirme'}</button>{msg&&<p className="msg" style={{
       marginTop:'10px',padding:'10px 12px',borderRadius:'12px',
       background:'#f3f0e8',fontSize:'.84rem',lineHeight:1.4
     }}>{msg}</p>}</form></div>}
@@ -1540,13 +1540,14 @@ function Game({membership,onBack,session}){
   return <main className="shell" style={{
     paddingBottom:mode==='player'?'105px':undefined,
     overflowX:'hidden',
-    maxWidth:'100%'
+    maxWidth:'100%',
+    fontSize:'.92rem'
   }}>
     <header className="top" style={{gap:'10px',marginBottom:'10px'}}>
       <button className="icon" onClick={page==='home'?onBack:()=>setPage('home')}><ArrowLeft/></button>
       <div style={{minWidth:0}}>
-        <p className="eyebrow" style={{marginBottom:'2px'}}>{g.emoji} BRINKKANDO</p>
-        <h1 style={{fontSize:'1.22rem',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{title}</h1>
+        <p className="eyebrow" style={{marginBottom:'2px',fontSize:'.67rem',letterSpacing:'.08em'}}>{g.emoji} BRINKKANDO</p>
+        <h1 style={{fontSize:'1.04rem',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{title}</h1>
       </div>
     </header>
 
@@ -1579,14 +1580,14 @@ function Game({membership,onBack,session}){
             fontSize:'1.55rem'
           }}>{g.emoji}</div>
           <div style={{minWidth:0}}>
-            <p className="eyebrow" style={{marginBottom:'2px'}}>
+            <p className="eyebrow" style={{marginBottom:'2px',fontSize:'.67rem',letterSpacing:'.08em'}}>
               {mode==='admin'?'MODO ADMIN':mode==='expenses'?'GASTOS':'BRINKKANDO'}
             </p>
-            <h2 style={{margin:'0 0 2px',fontSize:'1.42rem'}}>
+            <h2 style={{margin:'0 0 2px',fontSize:'1.28rem'}}>
               {tripStatus(g.start_date,g.end_date)}
             </h2>
             <p style={{
-              margin:0,color:'var(--muted)',fontSize:'.9rem',
+              margin:0,color:'var(--muted)',fontSize:'.82rem',
               lineHeight:1.35
             }}>
               {g.description||'Haz que este Brinkkando sea inolvidable.'}
@@ -1609,7 +1610,7 @@ function Game({membership,onBack,session}){
           textAlign:'left'
         }}>
           <span>
-            <strong style={{fontSize:'.9rem'}}>{brinkkers.length} {brinkkers.length===1?'Brinkker':'Brinkkers'}</strong>
+            <strong style={{fontSize:'.82rem'}}>{brinkkers.length} {brinkkers.length===1?'Brinkker':'Brinkkers'}</strong>
           </span>
           <span style={{display:'flex',alignItems:'center'}}>
             {brinkkers.slice(0,5).map((q,index)=><span key={q.user_id} style={{
@@ -1630,8 +1631,8 @@ function Game({membership,onBack,session}){
       {mode==='admin'&&<section className="card" style={{marginTop:'14px',padding:'16px 18px'}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'12px',flexWrap:'wrap'}}>
           <div>
-            <p className="eyebrow" style={{marginBottom:'4px'}}>CÓDIGO DE INVITACIÓN</p>
-            <strong style={{fontSize:'1.1rem',letterSpacing:'.12em'}}>{g.invite_code}</strong>
+            <p className="eyebrow" style={{marginBottom:'4px',fontSize:'.67rem',letterSpacing:'.08em'}}>CÓDIGO DE INVITACIÓN</p>
+            <strong style={{fontSize:'1.03rem',letterSpacing:'.12em'}}>{g.invite_code}</strong>
           </div>
           <button className="secondary" onClick={copyCode}><Copy size={17}/>{copied?'Copiado':'Copiar'}</button>
         </div>
@@ -1642,15 +1643,15 @@ function Game({membership,onBack,session}){
           marginTop:'12px',padding:'16px',
           border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'
         }}>
-          <p className="eyebrow" style={{marginBottom:'3px'}}>RESUMEN</p>
+          <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>RESUMEN</p>
           <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'9px'}}>
             <div style={{padding:'13px',borderRadius:'14px',background:'#f3f0e8'}}>
               <small style={{display:'block',color:'var(--muted)',fontWeight:'850'}}>TOTAL DEL GRUPO</small>
-              <strong style={{fontSize:'1.3rem'}}>{totalExpenses.toFixed(2)} €</strong>
+              <strong style={{fontSize:'1.18rem'}}>{totalExpenses.toFixed(2)} €</strong>
             </div>
             <div style={{padding:'13px',borderRadius:'14px',background:'#f3f0e8'}}>
               <small style={{display:'block',color:'var(--muted)',fontWeight:'850'}}>TU BALANCE</small>
-              <strong style={{fontSize:'1.3rem',color:Number(myExpenseBalance?.balance||0)>=0?'#24715a':'#a13f3f'}}>
+              <strong style={{fontSize:'1.18rem',color:Number(myExpenseBalance?.balance||0)>=0?'#24715a':'#a13f3f'}}>
                 {Number(myExpenseBalance?.balance||0)>0?'+':''}{Number(myExpenseBalance?.balance||0).toFixed(2)} €
               </strong>
             </div>
@@ -1663,7 +1664,7 @@ function Game({membership,onBack,session}){
           gap:'12px',marginTop:'14px'
         }}>
           <div>
-            <p className="eyebrow" style={{marginBottom:'2px'}}>MOVIMIENTOS</p>
+            <p className="eyebrow" style={{marginBottom:'2px',fontSize:'.67rem',letterSpacing:'.08em'}}>MOVIMIENTOS</p>
             <strong style={{fontSize:'1.03rem'}}>Gastos del grupo</strong>
           </div>
           <button type="button" className="primary"
@@ -1686,7 +1687,7 @@ function Game({membership,onBack,session}){
           border:'1px solid rgba(23,63,53,.10)',
           boxShadow:'0 10px 24px rgba(23,63,53,.06)'
         }}>
-          <p className="eyebrow" style={{marginBottom:'3px'}}>{editingExpenseId?'EDITAR GASTO':'NUEVO GASTO'}</p>
+          <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>{editingExpenseId?'EDITAR GASTO':'NUEVO GASTO'}</p>
 
           <label>Concepto
             <input required value={expenseForm.description}
@@ -1710,7 +1711,7 @@ function Game({membership,onBack,session}){
           </label>
 
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px',margin:'14px 0 8px'}}>
-            <p className="eyebrow" style={{margin:0}}>¿QUIÉNES PARTICIPAN?</p>
+            <p className="eyebrow" style={{margin:0,fontSize:'.67rem',letterSpacing:'.08em'}}>¿QUIÉNES PARTICIPAN?</p>
             <button type="button" className="secondary" onClick={toggleAllExpenseParticipants}>
               {expenseForm.participant_ids.length===brinkkers.length?'Quitar todos':'Todos'}
             </button>
@@ -1742,7 +1743,7 @@ function Game({membership,onBack,session}){
                 }}>{selected?<Check size={15}/>:''}</span>
                 <span style={{
                   overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
-                  fontWeight:'850',fontSize:'.88rem'
+                  fontWeight:'850',fontSize:'.84rem'
                 }}>{q.nickname}</span>
               </button>
             })}
@@ -1774,7 +1775,7 @@ function Game({membership,onBack,session}){
         </form>}
 
         <section style={{marginTop:'20px'}}>
-          <p className="eyebrow" style={{marginBottom:'3px'}}>HISTORIAL</p>
+          <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>HISTORIAL</p>
           <div style={{display:'grid',gap:'9px'}}>
             {expensesLoading&&<article className="card" style={{padding:'16px'}}>Cargando gastos…</article>}
             {!expensesLoading&&expenses.map(item=><article className="card" key={item.expense_id} style={{
@@ -1783,7 +1784,7 @@ function Game({membership,onBack,session}){
               boxShadow:'none'
             }}>
               <div style={{display:'flex',alignItems:'flex-start',gap:'11px'}}>
-                <span style={{fontSize:'1.35rem'}}>💶</span>
+                <span style={{fontSize:'1.22rem'}}>💶</span>
                 <div style={{flex:1,minWidth:0}}>
                   <strong>{item.description}</strong>
                   <small style={{display:'block',color:'var(--muted)'}}>Pagó {item.payer_nickname} · {item.participant_count} {item.participant_count===1?'Brinkker':'Brinkkers'}</small>
@@ -1801,18 +1802,18 @@ function Game({membership,onBack,session}){
           </div>
         </section>
 
-        <section className="card" style={{padding:'18px',marginTop:'20px'}}>
-          <p className="eyebrow" style={{marginBottom:'3px'}}>BALANCE</p>
+        <section className="card" style={{padding:'15px',marginTop:'20px'}}>
+          <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>BALANCE</p>
           <div style={{display:'grid',gap:'7px'}}>
             {expenseBalances.map(row=><div key={row.user_id} style={{display:'flex',alignItems:'center',gap:'9px',padding:'9px 0',borderBottom:'1px solid #e5e0d5'}}>
-              <span style={{fontSize:'1.2rem'}}>{row.avatar_emoji||'🧭'}</span><strong style={{flex:1}}>{row.nickname}</strong>
+              <span style={{fontSize:'1.01rem'}}>{row.avatar_emoji||'🧭'}</span><strong style={{flex:1}}>{row.nickname}</strong>
               <strong style={{color:Number(row.balance)>=0?'#24715a':'#a13f3f'}}>{Number(row.balance)>0?'+':''}{Number(row.balance).toFixed(2)} €</strong>
             </div>)}
           </div>
         </section>
 
-        <section className="card" style={{padding:'18px',marginTop:'14px'}}>
-          <p className="eyebrow" style={{marginBottom:'3px'}}>SALDAR CUENTAS</p>
+        <section className="card" style={{padding:'15px',marginTop:'14px'}}>
+          <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>SALDAR CUENTAS</p>
           <h2 style={{marginBottom:'12px'}}>Quién paga a quién</h2>
           <div style={{display:'grid',gap:'8px'}}>
             {expenseTransfers().map((t,index)=><div key={`${t.from}-${t.to}-${index}`} style={{padding:'11px',borderRadius:'13px',background:'#f3f0e8',display:'grid',gridTemplateColumns:'minmax(0,1fr) auto minmax(0,1fr)',gap:'8px',alignItems:'center'}}>
@@ -1833,8 +1834,8 @@ function Game({membership,onBack,session}){
             color:'inherit',textAlign:'left',
             border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'
           }}>
-            <p className="eyebrow" style={{marginBottom:'6px'}}>PLAN DE HOY</p>
-            <strong style={{fontSize:'1.08rem'}}>
+            <p className="eyebrow" style={{marginBottom:'4px',fontSize:'.67rem',letterSpacing:'.08em'}}>PLAN DE HOY</p>
+            <strong style={{fontSize:'1.01rem'}}>
               {current.same_place?'🏡 Día en el mismo lugar':`${current.origin} → ${current.destination}`}
             </strong>
             <small style={{display:'block',color:'var(--muted)',marginTop:'5px'}}>
@@ -1849,7 +1850,7 @@ function Game({membership,onBack,session}){
         })()}
 
         {auction&&auction.status!=='draft'&&<section style={{marginTop:'20px'}}>
-          <p className="eyebrow" style={{marginBottom:'3px'}}>SUBASTA</p>
+          <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>SUBASTA</p>
           <article className="card" style={{padding:'16px'}}>
             <strong>{auction.status==='tiebreak'?'Desempate en curso':'Subasta abierta'}</strong>
             <div style={{display:'grid',gap:'9px',marginTop:'10px'}}>
@@ -1863,7 +1864,7 @@ function Game({membership,onBack,session}){
                   <div style={{
                     width:'36px',height:'36px',borderRadius:'11px',
                     background:'#eef3ef',display:'grid',placeItems:'center',
-                    fontSize:'1.2rem'
+                    fontSize:'1.01rem'
                   }}>{lot.emoji}</div>
                   <div style={{minWidth:0}}>
                     <strong style={{display:'block'}}>{lot.advantage_name}</strong>
@@ -1902,7 +1903,7 @@ function Game({membership,onBack,session}){
         </section>}
 
         <section style={{marginTop:'20px'}}>
-          <p className="eyebrow" style={{marginBottom:'3px'}}>RETOS DEL DÍA</p>
+          <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>RETOS DEL DÍA</p>
           <div style={{display:'grid',gap:'7px'}}>
             {dailyLoading&&<article className="card" style={{padding:'13px 15px'}}>Cargando retos…</article>}
             {!dailyLoading&&dailyError&&<article className="card" style={{padding:'13px 15px',color:'#a13f3f'}}>
@@ -1964,7 +1965,7 @@ function Game({membership,onBack,session}){
                   margin:'2px 0 2px',
                   color:'var(--muted)',
                   lineHeight:1.45,
-                  fontSize:'.86rem',
+                  fontSize:'.82rem',
                   whiteSpace:'normal',
                   overflowWrap:'anywhere'
                 }}>{item.description}</p>}
@@ -1995,7 +1996,7 @@ function Game({membership,onBack,session}){
                 {section.detail}
               </small>
             </span>
-            <span style={{fontSize:'1.25rem',color:'var(--muted)',lineHeight:1}}>›</span>
+            <span style={{fontSize:'1.04rem',color:'var(--muted)',lineHeight:1}}>›</span>
           </button>
         )}
       </section>}
@@ -2005,15 +2006,15 @@ function Game({membership,onBack,session}){
         border:'1px solid rgba(23,63,53,.09)',
         boxShadow:'none'
       }}>
-        <p className="eyebrow" style={{marginBottom:'2px'}}>CLASIFICACIÓN</p>
+        <p className="eyebrow" style={{marginBottom:'2px',fontSize:'.67rem',letterSpacing:'.08em'}}>CLASIFICACIÓN</p>
         <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:'10px'}}>
-          <h2 style={{margin:0,fontSize:'1.25rem'}}>Así va el Brinkkando</h2>
+          <h2 style={{margin:0,fontSize:'1.04rem'}}>Así va el Brinkkando</h2>
           <small style={{color:'var(--muted)',fontWeight:'800'}}>{ranking.length} Brinkkers</small>
         </div>
       </section>
       <section style={{display:'grid',gap:'5px',marginTop:'8px'}}>
-        {rankingLoading&&<article className="card" style={{padding:'18px'}}>Cargando clasificación…</article>}
-        {rankingError&&<article className="card" style={{padding:'18px',color:'#a13f3f'}}>{rankingError}</article>}
+        {rankingLoading&&<article className="card" style={{padding:'15px'}}>Cargando clasificación…</article>}
+        {rankingError&&<article className="card" style={{padding:'15px',color:'#a13f3f'}}>{rankingError}</article>}
         {!rankingLoading&&!rankingError&&ranking.map((q,index)=>
           <article className="card" key={q.user_id} style={{
             padding:'8px 11px',
@@ -2034,11 +2035,11 @@ function Game({membership,onBack,session}){
             <div style={{
               width:'34px',height:'34px',borderRadius:'10px',
               background:q.profile_color||'#e7eee9',
-              display:'grid',placeItems:'center',fontSize:'1.12rem'
+              display:'grid',placeItems:'center',fontSize:'1.04rem'
             }}>{q.avatar_emoji||'🧭'}</div>
             <strong style={{
               minWidth:0,overflow:'hidden',textOverflow:'ellipsis',
-              whiteSpace:'nowrap',fontSize:'.9rem'
+              whiteSpace:'nowrap',fontSize:'.82rem'
             }}>{q.nickname}</strong>
             <strong style={{fontSize:'.95rem',whiteSpace:'nowrap'}}>
               {q.total_points} <small style={{fontSize:'.68rem',color:'var(--muted)'}}>pt</small>
@@ -2066,7 +2067,7 @@ function Game({membership,onBack,session}){
           textAlign:'left'
         }}>
           <span>
-            <strong style={{display:'block',fontSize:'.9rem'}}>Últimos movimientos</strong>
+            <strong style={{display:'block',fontSize:'.82rem'}}>Últimos movimientos</strong>
             <small style={{color:'var(--muted)'}}>{pointHistory.length} movimientos</small>
           </span>
           <ChevronDown size={18} style={{
@@ -2123,20 +2124,20 @@ function Game({membership,onBack,session}){
         </div>}
       </section>
     </>:page==='challenges'?<>
-      <section className="card" style={{padding:'18px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
-        <p className="eyebrow" style={{marginBottom:'3px'}}>MISIONES ESPECIALES</p>
-        <h2 style={{marginBottom:'7px'}}>Tus retos</h2>
-        <p style={{color:'var(--muted)',marginBottom:0}}>Aquí aparecen sobres secretos, retos de equipo y misiones manuales.</p>
+      <section className="card" style={{padding:'15px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>MISIONES ESPECIALES</p>
+        <h2 style={{margin:'0 0 3px',fontSize:'1.08rem'}}>Tus retos</h2>
+        <p style={{color:'var(--muted)',margin:0,fontSize:'.80rem',lineHeight:1.35}}>Aquí aparecen sobres secretos, retos de equipo y misiones manuales.</p>
       </section>
       <section style={{display:'grid',gap:'11px',marginTop:'14px'}}>
-        {specialLoading&&<article className="card" style={{padding:'18px'}}>Cargando retos…</article>}
-        {!specialLoading&&specialChallenges.map(item=><article className="card" key={item.group_id} style={{padding:'19px'}}>
+        {specialLoading&&<article className="card" style={{padding:'15px'}}>Cargando retos…</article>}
+        {!specialLoading&&specialChallenges.map(item=><article className="card" key={item.group_id} style={{padding:'15px'}}>
           <div style={{display:'flex',justifyContent:'space-between',gap:'12px'}}>
             <div>
-              <p className="eyebrow" style={{marginBottom:'5px'}}>{kindLabel[item.kind]}</p>
-              <h2 style={{fontSize:'1.25rem',marginBottom:'8px'}}>{item.title}</h2>
+              <p className="eyebrow" style={{marginBottom:'5px',fontSize:'.67rem',letterSpacing:'.08em'}}>{kindLabel[item.kind]}</p>
+              <h2 style={{fontSize:'1.04rem',marginBottom:'5px'}}>{item.title}</h2>
             </div>
-            <span style={{fontSize:'.75rem',fontWeight:'900',padding:'7px 10px',borderRadius:'999px',background:'#eef3ef',height:'fit-content'}}>
+            <span style={{fontSize:'.75rem',fontWeight:'900',padding:'6px 8px',borderRadius:'999px',background:'#eef3ef',height:'fit-content'}}>
               {statusLabel[item.group_status]}
             </span>
           </div>
@@ -2148,12 +2149,12 @@ function Game({membership,onBack,session}){
               <Send size={17}/>Enviar a revisión
             </button>}
         </article>)}
-        {!specialLoading&&!specialChallenges.length&&<article className="card" style={{padding:'18px'}}>No tienes misiones especiales pendientes.</article>}
+        {!specialLoading&&!specialChallenges.length&&<article className="card" style={{padding:'15px'}}>No tienes misiones especiales pendientes.</article>}
       </section>
     </>:page==='packs'&&mode==='admin'?<>
-      <section className="card" style={{padding:'18px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
-        <p className="eyebrow" style={{marginBottom:'3px'}}>BIBLIOTECA DE PACKS</p>
-        <h2 style={{marginBottom:'7px'}}>Elige qué tipo de viaje quieres jugar</h2>
+      <section className="card" style={{padding:'15px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>BIBLIOTECA DE PACKS</p>
+        <h2 style={{marginBottom:'4px'}}>Elige qué tipo de viaje quieres jugar</h2>
         <p style={{color:'var(--muted)',marginBottom:0}}>
           Solo se usarán en las rondas aleatorias los packs y pruebas que estén activos.
         </p>
@@ -2189,8 +2190,8 @@ function Game({membership,onBack,session}){
         </article>)}
       </section>
 
-      {selectedPackId&&<section className="card" style={{padding:'22px',marginTop:'22px'}}>
-        <p className="eyebrow" style={{marginBottom:'3px'}}>PRUEBAS DEL PACK</p>
+      {selectedPackId&&<section className="card" style={{padding:'17px',marginTop:'22px'}}>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>PRUEBAS DEL PACK</p>
         <h2 style={{marginBottom:'14px'}}>
           {packs.find(pack=>pack.pack_id===selectedPackId)?.name||'Pack'}
         </h2>
@@ -2222,7 +2223,7 @@ function Game({membership,onBack,session}){
         </div>
 
         <form onSubmit={createPackTemplate} style={{marginTop:'20px'}}>
-          <p className="eyebrow" style={{marginBottom:'3px'}}>AÑADIR PRUEBA</p>
+          <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>AÑADIR PRUEBA</p>
           <label>Título<input value={newTemplate.title} onChange={e=>setNewTemplate({...newTemplate,title:e.target.value})}/></label>
           <label>Descripción<textarea rows="3" value={newTemplate.description} onChange={e=>setNewTemplate({...newTemplate,description:e.target.value})}/></label>
           <div className="cols">
@@ -2237,8 +2238,8 @@ function Game({membership,onBack,session}){
         </form>
       </section>}
 
-      <form className="card" onSubmit={createCustomPack} style={{padding:'22px',marginTop:'22px'}}>
-        <p className="eyebrow" style={{marginBottom:'3px'}}>CREAR PACK PROPIO</p>
+      <form className="card" onSubmit={createCustomPack} style={{padding:'17px',marginTop:'22px'}}>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>CREAR PACK PROPIO</p>
         <h2 style={{marginBottom:'14px'}}>Tu propia colección</h2>
         <div className="cols">
           <label>Nombre<input value={newPack.name} onChange={e=>setNewPack({...newPack,name:e.target.value})} placeholder="Galicia salvaje"/></label>
@@ -2249,9 +2250,9 @@ function Game({membership,onBack,session}){
         {packMessage&&<p className="msg">{packMessage}</p>}
       </form>
     </>:page==='adminChallenges'&&mode==='admin'?<>
-      <section className="card" style={{padding:'18px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
-        <p className="eyebrow" style={{marginBottom:'3px'}}>RETOS DEL DÍA</p>
-        <h2 style={{marginBottom:'7px'}}>Cinco retos automáticos cada día</h2>
+      <section className="card" style={{padding:'15px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>RETOS DEL DÍA</p>
+        <h2 style={{marginBottom:'4px'}}>Cinco retos automáticos cada día</h2>
         <p style={{color:'var(--muted)',marginBottom:0}}>
           Brinkkando selecciona los mismos cinco retos para todo el grupo y los renueva
           automáticamente cada madrugada. No requieren validación: cuando alguien los
@@ -2259,9 +2260,9 @@ function Game({membership,onBack,session}){
         </p>
       </section>
 
-      <section className="card" style={{padding:'22px',marginTop:'22px'}}>
-        <p className="eyebrow" style={{marginBottom:'3px'}}>SOBRES ALEATORIOS</p>
-        <h2 style={{marginBottom:'8px'}}>Reparto completamente ciego</h2>
+      <section className="card" style={{padding:'17px',marginTop:'22px'}}>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>SOBRES ALEATORIOS</p>
+        <h2 style={{marginBottom:'5px'}}>Reparto completamente ciego</h2>
         <p style={{color:'var(--muted)'}}>
           Brinkkando elige y reparte las pruebas dentro de Supabase. Como Admin solo verás
           cuántos sobres o equipos se han creado, nunca las asignaciones.
@@ -2286,7 +2287,7 @@ function Game({membership,onBack,session}){
       </section>
 
       <section style={{marginTop:'18px'}}>
-        <p className="eyebrow" style={{marginBottom:'3px'}}>ÚLTIMAS RONDAS CIEGAS</p>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>ÚLTIMAS RONDAS CIEGAS</p>
         <div style={{display:'grid',gap:'8px'}}>
           {envelopeRounds.map(round=><article className="card" key={round.round_id}
             style={{padding:'14px 16px',display:'flex',alignItems:'center',gap:'12px'}}>
@@ -2307,9 +2308,9 @@ function Game({membership,onBack,session}){
         </div>
       </section>
 
-      <form className="card" onSubmit={createChallenge} style={{padding:'22px',marginTop:'22px'}}>
-        <p className="eyebrow" style={{marginBottom:'3px'}}>SOBRE PERSONALIZADO</p>
-        <h2 style={{marginBottom:'8px'}}>Escribe una prueba puntual</h2>
+      <form className="card" onSubmit={createChallenge} style={{padding:'17px',marginTop:'22px'}}>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>SOBRE PERSONALIZADO</p>
+        <h2 style={{marginBottom:'5px'}}>Escribe una prueba puntual</h2>
         <p style={{color:'var(--muted)'}}>
           Selecciona manualmente una persona, varias o todo el grupo. Aquí sí conoces
           la prueba porque la estás creando tú.
@@ -2331,7 +2332,7 @@ function Game({membership,onBack,session}){
         </label>
 
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'10px',marginTop:'15px'}}>
-          <p className="eyebrow" style={{margin:0}}>DESTINATARIOS</p>
+          <p className="eyebrow" style={{margin:0,fontSize:'.67rem',letterSpacing:'.08em'}}>DESTINATARIOS</p>
           <button type="button" className="secondary"
             onClick={()=>setChallengeForm(form=>({
               ...form,
@@ -2371,7 +2372,7 @@ function Game({membership,onBack,session}){
       </form>
 
       <section style={{marginTop:'22px'}}>
-        <p className="eyebrow" style={{marginBottom:'3px'}}>SOBRES PENDIENTES DE VALIDAR</p>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>SOBRES PENDIENTES DE VALIDAR</p>
         <div style={{display:'grid',gap:'10px'}}>
           {adminSpecialReviews.map(item=><article className="card" key={item.group_id} style={{padding:'17px'}}>
             <strong>{item.is_blind
@@ -2392,12 +2393,12 @@ function Game({membership,onBack,session}){
         </div>
       </section>
     </>:page==='points'&&mode==='admin'?<>
-      <section className="card" style={{padding:'18px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
-        <p className="eyebrow" style={{marginBottom:'3px'}}>ADMINISTRAR PUNTOS</p>
-        <h2 style={{marginBottom:'7px'}}>Actualiza la clasificación</h2>
+      <section className="card" style={{padding:'15px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>ADMINISTRAR PUNTOS</p>
+        <h2 style={{marginBottom:'4px'}}>Actualiza la clasificación</h2>
         <p style={{color:'var(--muted)',marginBottom:0}}>Usa cantidades positivas para sumar y negativas para restar.</p>
       </section>
-      <form className="card" onSubmit={adjustPoints} style={{padding:'20px',marginTop:'14px'}}>
+      <form className="card" onSubmit={adjustPoints} style={{padding:'16px',marginTop:'14px'}}>
         <label>Brinkker<select value={pointsForm.user_id} onChange={e=>setPointsForm({...pointsForm,user_id:e.target.value})}><option value="">Selecciona un Brinkker</option>{brinkkers.map(q=><option key={q.user_id} value={q.user_id}>{q.nickname}</option>)}</select></label>
         <label>Puntos<input type="number" step="1" value={pointsForm.amount} onChange={e=>setPointsForm({...pointsForm,amount:e.target.value})}/></label>
         <label>Motivo<input value={pointsForm.reason} onChange={e=>setPointsForm({...pointsForm,reason:e.target.value})} placeholder="Reto completado, penalización…"/></label>
@@ -2405,13 +2406,13 @@ function Game({membership,onBack,session}){
         {pointsMessage&&<p className="msg">{pointsMessage}</p>}
       </form>
     </>:page==='brinkkers'?<>
-      <section className="card" style={{padding:'18px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
-        <p className="eyebrow" style={{marginBottom:'3px'}}>{mode==='admin'?'GESTIÓN DE LA AVENTURA':'COMPAÑEROS DE VIAJE'}</p>
-        <h2 style={{marginBottom:'8px'}}>{brinkkers.length} {brinkkers.length===1?'Brinkker':'Brinkkers'}</h2>
+      <section className="card" style={{padding:'15px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>{mode==='admin'?'GESTIÓN DE LA AVENTURA':'COMPAÑEROS DE VIAJE'}</p>
+        <h2 style={{marginBottom:'5px'}}>{brinkkers.length} {brinkkers.length===1?'Brinkker':'Brinkkers'}</h2>
       </section>
       <section style={{display:'grid',gap:'8px',marginTop:'12px'}}>
-        {brinkkersLoading&&<article className="card" style={{padding:'18px'}}>Cargando Brinkkers…</article>}
-        {brinkkersError&&<article className="card" style={{padding:'18px',color:'#a13f3f'}}>{brinkkersError}</article>}
+        {brinkkersLoading&&<article className="card" style={{padding:'15px'}}>Cargando Brinkkers…</article>}
+        {brinkkersError&&<article className="card" style={{padding:'15px',color:'#a13f3f'}}>{brinkkersError}</article>}
         {!brinkkersLoading&&!brinkkersError&&brinkkers.map(q=>
           <article className="card" key={q.user_id} style={{padding:'17px',display:'flex',alignItems:'center',gap:'14px'}}>
             <div style={{width:'52px',height:'52px',borderRadius:'17px',background:q.profile_color||'#e7eee9',display:'grid',placeItems:'center',fontSize:'1.7rem'}}>{q.avatar_emoji||'🧭'}</div>
@@ -2421,19 +2422,19 @@ function Game({membership,onBack,session}){
       </section>
     </>:page==='auction'&&mode==='admin'?<>
       <section className="card" style={{
-        padding:'18px',
+        padding:'15px',
         border:'1px solid rgba(23,63,53,.09)',
         boxShadow:'none'
       }}>
-        <p className="eyebrow" style={{marginBottom:'3px'}}>SUBASTA</p>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>SUBASTA</p>
         <h2 style={{marginBottom:'4px'}}>Objetos y pujas</h2>
-        <p style={{color:'var(--muted)',marginBottom:0,fontSize:'.88rem'}}>
+        <p style={{color:'var(--muted)',marginBottom:0,fontSize:'.84rem'}}>
           Elige objetos, define pujas mínimas y cierra cada ronda cuando quieras.
         </p>
       </section>
       {!auction&&<button className="primary wide" style={{marginTop:'14px'}} onClick={createAuction} disabled={auctionBusy}><Gavel size={18}/>Crear subasta</button>}
       {auction&&<>
-        {auction.status==='draft'&&<section className="card" style={{padding:'18px',marginTop:'14px'}}>
+        {auction.status==='draft'&&<section className="card" style={{padding:'15px',marginTop:'14px'}}>
           <label>Objeto<select value={newLot.advantage_id} onChange={e=>setNewLot({...newLot,advantage_id:e.target.value})}>{auctionCatalog.map(a=><option key={a.advantage_id} value={a.advantage_id}>{a.emoji} {a.name}</option>)}</select></label>
           <label>Puja mínima<input type="number" min="0" value={newLot.minimum_bid} onChange={e=>setNewLot({...newLot,minimum_bid:e.target.value})}/></label>
           <div className="actions" style={{gap:'8px'}}>
@@ -2451,7 +2452,7 @@ function Game({membership,onBack,session}){
               <div style={{
                 width:'40px',height:'40px',borderRadius:'12px',
                 background:'#eef3ef',display:'grid',placeItems:'center',
-                fontSize:'1.3rem'
+                fontSize:'1.18rem'
               }}>{l.emoji}</div>
               <div style={{minWidth:0}}>
                 <strong style={{display:'block'}}>{l.advantage_name}</strong>
@@ -2478,7 +2479,7 @@ function Game({membership,onBack,session}){
             </button>}
           </article>)}
         </section>
-        <section className="card" style={{padding:'18px',marginTop:'14px'}}>
+        <section className="card" style={{padding:'15px',marginTop:'14px'}}>
           {auction.status==='draft'&&<button className="primary wide" onClick={openAuction} disabled={auctionBusy||!auctionLots.length}><Play size={17}/>Abrir subasta</button>}
           {['open','tiebreak'].includes(auction.status)&&<button className="primary wide" onClick={closeAuction} disabled={auctionBusy}><LockKeyhole size={17}/>Cerrar ronda</button>}
           {auction.status==='closed'&&<button className="secondary wide" onClick={createAuction} disabled={auctionBusy}><Gavel size={17}/>Nueva subasta</button>}
@@ -2487,19 +2488,19 @@ function Game({membership,onBack,session}){
       </>}
     </>:page==='adminAdvantages'&&mode==='admin'?<>
       <section className="card" style={{
-        padding:'18px',
+        padding:'15px',
         border:'1px solid rgba(23,63,53,.09)',
         boxShadow:'none'
       }}>
-        <p className="eyebrow" style={{marginBottom:'3px'}}>OBJETOS</p>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>OBJETOS</p>
         <h2 style={{marginBottom:'4px'}}>Gestiona los objetos</h2>
-        <p style={{color:'var(--muted)',marginBottom:0,fontSize:'.88rem'}}>
+        <p style={{color:'var(--muted)',marginBottom:0,fontSize:'.84rem'}}>
           Asigna objetos oficiales o crea objetos personalizados para este Brinkkando.
         </p>
       </section>
 
-      <section className="card" style={{padding:'22px',marginTop:'14px'}}>
-        <p className="eyebrow" style={{marginBottom:'3px'}}>ASIGNAR OBJETO</p>
+      <section className="card" style={{padding:'17px',marginTop:'14px'}}>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>ASIGNAR OBJETO</p>
         <form onSubmit={assignAdvantageToUser}>
           <label>Objeto
             <select value={assignAdvantage.advantage_id}
@@ -2524,7 +2525,7 @@ function Game({membership,onBack,session}){
       </section>
 
       <section style={{marginTop:'20px'}}>
-        <p className="eyebrow" style={{marginBottom:'3px'}}>SOLICITUDES DE USO</p>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>SOLICITUDES DE USO</p>
         <div style={{display:'grid',gap:'9px'}}>
           {advantageRequests.map(request=><article className="card" key={request.request_id}
             style={{padding:'17px'}}>
@@ -2553,7 +2554,7 @@ function Game({membership,onBack,session}){
       </section>
 
       <section style={{marginTop:'20px'}}>
-        <p className="eyebrow" style={{marginBottom:'3px'}}>INVENTARIO ACTUAL</p>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>INVENTARIO ACTUAL</p>
         <div style={{display:'grid',gap:'9px'}}>
           {advantageAssignments.map(item=><article className="card" key={item.assignment_id}
             style={{padding:'16px',display:'flex',alignItems:'center',gap:'12px'}}>
@@ -2575,8 +2576,8 @@ function Game({membership,onBack,session}){
         </div>
       </section>
 
-      <form className="card" onSubmit={createAdvantage} style={{padding:'22px',marginTop:'22px'}}>
-        <p className="eyebrow" style={{marginBottom:'3px'}}>OBJETO PERSONALIZADO</p>
+      <form className="card" onSubmit={createAdvantage} style={{padding:'17px',marginTop:'22px'}}>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>OBJETO PERSONALIZADO</p>
         <h2 style={{marginBottom:'14px'}}>Crea una ventaja nueva</h2>
         <div className="cols">
           <label>Nombre
@@ -2601,7 +2602,7 @@ function Game({membership,onBack,session}){
       </form>
 
       <section style={{marginTop:'22px'}}>
-        <p className="eyebrow" style={{marginBottom:'3px'}}>CATÁLOGO DE OBJETOS</p>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>CATÁLOGO DE OBJETOS</p>
         <div style={{display:'grid',gap:'9px'}}>
           {advantageCatalog.map(item=><article className="card" key={item.advantage_id}
             style={{padding:'16px',display:'flex',alignItems:'center',gap:'12px'}}>
@@ -2622,8 +2623,8 @@ function Game({membership,onBack,session}){
         </div>
 
         {editingAdvantage&&<form className="card" onSubmit={saveCustomAdvantage}
-          style={{padding:'18px',marginTop:'12px'}}>
-          <p className="eyebrow" style={{marginBottom:'3px'}}>EDITAR OBJETO PERSONALIZADO</p>
+          style={{padding:'15px',marginTop:'12px'}}>
+          <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>EDITAR OBJETO PERSONALIZADO</p>
           <div className="cols">
             <label>Nombre<input value={editAdvantageForm.name}
               onChange={e=>setEditAdvantageForm({...editAdvantageForm,name:e.target.value})}/></label>
@@ -2639,8 +2640,8 @@ function Game({membership,onBack,session}){
         </form>}
       </section>
     </>:page==='settings'&&mode==='admin'?<>
-      <form className="card" onSubmit={saveAdminSettings} style={{padding:'18px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
-        <p className="eyebrow" style={{marginBottom:'3px'}}>AJUSTES BÁSICOS</p>
+      <form className="card" onSubmit={saveAdminSettings} style={{padding:'15px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>AJUSTES BÁSICOS</p>
         <h2 style={{marginBottom:'14px'}}>Configura el Brinkkando</h2>
 
         <div className="cols">
@@ -2682,16 +2683,16 @@ function Game({membership,onBack,session}){
         </button>
       </form>
 
-      <section className="card" style={{padding:'20px',marginTop:'14px'}}>
-        <p className="eyebrow" style={{marginBottom:'3px'}}>CÓDIGO DEL BRINKKANDO</p>
+      <section className="card" style={{padding:'16px',marginTop:'14px'}}>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>CÓDIGO DEL BRINKKANDO</p>
         <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
-          <strong style={{fontSize:'1.25rem',letterSpacing:'.14em',flex:1}}>{g.invite_code}</strong>
+          <strong style={{fontSize:'1.04rem',letterSpacing:'.14em',flex:1}}>{g.invite_code}</strong>
           <button className="secondary" onClick={copyCode}><Copy size={16}/>{copied?'Copiado':'Copiar'}</button>
         </div>
       </section>
 
       <section style={{marginTop:'22px'}}>
-        <p className="eyebrow" style={{marginBottom:'3px'}}>MANTENIMIENTO</p>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>MANTENIMIENTO</p>
         <div style={{display:'grid',gap:'9px'}}>
           <button className="card" disabled={settingsBusy}
             onClick={()=>runAdminAction('clear_pending_challenges')}
@@ -2716,8 +2717,8 @@ function Game({membership,onBack,session}){
         </div>
       </section>
 
-      <section className="card" style={{padding:'20px',marginTop:'22px',border:'1px solid #d7a1a1'}}>
-        <p className="eyebrow" style={{color:'#a13f3f'}}>ZONA PELIGROSA</p>
+      <section className="card" style={{padding:'16px',marginTop:'22px',border:'1px solid #d7a1a1'}}>
+        <p className="eyebrow" style={{color:'#a13f3f',fontSize:'.67rem',letterSpacing:'.08em'}}>ZONA PELIGROSA</p>
         <p style={{color:'var(--muted)'}}>Estas acciones son irreversibles. Escribe la palabra solicitada antes de ejecutarlas.</p>
 
         <label>Confirmación
@@ -2740,8 +2741,8 @@ function Game({membership,onBack,session}){
         </div>
       </section>
 
-      <section className="card" style={{padding:'20px',marginTop:'14px'}}>
-        <p className="eyebrow" style={{marginBottom:'3px'}}>ELIMINAR BRINKKANDO</p>
+      <section className="card" style={{padding:'16px',marginTop:'14px'}}>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>ELIMINAR BRINKKANDO</p>
         <p style={{color:'var(--muted)',marginBottom:0}}>
           La eliminación definitiva sigue disponible desde el menú ⋮ de el Brinkkando en «Mis Brinkkandos», donde exige escribir su nombre exacto.
         </p>
@@ -2749,8 +2750,8 @@ function Game({membership,onBack,session}){
 
       {settingsMessage&&<p className="msg">{settingsMessage}</p>}
     </>:page==='stages'?<>
-      {mode==='admin'&&<form className="card" onSubmit={saveStage} style={{padding:'18px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
-        <p className="eyebrow" style={{marginBottom:'3px'}}>{editingStageId?'EDITAR JORNADA':'NUEVA JORNADA'}</p>
+      {mode==='admin'&&<form className="card" onSubmit={saveStage} style={{padding:'15px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>{editingStageId?'EDITAR JORNADA':'NUEVA JORNADA'}</p>
         <h2 style={{marginBottom:'14px'}}>Plan del Brinkkando</h2>
 
         <label>Fecha
@@ -2809,14 +2810,14 @@ function Game({membership,onBack,session}){
           </label>
         </>}
 
-        <p className="eyebrow" style={{marginTop:'20px'}}>PLAN DEL DÍA</p>
+        <p className="eyebrow" style={{marginTop:'20px',fontSize:'.67rem',letterSpacing:'.08em'}}>PLAN DEL DÍA</p>
         <label>¿Qué hacemos hoy?
           <textarea rows="5" value={stageForm.day_description}
             onChange={e=>setStageForm({...stageForm,day_description:e.target.value})}
             placeholder="Visitas, comida, playa, festival, horarios, cosas a tener en cuenta…"/>
         </label>
 
-        <p className="eyebrow" style={{marginTop:'20px'}}>ALOJAMIENTO</p>
+        <p className="eyebrow" style={{marginTop:'20px',fontSize:'.67rem',letterSpacing:'.08em'}}>ALOJAMIENTO</p>
         <label style={{display:'flex',alignItems:'center',gap:'10px',fontWeight:'850'}}>
           <input type="checkbox" checked={stageForm.same_accommodation}
             onChange={e=>setStageForm({...stageForm,same_accommodation:e.target.checked})}
@@ -2868,7 +2869,7 @@ function Game({membership,onBack,session}){
         {stageMessage&&<p className="msg">{stageMessage}</p>}
       </form>}
       <section style={{marginTop:mode==='admin'?'22px':0}}>
-        <p className="eyebrow" style={{marginBottom:'3px'}}>{mode==='admin'?'JORNADAS CREADAS':'PLAN DEL VIAJE'}</p>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>{mode==='admin'?'JORNADAS CREADAS':'PLAN DEL VIAJE'}</p>
         <div style={{display:'grid',gap:'11px'}}>
           {stagesLoading&&<article className="card" style={{padding:'17px'}}>Cargando Plan…</article>}
           {!stagesLoading&&stages.map(stage=>{
@@ -2889,7 +2890,7 @@ function Game({membership,onBack,session}){
                       {stage.stage_date?new Date(`${stage.stage_date}T12:00:00`).toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'}):`Jornada ${stage.stage_position}`}
                       {state==='today'?' · HOY':''}
                     </small>
-                    <strong style={{display:'block',fontSize:'1.08rem',marginTop:'3px'}}>
+                    <strong style={{display:'block',fontSize:'1.01rem',marginTop:'3px'}}>
                       {stage.same_place?'Día en el mismo lugar':`${stage.origin} → ${stage.destination}`}
                     </strong>
                     {stage.same_place&&<small style={{display:'block',color:'var(--muted)'}}>{stage.origin}</small>}
@@ -2938,20 +2939,20 @@ function Game({membership,onBack,session}){
               </div>}
             </article>
           })}
-          {!stagesLoading&&!stages.length&&<article className="card" style={{padding:'18px'}}>
+          {!stagesLoading&&!stages.length&&<article className="card" style={{padding:'15px'}}>
             {mode==='admin'?'Todavía no has creado ninguna jornada.':'El Admin todavía no ha preparado el Plan.'}
           </article>}
         </div>
       </section>
     </>:page==='advantages'?<>
       <section className="card" style={{
-        padding:'18px',
+        padding:'15px',
         border:'1px solid rgba(23,63,53,.09)',
         boxShadow:'none'
       }}>
-        <p className="eyebrow" style={{marginBottom:'3px'}}>TU INVENTARIO</p>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>TU INVENTARIO</p>
         <h2 style={{marginBottom:'4px'}}>Tus objetos</h2>
-        <p style={{color:'var(--muted)',marginBottom:0,fontSize:'.88rem'}}>
+        <p style={{color:'var(--muted)',marginBottom:0,fontSize:'.84rem'}}>
           Solicita usar un objeto y el Admin confirmará cuándo se consume.
         </p>
       </section>
@@ -2997,7 +2998,7 @@ function Game({membership,onBack,session}){
               <Play size={16}/>Solicitar uso
             </button>}
         </article>)}
-        {!myAdvantages.length&&<article className="card" style={{padding:'18px'}}>
+        {!myAdvantages.length&&<article className="card" style={{padding:'15px'}}>
           Aún no tienes ningún objeto.
         </article>}
       </section>
@@ -3005,7 +3006,7 @@ function Game({membership,onBack,session}){
       {advantageMessage&&<p className="msg">{advantageMessage}</p>}
     </>:<>
       <section className="card" style={{padding:'24px'}}>
-        <p className="eyebrow" style={{marginBottom:'3px'}}>PRÓXIMO SPRINT</p>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>PRÓXIMO SPRINT</p>
         <h2>Sección</h2>
         <p style={{color:'var(--muted)'}}>Esta sección se incorporará en los siguientes sprints.</p>
       </section>
@@ -3219,12 +3220,12 @@ function Dashboard({session}){
   return <main className="shell">
     <header className="top">
       <div>
-        <p className="eyebrow" style={{marginBottom:'3px'}}>BIENVENIDO, QUESTER</p>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>BIENVENIDO, QUESTER</p>
         <h1>Hola, {nick}</h1>
       </div>
       <div style={{display:'flex',gap:'8px'}}>
         <button className="secondary" style={{padding:'11px 13px'}} onClick={()=>setProfileOpen(true)}>
-          <span style={{fontSize:'1.25rem'}}>{profile.avatar_emoji||'🧭'}</span>
+          <span style={{fontSize:'1.04rem'}}>{profile.avatar_emoji||'🧭'}</span>
           <span>Mi perfil</span>
         </button>
         <button className="icon" onClick={()=>supabase.auth.signOut()}><LogOut/></button>
@@ -3232,7 +3233,7 @@ function Dashboard({session}){
     </header>
 
     <section className="heading">
-      <div><p className="eyebrow" style={{marginBottom:'3px'}}>MIS BRINKKANDOS</p><h2>Mis Brinkkandos</h2></div>
+      <div><p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>MIS BRINKKANDOS</p><h2>Mis Brinkkandos</h2></div>
       <div className="actions" style={{gap:'8px'}}>
         <button className="primary" onClick={()=>setModal('create')}><Plus size={18}/>Crear</button>
         <button className="secondary" onClick={()=>setModal('join')}><KeyRound size={18}/>Unirme</button>
@@ -3263,7 +3264,7 @@ function Dashboard({session}){
           minWidth:'175px',
           boxShadow:'0 18px 40px rgba(23,63,53,.22)'
         }}>
-          {m.role==='owner'&&<button className="secondary wide" style={{justifyContent:'flex-start',marginBottom:'6px'}} onClick={()=>openEdit(m)}>
+          {m.role==='owner'&&<button className="secondary wide" style={{justifyContent:'flex-start',marginBottom:'4px'}} onClick={()=>openEdit(m)}>
             <Pencil size={17}/>Editar Brinkkando
           </button>}
           <button className="secondary wide" style={{justifyContent:'flex-start',color:m.role==='owner'?'#a13f3f':'inherit'}} onClick={()=>openDelete(m)}>
@@ -3274,7 +3275,7 @@ function Dashboard({session}){
       </article>)}
     </section>:<section className="card empty">
       <div>🌍</div>
-      <p className="eyebrow" style={{marginBottom:'3px'}}>TU PRIMERA AVENTURA</p>
+      <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>TU PRIMERA AVENTURA</p>
       <h2>El viaje puede empezar hoy.</h2>
       <p>Crea un Brinkkando o únete con un código.</p>
     </section>}
@@ -3284,7 +3285,7 @@ function Dashboard({session}){
     {editingMembership&&<div className="backdrop">
       <form className="card modal" onSubmit={saveAdventure}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'12px',marginBottom:'12px'}}>
-          <div><p className="eyebrow" style={{marginBottom:'3px'}}>EDITAR AVENTURA</p><h2 style={{marginBottom:0}}>{editingMembership.games.name}</h2></div>
+          <div><p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>EDITAR AVENTURA</p><h2 style={{marginBottom:0}}>{editingMembership.games.name}</h2></div>
           <button type="button" className="icon" onClick={()=>setEditingMembership(null)}><X/></button>
         </div>
         <label>Nombre<input required value={editGame.name} onChange={e=>setEditGame({...editGame,name:e.target.value})}/></label>
@@ -3303,7 +3304,7 @@ function Dashboard({session}){
       <section className="card modal">
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'12px',marginBottom:'12px'}}>
           <div>
-            <p className="eyebrow" style={{marginBottom:'3px'}}>{deleteMembership.role==='owner'?'ELIMINAR BRINKKANDO':'SALIR DE LA AVENTURA'}</p>
+            <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>{deleteMembership.role==='owner'?'ELIMINAR BRINKKANDO':'SALIR DE LA AVENTURA'}</p>
             <h2 style={{marginBottom:0}}>{deleteMembership.games.name}</h2>
           </div>
           <button type="button" className="icon" onClick={()=>setDeleteMembership(null)}><X/></button>
@@ -3330,7 +3331,7 @@ function Dashboard({session}){
     {profileOpen&&<div className="backdrop">
       <form className="card modal" onSubmit={saveProfile}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'12px',marginBottom:'12px'}}>
-          <div><p className="eyebrow" style={{marginBottom:'3px'}}>MI PERFIL</p><h2 style={{marginBottom:0}}>Personaliza tu Brinkker</h2></div>
+          <div><p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>MI PERFIL</p><h2 style={{marginBottom:0}}>Personaliza tu Brinkker</h2></div>
           <button type="button" className="icon" onClick={()=>setProfileOpen(false)}><X/></button>
         </div>
         <div style={{width:'88px',height:'88px',borderRadius:'26px',background:profile.profile_color,display:'grid',placeItems:'center',fontSize:'3rem',margin:'8px auto 20px'}}>
@@ -3349,7 +3350,7 @@ function Dashboard({session}){
     }}>{profileMessage}</p>}
 
         <section style={{marginTop:'20px',paddingTop:'16px',borderTop:'1px solid #e1ddd2'}}>
-          <p className="eyebrow" style={{marginBottom:'3px'}}>CUENTA Y DATOS</p>
+          <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>CUENTA Y DATOS</p>
           <p style={{color:'var(--muted)',fontSize:'.85rem'}}>
             Para solicitar la eliminación de tu cuenta y datos, escribe al correo indicado en Privacidad desde el email de tu cuenta.
           </p>
@@ -3402,7 +3403,7 @@ function ResetPassword({onDone}){
   return <main className="auth">
     <section className="brand">
       <div className="mark"><KeyRound size={42}/></div>
-      <p className="eyebrow" style={{marginBottom:'3px'}}>NUEVA CONTRASEÑA</p>
+      <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>NUEVA CONTRASEÑA</p>
       <h1>Vuelve a Brinkkando.</h1>
       <p className="lead">Elige una contraseña nueva para recuperar tu cuenta.</p>
     </section>
@@ -3437,7 +3438,7 @@ function EmailConfirmed({session,onContinue}){
   return <main className="auth">
     <section className="brand">
       <div className="mark"><CheckCircle2 size={42}/></div>
-      <p className="eyebrow" style={{marginBottom:'3px'}}>EMAIL CONFIRMADO</p>
+      <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>EMAIL CONFIRMADO</p>
       <h1>¡Ya eres Brinkker!</h1>
       <p className="lead">Tu correo se ha confirmado correctamente. Ya puedes acceder a Brinkkando.</p>
     </section>
