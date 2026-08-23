@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react'
-import {Compass,Plus,KeyRound,LogOut,ArrowLeft,Settings,UserRound,CalendarDays,Copy,Share2,Crown,Users,X,Home,Trophy,Target,Backpack,Star,CheckCircle2,MoreVertical,Pencil,Trash2,DoorOpen,Lock,Handshake,Send,Check,Clock3,Shuffle,PackageOpen,Map,Gift,ShieldCheck,Play,Archive,Undo2,Gavel,Dices,Save,LockKeyhole,Hotel,Navigation,Clock,ExternalLink,ChevronDown,ChevronUp,GripVertical,Power,RefreshCcw,Eraser,Database,UserPlus,UserMinus,Wallet,Receipt,ArrowRightLeft} from 'lucide-react'
+import {Compass,Plus,KeyRound,LogOut,ArrowLeft,Settings,UserRound,CalendarDays,Copy,Share2,Crown,Users,X,Home,Trophy,Target,Backpack,Star,CheckCircle2,MoreVertical,Pencil,Trash2,DoorOpen,Lock,Handshake,Send,Check,Clock3,Shuffle,PackageOpen,Map,Gift,ShieldCheck,Play,Archive,Undo2,Gavel,Dices,Save,LockKeyhole,Hotel,Navigation,Clock,ExternalLink,ChevronDown,ChevronUp,GripVertical,Power,RefreshCcw,Eraser,Database,UserPlus,UserMinus,Wallet,Receipt,ArrowRightLeft,Phone} from 'lucide-react'
 import {supabase} from './supabase'
 
 const APP_VERSION='1.0.0'
@@ -404,6 +404,8 @@ function Game({membership,onBack,session}){
   const[expensesLoading,setExpensesLoading]=useState(false);
   const[expenseBusy,setExpenseBusy]=useState(false);
   const[expenseMessage,setExpenseMessage]=useState('');
+  const[expensePhones,setExpensePhones]=useState({});
+  const[copiedExpensePhone,setCopiedExpensePhone]=useState('');
   const[expenseFormOpen,setExpenseFormOpen]=useState(false);
   const[editingExpenseId,setEditingExpenseId]=useState(null);
   const[expenseForm,setExpenseForm]=useState({description:'',amount:'',payer_user_id:'',participant_ids:[],notes:''});
@@ -629,9 +631,10 @@ function Game({membership,onBack,session}){
 
   async function loadExpenses(){
     setExpensesLoading(true);
-    const [expenseResult,balanceResult]=await Promise.all([
+    const [expenseResult,balanceResult,phoneResult]=await Promise.all([
       supabase.rpc('list_tripquest_expenses',{p_game_id:g.id}),
-      supabase.rpc('list_tripquest_expense_balances',{p_game_id:g.id})
+      supabase.rpc('list_tripquest_expense_balances',{p_game_id:g.id}),
+      supabase.rpc('list_tripquest_bizum_phones',{p_game_id:g.id})
     ]);
     if(expenseResult.error){
       console.error('Error cargando gastos:',expenseResult.error);
@@ -642,6 +645,12 @@ function Game({membership,onBack,session}){
       console.error('Error cargando balances:',balanceResult.error);
       setExpenseBalances([]);
     }else setExpenseBalances(balanceResult.data||[]);
+    if(phoneResult.error){
+      console.error('Error cargando teléfonos Bizum:',phoneResult.error);
+      setExpensePhones({});
+    }else{
+      setExpensePhones(Object.fromEntries((phoneResult.data||[]).map(row=>[row.user_id,row.bizum_phone||''])));
+    }
     setExpensesLoading(false);
   }
 
@@ -716,7 +725,8 @@ function Game({membership,onBack,session}){
   }
 
   async function deleteExpense(expenseId){
-    if(!window.confirm('¿Eliminar este gasto?'))return;
+    const confirmation=window.prompt('Para eliminar este gasto escribe BORRAR');
+    if(confirmation!=='BORRAR')return;
     setExpenseBusy(true);
     const{error}=await supabase.rpc('delete_tripquest_expense',{p_expense_id:expenseId});
     setExpenseMessage(error?error.message:'Gasto eliminado');
@@ -728,18 +738,33 @@ function Game({membership,onBack,session}){
   }
 
   function expenseTransfers(){
-    const creditors=expenseBalances.filter(r=>Number(r.balance)>0.005).map(r=>({nickname:r.nickname,amount:Number(r.balance)})).sort((a,b)=>b.amount-a.amount);
-    const debtors=expenseBalances.filter(r=>Number(r.balance)<-0.005).map(r=>({nickname:r.nickname,amount:-Number(r.balance)})).sort((a,b)=>b.amount-a.amount);
+    const creditors=expenseBalances.filter(r=>Number(r.balance)>0.005).map(r=>({user_id:r.user_id,nickname:r.nickname,amount:Number(r.balance)})).sort((a,b)=>b.amount-a.amount);
+    const debtors=expenseBalances.filter(r=>Number(r.balance)<-0.005).map(r=>({user_id:r.user_id,nickname:r.nickname,amount:-Number(r.balance)})).sort((a,b)=>b.amount-a.amount);
     const transfers=[];
     let i=0,j=0;
     while(i<debtors.length&&j<creditors.length){
       const amount=Math.min(debtors[i].amount,creditors[j].amount);
-      if(amount>=0.005)transfers.push({from:debtors[i].nickname,to:creditors[j].nickname,amount});
+      if(amount>=0.005)transfers.push({from:debtors[i].nickname,from_user_id:debtors[i].user_id,to:creditors[j].nickname,to_user_id:creditors[j].user_id,amount});
       debtors[i].amount-=amount;creditors[j].amount-=amount;
       if(debtors[i].amount<0.005)i++;
       if(creditors[j].amount<0.005)j++;
     }
     return transfers;
+  }
+
+  async function copyExpensePhone(userId,nickname){
+    const phone=expensePhones[userId];
+    if(!phone){
+      setExpenseMessage(`${nickname} todavía no ha añadido un teléfono para Bizum.`);
+      return;
+    }
+    try{
+      await navigator.clipboard.writeText(phone);
+      setCopiedExpensePhone(userId);
+      setTimeout(()=>setCopiedExpensePhone(''),1800);
+    }catch{
+      window.prompt(`Copia el teléfono de ${nickname}:`,phone);
+    }
   }
 
   const totalExpenses=expenses.reduce((sum,item)=>sum+Number(item.amount||0),0);
@@ -1774,6 +1799,35 @@ function Game({membership,onBack,session}){
           {expenseMessage&&<p className="msg">{expenseMessage}</p>}
         </form>}
 
+
+        <section className="card" style={{padding:'15px',marginTop:'20px'}}>
+          <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>BALANCE</p>
+          <div style={{display:'grid',gap:'7px'}}>
+            {expenseBalances.map(row=><div key={row.user_id} style={{display:'flex',alignItems:'center',gap:'9px',padding:'9px 0',borderBottom:'1px solid #e5e0d5'}}>
+              <span style={{fontSize:'1.01rem'}}>{row.avatar_emoji||'🧭'}</span><strong style={{flex:1}}>{row.nickname}</strong>
+              <strong style={{color:Number(row.balance)>=0?'#24715a':'#a13f3f'}}>{Number(row.balance)>0?'+':''}{Number(row.balance).toFixed(2)} €</strong>
+            </div>)}
+          </div>
+        </section>
+
+        <section className="card" style={{padding:'15px',marginTop:'14px'}}>
+          <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>SALDAR CUENTAS</p>
+          <h2 style={{marginBottom:'12px'}}>Quién paga a quién</h2>
+          <div style={{display:'grid',gap:'8px'}}>
+            {expenseTransfers().map((t,index)=><div key={`${t.from}-${t.to}-${index}`} style={{padding:'11px',borderRadius:'13px',background:'#f3f0e8'}}>
+              <div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) auto minmax(0,1fr)',gap:'8px',alignItems:'center'}}>
+                <strong>{t.from}</strong><span style={{display:'grid',justifyItems:'center'}}><small style={{fontWeight:'950'}}>{t.amount.toFixed(2)} €</small><ArrowRightLeft size={16}/></span><strong style={{textAlign:'right'}}>{t.to}</strong>
+              </div>
+              <div style={{display:'flex',justifyContent:'flex-end',marginTop:'8px'}}>
+                <button type="button" className="secondary" onClick={()=>copyExpensePhone(t.to_user_id,t.to)} style={{padding:'7px 9px'}}>
+                  <Phone size={14}/>{copiedExpensePhone===t.to_user_id?'Teléfono copiado':'Copiar teléfono'}
+                </button>
+              </div>
+            </div>)}
+            {!expenseTransfers().length&&<p style={{margin:0,color:'var(--muted)'}}>Las cuentas están saldadas. 🎉</p>}
+          </div>
+        </section>
+
         <section style={{marginTop:'20px'}}>
           <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>HISTORIAL</p>
           <div style={{display:'grid',gap:'9px'}}>
@@ -1802,26 +1856,6 @@ function Game({membership,onBack,session}){
           </div>
         </section>
 
-        <section className="card" style={{padding:'15px',marginTop:'20px'}}>
-          <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>BALANCE</p>
-          <div style={{display:'grid',gap:'7px'}}>
-            {expenseBalances.map(row=><div key={row.user_id} style={{display:'flex',alignItems:'center',gap:'9px',padding:'9px 0',borderBottom:'1px solid #e5e0d5'}}>
-              <span style={{fontSize:'1.01rem'}}>{row.avatar_emoji||'🧭'}</span><strong style={{flex:1}}>{row.nickname}</strong>
-              <strong style={{color:Number(row.balance)>=0?'#24715a':'#a13f3f'}}>{Number(row.balance)>0?'+':''}{Number(row.balance).toFixed(2)} €</strong>
-            </div>)}
-          </div>
-        </section>
-
-        <section className="card" style={{padding:'15px',marginTop:'14px'}}>
-          <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>SALDAR CUENTAS</p>
-          <h2 style={{marginBottom:'12px'}}>Quién paga a quién</h2>
-          <div style={{display:'grid',gap:'8px'}}>
-            {expenseTransfers().map((t,index)=><div key={`${t.from}-${t.to}-${index}`} style={{padding:'11px',borderRadius:'13px',background:'#f3f0e8',display:'grid',gridTemplateColumns:'minmax(0,1fr) auto minmax(0,1fr)',gap:'8px',alignItems:'center'}}>
-              <strong>{t.from}</strong><span style={{display:'grid',justifyItems:'center'}}><small style={{fontWeight:'950'}}>{t.amount.toFixed(2)} €</small><ArrowRightLeft size={16}/></span><strong style={{textAlign:'right'}}>{t.to}</strong>
-            </div>)}
-            {!expenseTransfers().length&&<p style={{margin:0,color:'var(--muted)'}}>Las cuentas están saldadas. 🎉</p>}
-          </div>
-        </section>
       </>:mode==='player'?<>
         {stages.length>0&&(()=>{
           const today=new Date().toISOString().slice(0,10);
@@ -3069,7 +3103,7 @@ function Dashboard({session}){
   const[modal,setModal]=useState(null);
   const[selected,setSelected]=useState(null);
   const[profileOpen,setProfileOpen]=useState(false);
-  const[profile,setProfile]=useState({nickname:'',avatar_emoji:'🧭',profile_color:'#dfeee7'});
+  const[profile,setProfile]=useState({nickname:'',avatar_emoji:'🧭',profile_color:'#dfeee7',bizum_phone:''});
   const[profileSaving,setProfileSaving]=useState(false);
   const[profileMessage,setProfileMessage]=useState('');
   const[menuGameId,setMenuGameId]=useState(null);
@@ -3113,13 +3147,14 @@ function Dashboard({session}){
 
   async function loadProfile(){
     const{data,error}=await supabase.from('profiles')
-      .select('nickname,avatar_emoji,profile_color')
+      .select('nickname,avatar_emoji,profile_color,bizum_phone')
       .eq('id',session.user.id)
       .single();
     if(!error&&data)setProfile({
       nickname:data.nickname||'',
       avatar_emoji:data.avatar_emoji||'🧭',
-      profile_color:data.profile_color||'#dfeee7'
+      profile_color:data.profile_color||'#dfeee7',
+      bizum_phone:data.bizum_phone||''
     });
   }
 
@@ -3136,7 +3171,8 @@ function Dashboard({session}){
     const{error}=await supabase.from('profiles').update({
       nickname:cleanNickname,
       avatar_emoji:profile.avatar_emoji||'🧭',
-      profile_color:profile.profile_color||'#dfeee7'
+      profile_color:profile.profile_color||'#dfeee7',
+      bizum_phone:profile.bizum_phone.trim()||null
     }).eq('id',session.user.id);
     if(error){
       setProfileMessage(error.message);
@@ -3338,6 +3374,12 @@ function Dashboard({session}){
           {profile.avatar_emoji||'🧭'}
         </div>
         <label>Nickname<input required maxLength="30" value={profile.nickname} onChange={e=>setProfile({...profile,nickname:e.target.value})}/></label>
+        <label>Teléfono para Bizum
+          <input type="tel" inputMode="tel" maxLength="20" value={profile.bizum_phone}
+            onChange={e=>setProfile({...profile,bizum_phone:e.target.value})}
+            placeholder="Opcional · 600 000 000"/>
+          <small style={{display:'block',marginTop:'5px',color:'var(--muted)'}}>Solo se mostrará a los Brinkkers con los que compartas un Brinkkando para facilitar saldar cuentas.</small>
+        </label>
         <label>Emoji<input required maxLength="4" value={profile.avatar_emoji} onChange={e=>setProfile({...profile,avatar_emoji:e.target.value})} placeholder="🧭"/></label>
         <label>Color<div style={{display:'grid',gridTemplateColumns:'70px 1fr',gap:'10px',alignItems:'center'}}>
           <input type="color" value={profile.profile_color} onChange={e=>setProfile({...profile,profile_color:e.target.value})} style={{height:'48px',padding:'5px'}}/>
