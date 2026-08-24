@@ -406,6 +406,8 @@ function Game({membership,onBack,session}){
   const[expenseMessage,setExpenseMessage]=useState('');
   const[expensePhones,setExpensePhones]=useState({});
   const[copiedExpensePhone,setCopiedExpensePhone]=useState('');
+  const[expenseSettlements,setExpenseSettlements]=useState([]);
+  const[settlementBusy,setSettlementBusy]=useState(false);
   const[expenseFormOpen,setExpenseFormOpen]=useState(false);
   const[editingExpenseId,setEditingExpenseId]=useState(null);
   const[expenseForm,setExpenseForm]=useState({description:'',amount:'',payer_user_id:'',participant_ids:[],notes:''});
@@ -631,10 +633,11 @@ function Game({membership,onBack,session}){
 
   async function loadExpenses(){
     setExpensesLoading(true);
-    const [expenseResult,balanceResult,phoneResult]=await Promise.all([
+    const [expenseResult,balanceResult,phoneResult,settlementResult]=await Promise.all([
       supabase.rpc('list_tripquest_expenses',{p_game_id:g.id}),
       supabase.rpc('list_tripquest_expense_balances',{p_game_id:g.id}),
-      supabase.rpc('list_tripquest_bizum_phones',{p_game_id:g.id})
+      supabase.rpc('list_tripquest_bizum_phones',{p_game_id:g.id}),
+      supabase.rpc('list_tripquest_expense_settlements',{p_game_id:g.id})
     ]);
     if(expenseResult.error){
       console.error('Error cargando gastos:',expenseResult.error);
@@ -650,6 +653,12 @@ function Game({membership,onBack,session}){
       setExpensePhones({});
     }else{
       setExpensePhones(Object.fromEntries((phoneResult.data||[]).map(row=>[row.user_id,row.bizum_phone||''])));
+    }
+    if(settlementResult.error){
+      console.error('Error cargando pagos realizados:',settlementResult.error);
+      setExpenseSettlements([]);
+    }else{
+      setExpenseSettlements(settlementResult.data||[]);
     }
     setExpensesLoading(false);
   }
@@ -737,9 +746,28 @@ function Game({membership,onBack,session}){
     setExpenseBusy(false);
   }
 
+  function adjustedExpenseBalances(){
+    const balances=new Map(
+      expenseBalances.map(row=>[row.user_id,{...row,balance:Number(row.balance||0)}])
+    );
+
+    expenseSettlements.forEach(payment=>{
+      const amount=Number(payment.amount||0);
+      if(balances.has(payment.payer_user_id)){
+        balances.get(payment.payer_user_id).balance+=amount;
+      }
+      if(balances.has(payment.receiver_user_id)){
+        balances.get(payment.receiver_user_id).balance-=amount;
+      }
+    });
+
+    return Array.from(balances.values());
+  }
+
   function expenseTransfers(){
-    const creditors=expenseBalances.filter(r=>Number(r.balance)>0.005).map(r=>({user_id:r.user_id,nickname:r.nickname,amount:Number(r.balance)})).sort((a,b)=>b.amount-a.amount);
-    const debtors=expenseBalances.filter(r=>Number(r.balance)<-0.005).map(r=>({user_id:r.user_id,nickname:r.nickname,amount:-Number(r.balance)})).sort((a,b)=>b.amount-a.amount);
+    const adjusted=adjustedExpenseBalances();
+    const creditors=adjusted.filter(r=>Number(r.balance)>0.005).map(r=>({user_id:r.user_id,nickname:r.nickname,amount:Number(r.balance)})).sort((a,b)=>b.amount-a.amount);
+    const debtors=adjusted.filter(r=>Number(r.balance)<-0.005).map(r=>({user_id:r.user_id,nickname:r.nickname,amount:-Number(r.balance)})).sort((a,b)=>b.amount-a.amount);
     const transfers=[];
     let i=0,j=0;
     while(i<debtors.length&&j<creditors.length){
@@ -750,6 +778,34 @@ function Game({membership,onBack,session}){
       if(creditors[j].amount<0.005)j++;
     }
     return transfers;
+  }
+
+  async function markExpensePaid(transfer){
+    if(transfer.from_user_id!==session?.user?.id)return;
+
+    const amount=Number(transfer.amount.toFixed(2));
+    const ok=window.confirm(
+      `¿Confirmas que has pagado ${amount.toFixed(2)} € a ${transfer.to}?`
+    );
+    if(!ok)return;
+
+    setSettlementBusy(true);
+    setExpenseMessage('');
+
+    const{error}=await supabase.rpc('settle_tripquest_expense',{
+      p_game_id:g.id,
+      p_receiver_user_id:transfer.to_user_id,
+      p_amount:amount
+    });
+
+    if(error){
+      setExpenseMessage(error.message);
+    }else{
+      setExpenseMessage(`Pago de ${amount.toFixed(2)} € a ${transfer.to} marcado como realizado.`);
+      await loadExpenses();
+    }
+
+    setSettlementBusy(false);
   }
 
   async function copyExpensePhone(userId,nickname){
@@ -768,7 +824,7 @@ function Game({membership,onBack,session}){
   }
 
   const totalExpenses=expenses.reduce((sum,item)=>sum+Number(item.amount||0),0);
-  const myExpenseBalance=expenseBalances.find(row=>row.user_id===session?.user?.id);
+  const myExpenseBalance=adjustedExpenseBalances().find(row=>row.user_id===session?.user?.id);
 
   async function loadAdminSettings(){
     const{data,error}=await supabase.rpc('get_tripquest_admin_settings',{
@@ -1803,7 +1859,7 @@ function Game({membership,onBack,session}){
         <section className="card" style={{padding:'15px',marginTop:'20px'}}>
           <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>BALANCE</p>
           <div style={{display:'grid',gap:'7px'}}>
-            {expenseBalances.map(row=><div key={row.user_id} style={{display:'flex',alignItems:'center',gap:'9px',padding:'9px 0',borderBottom:'1px solid #e5e0d5'}}>
+            {adjustedExpenseBalances().map(row=><div key={row.user_id} style={{display:'flex',alignItems:'center',gap:'9px',padding:'9px 0',borderBottom:'1px solid #e5e0d5'}}>
               <span style={{fontSize:'1.01rem'}}>{row.avatar_emoji||'🧭'}</span><strong style={{flex:1}}>{row.nickname}</strong>
               <strong style={{color:Number(row.balance)>=0?'#24715a':'#a13f3f'}}>{Number(row.balance)>0?'+':''}{Number(row.balance).toFixed(2)} €</strong>
             </div>)}
@@ -1818,10 +1874,15 @@ function Game({membership,onBack,session}){
               <div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) auto minmax(0,1fr)',gap:'8px',alignItems:'center'}}>
                 <strong>{t.from}</strong><span style={{display:'grid',justifyItems:'center'}}><small style={{fontWeight:'950'}}>{t.amount.toFixed(2)} €</small><ArrowRightLeft size={16}/></span><strong style={{textAlign:'right'}}>{t.to}</strong>
               </div>
-              <div style={{display:'flex',justifyContent:'flex-end',marginTop:'8px'}}>
+              <div style={{display:'flex',justifyContent:'flex-end',gap:'7px',marginTop:'8px',flexWrap:'wrap'}}>
                 <button type="button" className="secondary" onClick={()=>copyExpensePhone(t.to_user_id,t.to)} style={{padding:'7px 9px'}}>
                   <Phone size={14}/>{copiedExpensePhone===t.to_user_id?'Teléfono copiado':'Copiar teléfono'}
                 </button>
+                {t.from_user_id===session?.user?.id&&
+                  <button type="button" className="primary" disabled={settlementBusy}
+                    onClick={()=>markExpensePaid(t)} style={{padding:'7px 9px'}}>
+                    <CheckCircle2 size={14}/>Ya he pagado
+                  </button>}
               </div>
             </div>)}
             {!expenseTransfers().length&&<p style={{margin:0,color:'var(--muted)'}}>Las cuentas están saldadas. 🎉</p>}
