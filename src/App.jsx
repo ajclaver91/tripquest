@@ -387,6 +387,7 @@ function Game({membership,onBack,session}){
   const[dailyChallenges,setDailyChallenges]=useState([]);
   const[dailyLoading,setDailyLoading]=useState(false);const[dailyError,setDailyError]=useState('');const[expandedDailyChallenge,setExpandedDailyChallenge]=useState(null);
   const[specialChallenges,setSpecialChallenges]=useState([]);
+  const[showCompletedEnvelopes,setShowCompletedEnvelopes]=useState(false);
   const[specialLoading,setSpecialLoading]=useState(false);
   const[library,setLibrary]=useState([]);
   const[adminDailyReviews,setAdminDailyReviews]=useState([]);
@@ -2567,78 +2568,229 @@ function Game({membership,onBack,session}){
         </div>}
       </section>
     </>:page==='challenges'?<>
-      <section className="card" style={{padding:'14px 15px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
-        <p className="eyebrow" style={{marginBottom:'2px',fontSize:'.67rem',letterSpacing:'.08em'}}>✉️ TUS SOBRES</p>
-        <h2 style={{margin:'0 0 3px',fontSize:'1.05rem'}}>Pruebas y recompensas</h2>
-        <p style={{color:'var(--muted)',margin:0,fontSize:'.79rem',lineHeight:1.35}}>
-          Completa sobres para ganar ⭐ ranking, 🪙 subasta o las dos cosas.
+      <section className="card" style={{
+        padding:'13px 14px',
+        border:'1px solid rgba(23,63,53,.09)',
+        boxShadow:'none'
+      }}>
+        <p className="eyebrow" style={{
+          marginBottom:'2px',fontSize:'.66rem',letterSpacing:'.08em'
+        }}>
+          ✉️ TUS SOBRES
         </p>
+        <div style={{
+          display:'flex',justifyContent:'space-between',
+          gap:'10px',alignItems:'baseline'
+        }}>
+          <h2 style={{margin:0,fontSize:'1.02rem'}}>Pruebas pendientes</h2>
+          <small style={{color:'var(--muted)',fontWeight:'850'}}>
+            {specialChallenges.filter(item=>item.group_status!=='approved').length}
+          </small>
+        </div>
       </section>
 
-      <section style={{display:'grid',gap:'7px',marginTop:'10px'}}>
-        {specialLoading&&<article className="card" style={{padding:'12px'}}>Cargando sobres…</article>}
-        {!specialLoading&&specialChallenges.map(item=>{
-          const rewardType=Number(item.points||0)>0&&Number(item.coins||0)>0?'mixed':
-            Number(item.coins||0)>0?'coins':'points';
-          const rewardLabel=[
-            Number(item.points||0)>0?`⭐ ${item.points}`:'',
-            Number(item.coins||0)>0?`🪙 ${item.coins}`:''
-          ].filter(Boolean).join(' · ');
+      <section style={{display:'grid',gap:'6px',marginTop:'8px'}}>
+        {specialLoading&&
+          <article className="card" style={{padding:'11px 12px'}}>
+            Cargando sobres…
+          </article>}
 
-          return <article className="card" key={item.group_id} style={{
-            padding:'11px 12px',
-            border:'1px solid rgba(23,63,53,.08)',
-            boxShadow:'none'
-          }}>
-            <div style={{
-              display:'grid',
-              gridTemplateColumns:'34px minmax(0,1fr) auto',
-              gap:'9px',alignItems:'center'
+        {!specialLoading&&specialChallenges
+          .filter(item=>item.group_status!=='approved')
+          .sort((a,b)=>{
+            const order={pending:0,rejected:1,submitted:2};
+            return (order[a.group_status]??9)-(order[b.group_status]??9);
+          })
+          .map(item=>{
+            const rewardType=
+              Number(item.points||0)>0&&Number(item.coins||0)>0
+                ?'mixed'
+                :Number(item.coins||0)>0?'coins':'points';
+
+            const rewardLabel=[
+              Number(item.points||0)>0?`⭐ ${item.points}`:'',
+              Number(item.coins||0)>0?`🪙 ${item.coins}`:''
+            ].filter(Boolean).join(' · ');
+
+            const statusText=
+              item.group_status==='submitted'
+                ?'En revisión'
+                :item.group_status==='rejected'
+                  ?'Rechazado'
+                  :'Pendiente';
+
+            return <article className="card" key={item.group_id} style={{
+              padding:'10px 11px',
+              border:'1px solid rgba(23,63,53,.08)',
+              boxShadow:'none'
             }}>
-              <span style={{
-                width:'34px',height:'34px',borderRadius:'11px',
-                display:'grid',placeItems:'center',
-                background:rewardType==='coins'?'#fff5d9':rewardType==='mixed'?'#f3efe3':'#eef3ef',
-                fontSize:'1.05rem'
-              }}>{rewardType==='coins'?'🪙':rewardType==='mixed'?'🎯':'⭐'}</span>
+              <div style={{
+                display:'grid',
+                gridTemplateColumns:'30px minmax(0,1fr) auto',
+                gap:'8px',alignItems:'center'
+              }}>
+                <span style={{
+                  width:'30px',height:'30px',borderRadius:'10px',
+                  display:'grid',placeItems:'center',
+                  background:
+                    rewardType==='coins'
+                      ?'#fff5d9'
+                      :rewardType==='mixed'
+                        ?'#f3efe3'
+                        :'#eef3ef',
+                  fontSize:'.98rem'
+                }}>
+                  {rewardType==='coins'?'🪙':rewardType==='mixed'?'🎯':'⭐'}
+                </span>
 
-              <div style={{minWidth:0}}>
+                <div style={{minWidth:0}}>
+                  <strong style={{
+                    display:'block',fontSize:'.85rem',
+                    overflow:'hidden',textOverflow:'ellipsis',
+                    whiteSpace:'nowrap'
+                  }}>
+                    {item.title}
+                  </strong>
+                  <small style={{
+                    display:'block',
+                    color:item.group_status==='rejected'?'#a13f3f':'var(--muted)',
+                    fontWeight:'800',
+                    marginTop:'1px'
+                  }}>
+                    {statusText}
+                  </small>
+                </div>
+
                 <strong style={{
-                  display:'block',fontSize:'.88rem',
-                  overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'
-                }}>{item.title}</strong>
-                <small style={{color:'var(--muted)',fontWeight:'800'}}>
-                  {statusLabel[item.group_status]}
-                </small>
+                  fontSize:'.73rem',
+                  whiteSpace:'nowrap'
+                }}>
+                  {rewardLabel}
+                </strong>
               </div>
 
-              <strong style={{fontSize:'.76rem',whiteSpace:'nowrap'}}>
-                {rewardLabel}
-              </strong>
-            </div>
+              <p style={{
+                color:'var(--muted)',
+                fontSize:'.78rem',
+                lineHeight:1.38,
+                margin:'7px 0 0'
+              }}>
+                {item.description}
+              </p>
 
-            <p style={{
-              color:'var(--muted)',fontSize:'.80rem',
-              lineHeight:1.4,margin:'9px 0 0'
-            }}>{item.description}</p>
+              {(item.kind==='secret_team'||item.kind==='random_team')&&
+                <small style={{
+                  display:'block',
+                  color:'var(--muted)',
+                  fontWeight:'800',
+                  marginTop:'6px'
+                }}>
+                  🤝 {item.member_names}
+                </small>}
 
-            {(item.kind==='secret_team'||item.kind==='random_team')&&
-              <small style={{display:'block',fontWeight:'800',marginTop:'7px'}}>
-                🤝 {item.member_names}
-              </small>}
+              {(item.group_status==='pending'||item.group_status==='rejected')&&
+                <button className="primary wide"
+                  style={{marginTop:'8px',padding:'8px',fontSize:'.78rem'}}
+                  onClick={()=>submitSpecial(item.group_id)}>
+                  <Send size={14}/>Enviar a revisión
+                </button>}
+            </article>;
+          })}
 
-            {(item.group_status==='pending'||item.group_status==='rejected')&&
-              <button className="primary wide" style={{marginTop:'9px',padding:'9px'}}
-                onClick={()=>submitSpecial(item.group_id)}>
-                <Send size={15}/>Enviar a revisión
-              </button>}
-          </article>;
-        })}
-        {!specialLoading&&!specialChallenges.length&&
-          <article className="card" style={{padding:'13px'}}>
-            ✉️ No tienes sobres pendientes.
+        {!specialLoading&&
+          !specialChallenges.some(item=>item.group_status!=='approved')&&
+          <article className="card" style={{padding:'11px 12px'}}>
+            ✨ No tienes sobres pendientes.
           </article>}
       </section>
+
+      {!specialLoading&&specialChallenges.some(item=>item.group_status==='approved')&&
+        <section style={{marginTop:'12px'}}>
+          <button type="button"
+            onClick={()=>setShowCompletedEnvelopes(!showCompletedEnvelopes)}
+            className="card"
+            style={{
+              width:'100%',
+              padding:'10px 12px',
+              border:'1px solid rgba(23,63,53,.08)',
+              boxShadow:'none',
+              display:'flex',
+              alignItems:'center',
+              justifyContent:'space-between',
+              gap:'10px',
+              color:'inherit',
+              textAlign:'left'
+            }}>
+            <span>
+              <strong style={{fontSize:'.84rem'}}>✓ Completados</strong>
+              <small style={{
+                display:'block',
+                color:'var(--muted)',
+                marginTop:'1px'
+              }}>
+                {specialChallenges.filter(item=>item.group_status==='approved').length} sobres
+              </small>
+            </span>
+
+            <span style={{
+              fontWeight:'950',
+              color:'var(--muted)',
+              fontSize:'1rem'
+            }}>
+              {showCompletedEnvelopes?'⌃':'›'}
+            </span>
+          </button>
+
+          {showCompletedEnvelopes&&
+            <div style={{display:'grid',gap:'5px',marginTop:'6px'}}>
+              {specialChallenges
+                .filter(item=>item.group_status==='approved')
+                .map(item=>{
+                  const rewardLabel=[
+                    Number(item.points||0)>0?`⭐ ${item.points}`:'',
+                    Number(item.coins||0)>0?`🪙 ${item.coins}`:''
+                  ].filter(Boolean).join(' · ');
+
+                  return <article key={item.group_id} style={{
+                    padding:'8px 10px',
+                    borderRadius:'11px',
+                    border:'1px solid rgba(23,63,53,.07)',
+                    background:'#fffdf7',
+                    display:'grid',
+                    gridTemplateColumns:'22px minmax(0,1fr) auto',
+                    gap:'7px',
+                    alignItems:'center'
+                  }}>
+                    <span style={{
+                      width:'22px',height:'22px',borderRadius:'7px',
+                      display:'grid',placeItems:'center',
+                      background:'#eef6f2',
+                      color:'#24715a',
+                      fontWeight:'950',
+                      fontSize:'.72rem'
+                    }}>
+                      ✓
+                    </span>
+
+                    <strong style={{
+                      fontSize:'.77rem',
+                      overflow:'hidden',
+                      textOverflow:'ellipsis',
+                      whiteSpace:'nowrap'
+                    }}>
+                      {item.title}
+                    </strong>
+
+                    <small style={{
+                      fontWeight:'900',
+                      whiteSpace:'nowrap'
+                    }}>
+                      {rewardLabel}
+                    </small>
+                  </article>;
+                })}
+            </div>}
+        </section>}
     </>:page==='packs'&&mode==='admin'?<>
       <section className="card" style={{padding:'15px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
         <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>BIBLIOTECA DE PACKS</p>
