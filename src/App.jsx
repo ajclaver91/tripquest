@@ -388,6 +388,7 @@ function Game({membership,onBack,session}){
   const[dailyLoading,setDailyLoading]=useState(false);const[dailyError,setDailyError]=useState('');const[expandedDailyChallenge,setExpandedDailyChallenge]=useState(null);
   const[specialChallenges,setSpecialChallenges]=useState([]);
   const[showCompletedEnvelopes,setShowCompletedEnvelopes]=useState(false);
+  const[autoChallengeBusy,setAutoChallengeBusy]=useState(false);
   const[specialLoading,setSpecialLoading]=useState(false);
   const[library,setLibrary]=useState([]);
   const[adminDailyReviews,setAdminDailyReviews]=useState([]);
@@ -1690,13 +1691,34 @@ function Game({membership,onBack,session}){
     }else{
       setChallengeMessage(
         roundType==='individual'
-          ?`Ronda enviada: ${data} sobres individuales`
+          ?`Ronda enviada: ${data} retos individuales`
           :`Ronda enviada: ${data} equipos`
       );
       await loadAdminChallenges();
       await loadNotificationCounts();
     }
     setRoundBusy(false);
+  }
+
+  async function distributeAutoChallenges(rewardType){
+    setAutoChallengeBusy(true);
+    setChallengeMessage('');
+    const{data,error}=await supabase.rpc('distribute_tripquest_challenge_round_v5',{
+      p_game_id:g.id,
+      p_reward_type:rewardType
+    });
+    if(error){
+      setChallengeMessage(error.message);
+    }else{
+      setChallengeMessage(
+        rewardType==='competition'
+          ?`⭐ Ronda de competición repartida: ${data} retos`
+          :`🪙 Ronda de dinámicas repartida: ${data} retos`
+      );
+      await loadAdminChallenges();
+      await loadNotificationCounts();
+    }
+    setAutoChallengeBusy(false);
   }
 
   async function createChallenge(e){
@@ -1721,11 +1743,11 @@ function Game({membership,onBack,session}){
       return;
     }
     if(points===0&&coins===0){
-      setChallengeMessage('El sobre debe dar puntos, monedas o ambas cosas.');
+      setChallengeMessage('El reto debe dar puntos, monedas o ambas cosas.');
       setChallengeBusy(false);
       return;
     }
-    const{error}=await supabase.rpc('create_tripquest_envelope_v4',{
+    const{error}=await supabase.rpc('create_tripquest_challenge_v5',{
       p_game_id:g.id,
       p_title:challengeForm.title.trim(),
       p_description:challengeForm.description.trim(),
@@ -1843,7 +1865,7 @@ function Game({membership,onBack,session}){
 
   const adminSections=[
     {id:'packs',label:'🎒 Packs',detail:'Biblioteca y pruebas'},
-    {id:'adminChallenges',label:'✉️ Sobres',detail:'Ranking, monedas o mixtos'},
+    {id:'adminChallenges',label:'🎯 Retos',detail:'Competición, dinámicas y especiales'},
     {id:'points',label:'⭐ Puntos',detail:'Gestionar clasificación'},
     {id:'auction',label:'🔨 Subasta',detail:'Objetos y pujas'},
     {id:'adminAdvantages',label:'🎒 Ventajas',detail:'Objetos e inventario'},
@@ -1854,9 +1876,9 @@ function Game({membership,onBack,session}){
 
   const playerNav=[
     {id:'home',label:'Inicio',icon:<Home size={20}/>},
-    {id:'ranking',label:'Ranking',icon:<Trophy size={20}/>},
-    {id:'challenges',label:'Sobres',icon:<Target size={20}/>},
     {id:'stages',label:'Plan',icon:<Map size={20}/>},
+    {id:'ranking',label:'Ranking',icon:<Trophy size={20}/>},
+    {id:'challenges',label:'Retos',icon:<Target size={20}/>},
     {id:'advantages',label:'Objetos',icon:<Backpack size={20}/>}
   ];
 
@@ -1864,8 +1886,8 @@ function Game({membership,onBack,session}){
     page==='ranking'?'Ranking':
     page==='brinkkers'?'Brinkkers':
     page==='points'?'Puntos':
-    page==='challenges'?'Sobres':
-    page==='adminChallenges'?'Sobres':
+    page==='challenges'?'Retos':
+    page==='adminChallenges'?'Retos':
     page==='packs'?'Packs':
     page==='stages'?'Plan':
     page==='auction'?'Subasta':
@@ -2576,13 +2598,13 @@ function Game({membership,onBack,session}){
         <p className="eyebrow" style={{
           marginBottom:'2px',fontSize:'.66rem',letterSpacing:'.08em'
         }}>
-          ✉️ TUS SOBRES
+          🎯 TUS RETOS
         </p>
         <div style={{
           display:'flex',justifyContent:'space-between',
           gap:'10px',alignItems:'baseline'
         }}>
-          <h2 style={{margin:0,fontSize:'1.02rem'}}>Pruebas pendientes</h2>
+          <h2 style={{margin:0,fontSize:'1.02rem'}}>Retos pendientes</h2>
           <small style={{color:'var(--muted)',fontWeight:'850'}}>
             {specialChallenges.filter(item=>item.group_status!=='approved').length}
           </small>
@@ -2592,7 +2614,7 @@ function Game({membership,onBack,session}){
       <section style={{display:'grid',gap:'6px',marginTop:'8px'}}>
         {specialLoading&&
           <article className="card" style={{padding:'11px 12px'}}>
-            Cargando sobres…
+            Cargando retos…
           </article>}
 
         {!specialLoading&&specialChallenges
@@ -2700,7 +2722,7 @@ function Game({membership,onBack,session}){
         {!specialLoading&&
           !specialChallenges.some(item=>item.group_status!=='approved')&&
           <article className="card" style={{padding:'11px 12px'}}>
-            ✨ No tienes sobres pendientes.
+            ✨ No tienes retos pendientes.
           </article>}
       </section>
 
@@ -2722,13 +2744,13 @@ function Game({membership,onBack,session}){
               textAlign:'left'
             }}>
             <span>
-              <strong style={{fontSize:'.84rem'}}>✓ Completados</strong>
+              <strong style={{fontSize:'.84rem'}}>✓ Retos completados</strong>
               <small style={{
                 display:'block',
                 color:'var(--muted)',
                 marginTop:'1px'
               }}>
-                {specialChallenges.filter(item=>item.group_status==='approved').length} sobres
+                {specialChallenges.filter(item=>item.group_status==='approved').length} retos
               </small>
             </span>
 
@@ -2891,15 +2913,34 @@ function Game({membership,onBack,session}){
       </form>
     </>:page==='adminChallenges'&&mode==='admin'?<>
       <section className="card" style={{padding:'14px 15px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
-        <p className="eyebrow" style={{marginBottom:'2px',fontSize:'.67rem',letterSpacing:'.08em'}}>✉️ SOBRES</p>
-        <h2 style={{margin:'0 0 3px',fontSize:'1.05rem'}}>Una sola dinámica</h2>
+        <p className="eyebrow" style={{marginBottom:'2px',fontSize:'.67rem',letterSpacing:'.08em'}}>🎯 RETOS</p>
+        <h2 style={{margin:'0 0 3px',fontSize:'1.05rem'}}>Competir, liarla y ganar</h2>
         <p style={{color:'var(--muted)',margin:0,fontSize:'.79rem',lineHeight:1.35}}>
-          ⭐ Ranking · 🪙 Subasta · 🎯 Mixtos. Los retos diarios dejan de mostrarse a los jugadores.
+          ⭐ Competición suma Ranking · 🪙 Dinámicas alimentan la subasta · 🎯 Especiales pueden dar ambas.
         </p>
       </section>
 
+      <section className="card" style={{padding:'14px',marginTop:'10px'}}>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>🎲 REPARTIR RONDA</p>
+        <small style={{display:'block',color:'var(--muted)',marginBottom:'10px',lineHeight:1.4}}>
+          La app elige automáticamente un reto diferente para cada Brinkker.
+        </small>
+        <div className="actions" style={{gap:'7px'}}>
+          <button type="button" className="primary"
+            disabled={autoChallengeBusy}
+            onClick={()=>distributeAutoChallenges('competition')}>
+            ⭐ Competición
+          </button>
+          <button type="button" className="secondary"
+            disabled={autoChallengeBusy}
+            onClick={()=>distributeAutoChallenges('dynamics')}>
+            🪙 Dinámicas
+          </button>
+        </div>
+      </section>
+
       <form className="card" onSubmit={createChallenge} style={{padding:'14px',marginTop:'10px'}}>
-        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>NUEVO SOBRE</p>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>✍️ RETO MANUAL</p>
         <label>Título
           <input value={challengeForm.title}
             onChange={e=>setChallengeForm({...challengeForm,title:e.target.value})}
@@ -2912,18 +2953,18 @@ function Game({membership,onBack,session}){
         </label>
 
         <div className="cols">
-          <label>⭐ Puntos ranking
+          <label>⭐ Ranking
             <input type="number" min="0" step="1" value={challengeForm.points}
               onChange={e=>setChallengeForm({...challengeForm,points:e.target.value})}/>
           </label>
-          <label>🪙 Monedas subasta
+          <label>🪙 Monedas
             <input type="number" min="0" step="5" value={challengeForm.coins}
               onChange={e=>setChallengeForm({...challengeForm,coins:e.target.value})}/>
           </label>
         </div>
 
         <small style={{display:'block',color:'var(--muted)',margin:'-3px 0 10px'}}>
-          Usa solo ⭐, solo 🪙 o pon cantidad en ambos para crear un sobre mixto.
+          Solo ⭐ = competición · solo 🪙 = dinámica · ⭐+🪙 = especial.
         </small>
 
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'8px'}}>
@@ -2931,9 +2972,7 @@ function Game({membership,onBack,session}){
           <button type="button" className="secondary"
             onClick={()=>setChallengeForm(form=>({
               ...form,
-              recipient_ids:form.recipient_ids.length===brinkkers.length
-                ?[]
-                :brinkkers.map(q=>q.user_id)
+              recipient_ids:form.recipient_ids.length===brinkkers.length?[]:brinkkers.map(q=>q.user_id)
             }))}>
             {challengeForm.recipient_ids.length===brinkkers.length?'Quitar todos':'Todos'}
           </button>
@@ -2954,9 +2993,8 @@ function Game({membership,onBack,session}){
         </div>
 
         <button className="primary wide" disabled={challengeBusy}>
-          <Send size={17}/>{challengeBusy?'Enviando…':'Enviar sobre'}
+          <Send size={17}/>{challengeBusy?'Enviando…':'Enviar reto'}
         </button>
-        {challengeMessage&&<p className="msg">{challengeMessage}</p>}
       </form>
 
       <section style={{marginTop:'15px'}}>
@@ -2966,9 +3004,7 @@ function Game({membership,onBack,session}){
             <div style={{display:'flex',justifyContent:'space-between',gap:'8px',alignItems:'flex-start'}}>
               <div style={{minWidth:0}}>
                 <strong style={{display:'block',fontSize:'.87rem'}}>{item.title}</strong>
-                <small style={{display:'block',color:'var(--muted)',marginTop:'2px'}}>
-                  {item.member_names}
-                </small>
+                <small style={{display:'block',color:'var(--muted)',marginTop:'2px'}}>{item.member_names}</small>
               </div>
               <strong style={{fontSize:'.74rem',whiteSpace:'nowrap'}}>
                 {Number(item.points||0)>0?`⭐ ${item.points}`:''}
@@ -2977,18 +3013,15 @@ function Game({membership,onBack,session}){
               </strong>
             </div>
             <div className="actions" style={{gap:'6px',marginTop:'9px'}}>
-              <button className="primary" disabled={challengeBusy}
-                onClick={()=>reviewSpecial(item.group_id,true)}>
+              <button className="primary" disabled={challengeBusy} onClick={()=>reviewSpecial(item.group_id,true)}>
                 <Check size={15}/>Aprobar
               </button>
-              <button className="secondary" disabled={challengeBusy}
-                onClick={()=>reviewSpecial(item.group_id,false)}>
+              <button className="secondary" disabled={challengeBusy} onClick={()=>reviewSpecial(item.group_id,false)}>
                 Rechazar
               </button>
             </div>
           </article>)}
-          {!adminSpecialReviews.length&&
-            <article className="card" style={{padding:'12px'}}>No hay sobres esperando validación.</article>}
+          {!adminSpecialReviews.length&&<article className="card" style={{padding:'12px'}}>No hay retos esperando validación.</article>}
         </div>
       </section>
     </>:page==='points'&&mode==='admin'?<>
