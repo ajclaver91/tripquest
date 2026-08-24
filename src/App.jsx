@@ -1888,9 +1888,24 @@ function Game({membership,onBack,session}){
   }}>
     <header className="top" style={{gap:'10px',marginBottom:'10px'}}>
       <button className="icon" onClick={page==='home'?onBack:()=>setPage('home')}><ArrowLeft/></button>
-      <div style={{minWidth:0}}>
+      <div style={{minWidth:0,flex:'1 1 auto'}}>
         <p className="eyebrow" style={{marginBottom:'2px',fontSize:'.67rem',letterSpacing:'.08em'}}>{g.emoji} BRINKKANDO</p>
         <h1 style={{fontSize:'1.04rem',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{title}</h1>
+      </div>
+      <div title="Tus monedas de subasta" style={{
+        flex:'0 0 auto',
+        display:'flex',alignItems:'center',gap:'5px',
+        padding:'7px 9px',
+        borderRadius:'999px',
+        background:'#f3f0e8',
+        border:'1px solid rgba(23,63,53,.08)',
+        fontSize:'.78rem',
+        fontWeight:'950',
+        whiteSpace:'nowrap'
+      }}>
+        <span aria-hidden="true">👛</span>
+        <span>{Number(auctionWallet.balance||0)}</span>
+        <span aria-hidden="true">🪙</span>
       </div>
     </header>
 
@@ -2924,7 +2939,7 @@ function Game({membership,onBack,session}){
         </p>
         <h2 style={{marginBottom:'4px'}}>Que empiece la guerra 😈</h2>
         <p style={{color:'var(--muted)',marginBottom:0,fontSize:'.84rem'}}>
-          Los lotes salen uno a uno. Cada puja es pública y el saldo de cada Brinkker es privado.
+          Los lotes salen uno a uno. Cada puja es pública, dura 45 s y cada contrapuja reinicia el reloj.
         </p>
       </section>
 
@@ -3126,7 +3141,7 @@ function Game({membership,onBack,session}){
           display:'block',color:'var(--muted)',
           marginBottom:'9px'
         }}>
-          Todos empiezan con 100 🪙. El Admin puede dar premios, pero no ve los saldos privados.
+          Todos empiezan con 100 🪙. Cada Brinkker ve su monedero arriba; el Admin puede dar premios, pero no ve saldos ajenos.
         </small>
 
         <label>Brinkker
