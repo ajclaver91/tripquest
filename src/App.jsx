@@ -437,6 +437,9 @@ function Game({membership,onBack,session}){
   const[auctionMessage,setAuctionMessage]=useState('');
   const[newLot,setNewLot]=useState({advantage_id:'',minimum_bid:'10'});
   const[myBids,setMyBids]=useState({});
+  const[auctionWallet,setAuctionWallet]=useState({balance:100});
+  const[auctionTick,setAuctionTick]=useState(Date.now());
+  const[auctionWalletForm,setAuctionWalletForm]=useState({user_id:'',amount:'10',reason:'Premio'});
   const[expenses,setExpenses]=useState([]);
   const[expenseBalances,setExpenseBalances]=useState([]);
   const[expensesLoading,setExpensesLoading]=useState(false);
@@ -504,6 +507,18 @@ function Game({membership,onBack,session}){
     loadExpenses();
     loadNotificationCounts();
   },[g.id]);
+
+  useEffect(()=>{
+    if(!auction||auction.status!=='open')return;
+
+    const interval=setInterval(async()=>{
+      setAuctionTick(Date.now());
+      await supabase.rpc('tick_live_tripquest_auction',{p_game_id:g.id});
+      await loadAuction();
+    },1500);
+
+    return()=>clearInterval(interval);
+  },[auction?.auction_id,auction?.status,g.id]);
 
   async function loadNotificationCounts(){
     const{data,error}=await supabase.rpc('get_tripquest_notification_counts',{p_game_id:g.id});
@@ -1166,57 +1181,207 @@ function Game({membership,onBack,session}){
   };
 
   async function loadAuction(){
-    const{data,error}=await supabase.rpc('get_tripquest_current_auction',{p_game_id:g.id});
-    if(error||!data?.length){setAuction(null);setAuctionLots([]);return}
+    const walletResult=await supabase.rpc('get_my_live_auction_wallet',{p_game_id:g.id});
+    if(walletResult.error){
+      console.error('Error cargando monedas:',walletResult.error);
+      setAuctionWallet({balance:100});
+    }else{
+      setAuctionWallet(walletResult.data?.[0]||{balance:100});
+    }
+
+    const{data,error}=await supabase.rpc('get_current_live_tripquest_auction',{p_game_id:g.id});
+
+    if(error||!data?.length){
+      setAuction(null);
+      setAuctionLots([]);
+      return;
+    }
+
     const current=data[0];
     setAuction(current);
-    const{data:lots}=await supabase.rpc('list_tripquest_auction_lots',{p_auction_id:current.auction_id});
-    setAuctionLots(lots||[]);
-    const next={};(lots||[]).forEach(l=>next[l.lot_id]=l.my_bid??'');setMyBids(next);
+
+    const{data:lots,error:lotsError}=await supabase.rpc('list_live_tripquest_auction_lots',{
+      p_auction_id:current.auction_id
+    });
+
+    if(lotsError){
+      console.error('Error cargando lotes:',lotsError);
+      setAuctionLots([]);
+    }else{
+      setAuctionLots(lots||[]);
+    }
   }
 
   async function loadAuctionCatalog(){
     const{data}=await supabase.rpc('list_tripquest_advantage_catalog',{p_game_id:g.id});
     setAuctionCatalog(data||[]);
-    if(data?.length&&!newLot.advantage_id)setNewLot(f=>({...f,advantage_id:data[0].advantage_id}));
+    if(data?.length&&!newLot.advantage_id){
+      setNewLot(f=>({...f,advantage_id:data[0].advantage_id}));
+    }
   }
 
   async function createAuction(){
-    setAuctionBusy(true);setAuctionMessage('');
-    const{error}=await supabase.rpc('create_tripquest_auction',{p_game_id:g.id});
+    setAuctionBusy(true);
+    setAuctionMessage('');
+
+    const{error}=await supabase.rpc('create_live_tripquest_auction',{
+      p_game_id:g.id
+    });
+
     setAuctionMessage(error?error.message:'Subasta creada');
-    await loadAuction();await loadAuctionCatalog();setAuctionBusy(false);
+    await loadAuction();
+    await loadAuctionCatalog();
+    setAuctionBusy(false);
   }
 
   async function addAuctionLot(random=false){
-    setAuctionBusy(true);setAuctionMessage('');
-    const min=Number(newLot.minimum_bid)||0;
+    setAuctionBusy(true);
+    setAuctionMessage('');
+
+    const min=Math.max(0,Number(newLot.minimum_bid)||0);
+
     const result=random
-      ?await supabase.rpc('add_random_tripquest_auction_lot',{p_auction_id:auction.auction_id,p_minimum_bid:min})
-      :await supabase.rpc('add_tripquest_auction_lot',{p_auction_id:auction.auction_id,p_advantage_id:newLot.advantage_id,p_minimum_bid:min});
-    setAuctionMessage(result.error?result.error.message:(random?'Objeto aleatorio añadido':'Objeto añadido'));
-    await loadAuction();setAuctionBusy(false);
+      ?await supabase.rpc('add_random_live_tripquest_auction_lot',{
+          p_auction_id:auction.auction_id,
+          p_minimum_bid:min
+        })
+      :await supabase.rpc('add_live_tripquest_auction_lot',{
+          p_auction_id:auction.auction_id,
+          p_advantage_id:newLot.advantage_id,
+          p_minimum_bid:min
+        });
+
+    setAuctionMessage(
+      result.error
+        ?result.error.message
+        :(random?'Objeto aleatorio añadido':'Objeto añadido')
+    );
+
+    await loadAuction();
+    setAuctionBusy(false);
+  }
+
+  async function removeAuctionLot(lotId){
+    setAuctionBusy(true);
+
+    const{error}=await supabase.rpc('remove_live_tripquest_auction_lot',{
+      p_lot_id:lotId
+    });
+
+    setAuctionMessage(error?error.message:'Objeto retirado');
+    await loadAuction();
+    setAuctionBusy(false);
   }
 
   async function openAuction(){
     setAuctionBusy(true);
-    const{error}=await supabase.rpc('open_tripquest_auction',{p_auction_id:auction.auction_id});
-    setAuctionMessage(error?error.message:'Subasta abierta');await loadAuction();setAuctionBusy(false);
-  }
+    setAuctionMessage('');
 
-  async function closeAuction(){
-    setAuctionBusy(true);
-    const{data,error}=await supabase.rpc('close_tripquest_auction',{p_auction_id:auction.auction_id});
-    setAuctionMessage(error?error.message:data);await loadAuction();setAuctionBusy(false);
-  }
-
-  async function saveBid(lot){
-    setAuctionBusy(true);
-    const{error}=await supabase.rpc('place_tripquest_auction_bid',{
-      p_lot_id:lot.lot_id,p_amount:Number(myBids[lot.lot_id])
+    const{error}=await supabase.rpc('open_live_tripquest_auction',{
+      p_auction_id:auction.auction_id
     });
-    setAuctionMessage(error?error.message:'Puja guardada');await loadAuction();setAuctionBusy(false);
+
+    setAuctionMessage(error?error.message:'🔥 ¡Empieza la subasta!');
+    await loadAuction();
+    setAuctionBusy(false);
   }
+
+  async function forceFinishLiveLot(){
+    setAuctionBusy(true);
+    setAuctionMessage('');
+
+    const{data,error}=await supabase.rpc('finish_live_tripquest_lot',{
+      p_game_id:g.id,
+      p_force:true
+    });
+
+    setAuctionMessage(error?error.message:(data||'Lote cerrado'));
+    await loadAuction();
+    setAuctionBusy(false);
+  }
+
+  async function grantAuctionCoins(e){
+    e.preventDefault();
+
+    const amount=Math.round(Number(auctionWalletForm.amount));
+
+    if(!auctionWalletForm.user_id||!Number.isFinite(amount)||amount<=0){
+      setAuctionMessage('Selecciona un Brinkker y una cantidad válida.');
+      return;
+    }
+
+    setAuctionBusy(true);
+
+    const{error}=await supabase.rpc('grant_live_tripquest_auction_coins',{
+      p_game_id:g.id,
+      p_user_id:auctionWalletForm.user_id,
+      p_amount:amount,
+      p_reason:auctionWalletForm.reason.trim()||'Premio'
+    });
+
+    setAuctionMessage(
+      error
+        ?error.message
+        :`🪙 ${amount} monedas entregadas.`
+    );
+
+    if(!error)setAuctionWalletForm(form=>({...form,amount:'10'}));
+
+    await loadAuction();
+    setAuctionBusy(false);
+  }
+
+  function activeAuctionLot(){
+    return auctionLots.find(lot=>lot.live_status==='live')||null;
+  }
+
+  function auctionSecondsLeft(lot){
+    if(!lot?.ends_at)return 0;
+    return Math.max(
+      0,
+      Math.ceil((new Date(lot.ends_at).getTime()-auctionTick)/1000)
+    );
+  }
+
+  async function placeLiveBid(lot,increment,allIn=false){
+    if(!lot||lot.live_status!=='live'||auctionBusy)return;
+
+    const current=Number(lot.current_bid||0);
+    const minimum=Number(lot.minimum_bid||0);
+    const balance=Number(auctionWallet.balance||0);
+
+    let amount;
+
+    if(allIn){
+      if(!window.confirm(`¿ALL IN con tus ${balance} monedas?`))return;
+      amount=balance;
+    }else{
+      amount=current>0
+        ?current+increment
+        :Math.max(minimum,increment);
+    }
+
+    if(amount>balance){
+      setAuctionMessage(`No tienes suficientes monedas. Tienes ${balance} 🪙.`);
+      return;
+    }
+
+    setAuctionBusy(true);
+    setAuctionMessage('');
+
+    const{error}=await supabase.rpc('place_live_tripquest_bid',{
+      p_lot_id:lot.lot_id,
+      p_amount:amount
+    });
+
+    if(error){
+      setAuctionMessage(error.message);
+    }
+
+    await loadAuction();
+    setAuctionBusy(false);
+  }
+
 
   async function loadMyAdvantages(){
     const{data,error}=await supabase.rpc('list_my_tripquest_advantages',{
@@ -2092,58 +2257,143 @@ function Game({membership,onBack,session}){
           </button>
         })()}
 
-        {auction&&auction.status!=='draft'&&<section style={{marginTop:'20px'}}>
-          <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>SUBASTA</p>
-          <article className="card" style={{padding:'16px'}}>
-            <strong>{auction.status==='tiebreak'?'Desempate en curso':'Subasta abierta'}</strong>
-            <div style={{display:'grid',gap:'9px',marginTop:'10px'}}>
-              {auctionLots.filter(l=>['open','tiebreak'].includes(l.lot_status)).map(lot=><div key={lot.lot_id} style={{
-                border:'1px solid rgba(23,63,53,.09)',
-                borderRadius:'13px',
-                padding:'12px 13px',
-                background:'#fffdf7'
+        {auction&&auction.status==='open'&&(()=>{
+          const lot=activeAuctionLot();
+          if(!lot)return null;
+          const seconds=auctionSecondsLeft(lot);
+          const iLead=lot.current_bidder_user_id===session?.user?.id;
+
+          return <section style={{marginTop:'16px'}}>
+            <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>
+              🔨 SUBASTA EN DIRECTO
+            </p>
+
+            <article className="card" style={{
+              padding:'14px',
+              border:'1px solid rgba(214,166,62,.38)',
+              boxShadow:'0 8px 22px rgba(23,63,53,.06)'
+            }}>
+              <div style={{
+                display:'flex',justifyContent:'space-between',
+                alignItems:'center',gap:'10px'
               }}>
-                <div style={{display:'grid',gridTemplateColumns:'36px minmax(0,1fr) auto',gap:'10px',alignItems:'start'}}>
-                  <div style={{
-                    width:'36px',height:'36px',borderRadius:'11px',
-                    background:'#eef3ef',display:'grid',placeItems:'center',
-                    fontSize:'1.01rem'
-                  }}>{lot.emoji}</div>
-                  <div style={{minWidth:0}}>
-                    <strong style={{display:'block'}}>{lot.advantage_name}</strong>
-                    <small style={{display:'block',color:'var(--muted)',marginTop:'2px',lineHeight:1.35}}>
-                      {lot.description}
-                    </small>
-                  </div>
-                  <span style={{
-                    fontSize:'.73rem',fontWeight:'900',
-                    padding:'5px 7px',borderRadius:'999px',
-                    background:'#f3f0e8',whiteSpace:'nowrap'
-                  }}>
-                    mín. {lot.minimum_bid} pt
-                  </span>
-                </div>
-                {lot.lot_status==='tiebreak'&&<small style={{
-                  display:'block',marginTop:'7px',fontWeight:'900',color:'#a56b1a'
-                }}>Desempate desde {lot.tie_floor} pt</small>}
-                {lot.can_bid&&<div style={{
-                  display:'grid',gridTemplateColumns:'minmax(0,1fr) auto',
-                  gap:'8px',marginTop:'9px'
+                <small style={{fontWeight:'900',color:'var(--muted)'}}>
+                  LOTE {lot.lot_order} DE {auction.total_lots}
+                </small>
+
+                <span style={{
+                  padding:'6px 9px',borderRadius:'999px',
+                  background:seconds<=10?'#fff0e8':'#f3f0e8',
+                  fontWeight:'950',fontSize:'.78rem',
+                  color:seconds<=10?'#a34b25':'inherit'
                 }}>
-                  <input type="number" value={myBids[lot.lot_id]??''}
-                    onChange={e=>setMyBids({...myBids,[lot.lot_id]:e.target.value})}
-                    placeholder="Tu puja"/>
-                  <button className="primary" disabled={auctionBusy}
-                    onClick={()=>saveBid(lot)}
-                    style={{padding:'9px 11px'}}>
-                    <Save size={15}/>Guardar
+                  ⏱ {seconds}s
+                </span>
+              </div>
+
+              <div style={{
+                display:'grid',
+                gridTemplateColumns:'48px minmax(0,1fr)',
+                gap:'11px',alignItems:'center',marginTop:'10px'
+              }}>
+                <div style={{
+                  width:'48px',height:'48px',borderRadius:'15px',
+                  display:'grid',placeItems:'center',
+                  background:'#eef3ef',fontSize:'1.5rem'
+                }}>{lot.emoji}</div>
+
+                <div style={{minWidth:0}}>
+                  <strong style={{display:'block',fontSize:'1.03rem'}}>
+                    {lot.advantage_name}
+                  </strong>
+                  <small style={{
+                    display:'block',color:'var(--muted)',
+                    lineHeight:1.35,marginTop:'2px'
+                  }}>{lot.description}</small>
+                </div>
+              </div>
+
+              <div style={{
+                textAlign:'center',
+                padding:'13px 10px',
+                marginTop:'11px',
+                borderRadius:'14px',
+                background:'#f3f0e8'
+              }}>
+                <small style={{
+                  display:'block',
+                  color:'var(--muted)',
+                  fontWeight:'850'
+                }}>PUJA ACTUAL</small>
+
+                <strong style={{fontSize:'1.65rem'}}>
+                  {Number(lot.current_bid||0)} 🪙
+                </strong>
+
+                <small style={{
+                  display:'block',
+                  marginTop:'2px',
+                  fontWeight:'850',
+                  color:iLead?'#24715a':'var(--muted)'
+                }}>
+                  {lot.current_bidder_nickname
+                    ?(iLead?'🔥 Vas ganando':`Lidera ${lot.current_bidder_nickname}`)
+                    :'Todavía no hay pujas'}
+                </small>
+              </div>
+
+              <div style={{
+                display:'flex',
+                justifyContent:'space-between',
+                gap:'8px',
+                marginTop:'10px',
+                color:'var(--muted)',
+                fontSize:'.78rem'
+              }}>
+                <span>Tu saldo</span>
+                <strong style={{color:'inherit'}}>
+                  🪙 {Number(auctionWallet.balance||0)}
+                </strong>
+              </div>
+
+              {!iLead&&seconds>0&&<div style={{
+                display:'grid',
+                gridTemplateColumns:'repeat(4,minmax(0,1fr))',
+                gap:'6px',marginTop:'11px'
+              }}>
+                {[5,10,20].map(value=>
+                  <button key={value}
+                    type="button"
+                    className="secondary"
+                    disabled={auctionBusy}
+                    onClick={()=>placeLiveBid(lot,value,false)}
+                    style={{padding:'10px 4px',fontSize:'.78rem'}}>
+                    +{value}
                   </button>
-                </div>}
-              </div>)}
-            </div>
-            {auctionMessage&&<p className="msg">{auctionMessage}</p>}
-          </article>
-        </section>}
+                )}
+
+                <button type="button"
+                  className="primary"
+                  disabled={auctionBusy||Number(auctionWallet.balance||0)<=Number(lot.current_bid||0)}
+                  onClick={()=>placeLiveBid(lot,0,true)}
+                  style={{padding:'10px 4px',fontSize:'.72rem'}}>
+                  🔥 ALL IN
+                </button>
+              </div>}
+
+              {iLead&&<p style={{
+                textAlign:'center',margin:'10px 0 0',
+                color:'#24715a',fontWeight:'900',fontSize:'.8rem'
+              }}>
+                Ahora solo queda aguantar 😈
+              </p>}
+
+              {auctionMessage&&<p className="msg" style={{marginTop:'9px'}}>
+                {auctionMessage}
+              </p>}
+            </article>
+          </section>
+        })()}
 
         <section style={{marginTop:'20px'}}>
           <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>RETOS DEL DÍA</p>
@@ -2669,66 +2919,250 @@ function Game({membership,onBack,session}){
         border:'1px solid rgba(23,63,53,.09)',
         boxShadow:'none'
       }}>
-        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>SUBASTA</p>
-        <h2 style={{marginBottom:'4px'}}>Objetos y pujas</h2>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>
+          🔨 SUBASTA EN DIRECTO
+        </p>
+        <h2 style={{marginBottom:'4px'}}>Que empiece la guerra 😈</h2>
         <p style={{color:'var(--muted)',marginBottom:0,fontSize:'.84rem'}}>
-          Elige objetos, define pujas mínimas y cierra cada ronda cuando quieras.
+          Los lotes salen uno a uno. Cada puja es pública y el saldo de cada Brinkker es privado.
         </p>
       </section>
-      {!auction&&<button className="primary wide" style={{marginTop:'14px'}} onClick={createAuction} disabled={auctionBusy}><Gavel size={18}/>Crear subasta</button>}
-      {auction&&<>
-        {auction.status==='draft'&&<section className="card" style={{padding:'15px',marginTop:'14px'}}>
-          <label>Objeto<select value={newLot.advantage_id} onChange={e=>setNewLot({...newLot,advantage_id:e.target.value})}>{auctionCatalog.map(a=><option key={a.advantage_id} value={a.advantage_id}>{a.emoji} {a.name}</option>)}</select></label>
-          <label>Puja mínima<input type="number" min="0" value={newLot.minimum_bid} onChange={e=>setNewLot({...newLot,minimum_bid:e.target.value})}/></label>
+
+      {!auction&&<button className="primary wide"
+        style={{marginTop:'12px'}}
+        onClick={createAuction}
+        disabled={auctionBusy}>
+        <Gavel size={18}/>Crear subasta
+      </button>}
+
+      {auction&&auction.status==='draft'&&<>
+        <section className="card" style={{padding:'14px',marginTop:'12px'}}>
+          <p className="eyebrow" style={{marginBottom:'5px',fontSize:'.67rem',letterSpacing:'.08em'}}>
+            PREPARAR LOTES
+          </p>
+
+          <label>Objeto
+            <select value={newLot.advantage_id}
+              onChange={e=>setNewLot({...newLot,advantage_id:e.target.value})}>
+              {auctionCatalog.map(a=>
+                <option key={a.advantage_id} value={a.advantage_id}>
+                  {a.emoji} {a.name}
+                </option>
+              )}
+            </select>
+          </label>
+
+          <label>Puja inicial
+            <input type="number" min="0" step="5"
+              value={newLot.minimum_bid}
+              onChange={e=>setNewLot({...newLot,minimum_bid:e.target.value})}/>
+          </label>
+
           <div className="actions" style={{gap:'8px'}}>
-            <button className="primary" onClick={()=>addAuctionLot(false)} disabled={auctionBusy}><Plus size={17}/>Añadir</button>
-            <button className="secondary" onClick={()=>addAuctionLot(true)} disabled={auctionBusy}><Dices size={17}/>Aleatorio</button>
+            <button className="primary"
+              onClick={()=>addAuctionLot(false)}
+              disabled={auctionBusy}>
+              <Plus size={17}/>Añadir
+            </button>
+
+            <button className="secondary"
+              onClick={()=>addAuctionLot(true)}
+              disabled={auctionBusy}>
+              <Dices size={17}/>Aleatorio
+            </button>
           </div>
-        </section>}
-        <section style={{display:'grid',gap:'9px',marginTop:'14px'}}>
-          {auctionLots.map(l=><article className="card" key={l.lot_id} style={{
-            padding:'13px 14px',
-            border:'1px solid rgba(23,63,53,.09)',
-            boxShadow:'none'
-          }}>
-            <div style={{display:'grid',gridTemplateColumns:'40px minmax(0,1fr) auto',gap:'10px',alignItems:'start'}}>
-              <div style={{
-                width:'40px',height:'40px',borderRadius:'12px',
-                background:'#eef3ef',display:'grid',placeItems:'center',
-                fontSize:'1.18rem'
-              }}>{l.emoji}</div>
-              <div style={{minWidth:0}}>
-                <strong style={{display:'block'}}>{l.advantage_name}</strong>
-                <small style={{display:'block',color:'var(--muted)',marginTop:'2px',lineHeight:1.35}}>
-                  {l.description}
-                </small>
-                {l.winner_nickname&&<small style={{display:'block',marginTop:'5px',fontWeight:'900'}}>
-                  🏆 {l.winner_nickname} · {l.winning_bid} pt
-                </small>}
-              </div>
+        </section>
+
+        <section style={{display:'grid',gap:'7px',marginTop:'10px'}}>
+          {auctionLots.map(lot=>
+            <article className="card" key={lot.lot_id} style={{
+              padding:'11px 12px',
+              display:'grid',
+              gridTemplateColumns:'34px minmax(0,1fr) auto',
+              gap:'9px',alignItems:'center',
+              border:'1px solid rgba(23,63,53,.08)',
+              boxShadow:'none'
+            }}>
               <span style={{
-                fontSize:'.72rem',fontWeight:'900',
-                padding:'5px 7px',borderRadius:'999px',
-                background:'#f3f0e8',whiteSpace:'nowrap'
-              }}>{l.minimum_bid} pt</span>
-            </div>
-            <small style={{
-              display:'block',color:'var(--muted)',
-              marginTop:'7px',fontWeight:'800'
-            }}>{l.lot_status}</small>
-            {auction.status==='draft'&&<button className="secondary" style={{marginTop:'8px',padding:'8px 10px'}}
-              disabled={auctionBusy} onClick={()=>removeAuctionLot(l.lot_id)}>
-              <Trash2 size={15}/>Quitar
-            </button>}
-          </article>)}
+                width:'34px',height:'34px',borderRadius:'11px',
+                background:'#eef3ef',display:'grid',
+                placeItems:'center',fontSize:'1.1rem'
+              }}>{lot.emoji}</span>
+
+              <div style={{minWidth:0}}>
+                <strong style={{
+                  display:'block',fontSize:'.86rem',
+                  overflow:'hidden',textOverflow:'ellipsis',
+                  whiteSpace:'nowrap'
+                }}>
+                  {lot.lot_order}. {lot.advantage_name}
+                </strong>
+                <small style={{color:'var(--muted)'}}>
+                  Empieza en {lot.minimum_bid} 🪙
+                </small>
+              </div>
+
+              <button className="secondary"
+                disabled={auctionBusy}
+                onClick={()=>removeAuctionLot(lot.lot_id)}
+                style={{padding:'7px'}}>
+                <Trash2 size={14}/>
+              </button>
+            </article>
+          )}
+
+          {!auctionLots.length&&<article className="card" style={{padding:'12px'}}>
+            Añade al menos un objeto.
+          </article>}
         </section>
-        <section className="card" style={{padding:'15px',marginTop:'14px'}}>
-          {auction.status==='draft'&&<button className="primary wide" onClick={openAuction} disabled={auctionBusy||!auctionLots.length}><Play size={17}/>Abrir subasta</button>}
-          {['open','tiebreak'].includes(auction.status)&&<button className="primary wide" onClick={closeAuction} disabled={auctionBusy}><LockKeyhole size={17}/>Cerrar ronda</button>}
-          {auction.status==='closed'&&<button className="secondary wide" onClick={createAuction} disabled={auctionBusy}><Gavel size={17}/>Nueva subasta</button>}
-          {auctionMessage&&<p className="msg">{auctionMessage}</p>}
-        </section>
+
+        <button className="primary wide"
+          style={{marginTop:'11px'}}
+          onClick={openAuction}
+          disabled={auctionBusy||!auctionLots.length}>
+          <Play size={17}/>🔥 Empezar subasta en directo
+        </button>
       </>}
+
+      {auction&&auction.status==='open'&&(()=>{
+        const lot=activeAuctionLot();
+        const seconds=auctionSecondsLeft(lot);
+
+        return <>
+          {lot&&<section className="card" style={{
+            padding:'15px',
+            marginTop:'12px',
+            border:'1px solid rgba(214,166,62,.38)'
+          }}>
+            <div style={{
+              display:'flex',justifyContent:'space-between',
+              gap:'10px',alignItems:'center'
+            }}>
+              <small style={{fontWeight:'900',color:'var(--muted)'}}>
+                LOTE {lot.lot_order} DE {auction.total_lots}
+              </small>
+              <strong style={{
+                color:seconds<=10?'#a34b25':'inherit'
+              }}>⏱ {seconds}s</strong>
+            </div>
+
+            <div style={{textAlign:'center',padding:'13px 0 6px'}}>
+              <div style={{fontSize:'2rem'}}>{lot.emoji}</div>
+              <h2 style={{margin:'4px 0'}}>
+                {lot.advantage_name}
+              </h2>
+              <strong style={{fontSize:'1.7rem'}}>
+                {Number(lot.current_bid||0)} 🪙
+              </strong>
+              <small style={{
+                display:'block',color:'var(--muted)',
+                marginTop:'3px'
+              }}>
+                {lot.current_bidder_nickname
+                  ?`Lidera ${lot.current_bidder_nickname}`
+                  :'Esperando la primera puja…'}
+              </small>
+            </div>
+
+            <button className="secondary wide"
+              onClick={forceFinishLiveLot}
+              disabled={auctionBusy}
+              style={{marginTop:'8px'}}>
+              <LockKeyhole size={16}/>Cerrar este lote ahora
+            </button>
+          </section>}
+
+          <section style={{display:'grid',gap:'6px',marginTop:'10px'}}>
+            {auctionLots.map(lot=>
+              <div key={lot.lot_id} style={{
+                padding:'9px 11px',borderRadius:'12px',
+                border:'1px solid rgba(23,63,53,.07)',
+                display:'grid',
+                gridTemplateColumns:'26px minmax(0,1fr) auto',
+                gap:'8px',alignItems:'center',
+                background:lot.live_status==='live'?'#fff8e7':'#fffdf7'
+              }}>
+                <span>{lot.emoji}</span>
+                <span style={{fontSize:'.8rem',fontWeight:'850'}}>
+                  {lot.advantage_name}
+                </span>
+                <small style={{fontWeight:'900',color:'var(--muted)'}}>
+                  {lot.live_status==='live'?'🔥 EN JUEGO':
+                   lot.live_status==='won'?`🏆 ${lot.winner_nickname}`:
+                   lot.live_status==='unsold'?'Sin pujas':
+                   'Pendiente'}
+                </small>
+              </div>
+            )}
+          </section>
+        </>;
+      })()}
+
+      {auction&&auction.status==='closed'&&<>
+        <section className="card" style={{padding:'14px',marginTop:'12px'}}>
+          <strong>🏁 Subasta terminada</strong>
+          <small style={{display:'block',color:'var(--muted)',marginTop:'3px'}}>
+            Todos los lotes han terminado.
+          </small>
+        </section>
+
+        <button className="primary wide"
+          style={{marginTop:'10px'}}
+          onClick={createAuction}
+          disabled={auctionBusy}>
+          <Gavel size={17}/>Nueva subasta
+        </button>
+      </>}
+
+      <form className="card" onSubmit={grantAuctionCoins}
+        style={{padding:'14px',marginTop:'14px'}}>
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>
+          🪙 RECOMPENSAS
+        </p>
+        <strong style={{display:'block',marginBottom:'5px'}}>
+          Dar monedas extra
+        </strong>
+        <small style={{
+          display:'block',color:'var(--muted)',
+          marginBottom:'9px'
+        }}>
+          Todos empiezan con 100 🪙. El Admin puede dar premios, pero no ve los saldos privados.
+        </small>
+
+        <label>Brinkker
+          <select value={auctionWalletForm.user_id}
+            onChange={e=>setAuctionWalletForm({...auctionWalletForm,user_id:e.target.value})}>
+            <option value="">Selecciona un Brinkker</option>
+            {brinkkers.map(q=>
+              <option key={q.user_id} value={q.user_id}>
+                {q.nickname}
+              </option>
+            )}
+          </select>
+        </label>
+
+        <div className="cols">
+          <label>Monedas
+            <input type="number" min="1" step="5"
+              value={auctionWalletForm.amount}
+              onChange={e=>setAuctionWalletForm({...auctionWalletForm,amount:e.target.value})}/>
+          </label>
+
+          <label>Motivo
+            <input value={auctionWalletForm.reason}
+              onChange={e=>setAuctionWalletForm({...auctionWalletForm,reason:e.target.value})}
+              placeholder="Sobre, prueba…"/>
+          </label>
+        </div>
+
+        <button className="secondary wide" disabled={auctionBusy}>
+          <Gift size={16}/>Entregar monedas
+        </button>
+      </form>
+
+      {auctionMessage&&<p className="msg" style={{marginTop:'9px'}}>
+        {auctionMessage}
+      </p>}
     </>:page==='adminAdvantages'&&mode==='admin'?<>
       <section className="card" style={{
         padding:'15px',
