@@ -1,4 +1,4 @@
-import {useEffect,useState} from 'react'
+import React,{useEffect,useState} from 'react'
 import {Compass,Plus,KeyRound,LogOut,ArrowLeft,Settings,UserRound,CalendarDays,Copy,Share2,Crown,Users,X,Home,Trophy,Target,Backpack,Star,CheckCircle2,MoreVertical,Pencil,Trash2,DoorOpen,Lock,Handshake,Send,Check,Clock3,Shuffle,PackageOpen,Map,Gift,ShieldCheck,Play,Archive,Undo2,Gavel,Dices,Save,LockKeyhole,Hotel,Navigation,Clock,ExternalLink,ChevronDown,ChevronUp,GripVertical,Power,RefreshCcw,Eraser,Database,UserPlus,UserMinus,Wallet,Receipt,ArrowRightLeft,Phone} from 'lucide-react'
 import {supabase} from './supabase'
 
@@ -327,6 +327,44 @@ function Modal({type,onClose,onDone}){const[game,setGame]=useState(emptyGame),[c
       background:'#f3f0e8',fontSize:'.84rem',lineHeight:1.4
     }}>{msg}</p>}</form></div>}
 
+
+class BrinkkandoErrorBoundary extends React.Component{
+  constructor(props){
+    super(props);
+    this.state={hasError:false,error:null};
+  }
+  static getDerivedStateFromError(error){
+    return {hasError:true,error};
+  }
+  componentDidCatch(error,info){
+    console.error('Brinkkando render error:',error,info);
+  }
+  render(){
+    if(this.state.hasError){
+      return <main className="shell" style={{padding:'22px'}}>
+        <section className="card" style={{padding:'20px'}}>
+          <p className="eyebrow">BRINKKANDO</p>
+          <h2 style={{marginBottom:'8px'}}>Ha ocurrido un error al abrir esta pantalla</h2>
+          <p style={{color:'var(--muted)'}}>
+            Tus datos siguen guardados. Recarga la página y, si vuelve a ocurrir,
+            copia el mensaje inferior.
+          </p>
+          <code style={{
+            display:'block',whiteSpace:'pre-wrap',overflowWrap:'anywhere',
+            padding:'12px',borderRadius:'12px',background:'#f3f0e8',
+            fontSize:'.8rem'
+          }}>{String(this.state.error?.message||this.state.error||'Error desconocido')}</code>
+          <button className="primary wide" style={{marginTop:'14px'}}
+            onClick={()=>window.location.reload()}>
+            Recargar Brinkkando
+          </button>
+        </section>
+      </main>;
+    }
+    return this.props.children;
+  }
+}
+
 function Game({membership,onBack,session}){
   const[mode,setMode]=useState('player');
   const[page,setPage]=useState('home');
@@ -654,12 +692,14 @@ function Game({membership,onBack,session}){
     }else{
       setExpensePhones(Object.fromEntries((phoneResult.data||[]).map(row=>[row.user_id,row.bizum_phone||''])));
     }
-    if(settlementResult.error){
-      console.error('Error cargando pagos realizados:',settlementResult.error);
+
+    if(settlementResult?.error){
+      console.error('Error cargando liquidaciones:',settlementResult.error);
       setExpenseSettlements([]);
     }else{
-      setExpenseSettlements(settlementResult.data||[]);
+      setExpenseSettlements(Array.isArray(settlementResult?.data)?settlementResult.data:[]);
     }
+
     setExpensesLoading(false);
   }
 
@@ -747,18 +787,25 @@ function Game({membership,onBack,session}){
   }
 
   function adjustedExpenseBalances(){
+    const source=Array.isArray(expenseBalances)?expenseBalances:[];
+    const settlements=Array.isArray(expenseSettlements)?expenseSettlements:[];
+
     const balances=new Map(
-      expenseBalances.map(row=>[row.user_id,{...row,balance:Number(row.balance||0)}])
+      source.map(row=>[
+        row.user_id,
+        {...row,balance:Number(row.balance||0)}
+      ])
     );
 
-    expenseSettlements.forEach(payment=>{
-      const amount=Number(payment.amount||0);
-      if(balances.has(payment.payer_user_id)){
-        balances.get(payment.payer_user_id).balance+=amount;
-      }
-      if(balances.has(payment.receiver_user_id)){
-        balances.get(payment.receiver_user_id).balance-=amount;
-      }
+    settlements.forEach(payment=>{
+      const amount=Number(payment?.amount||0);
+      if(!Number.isFinite(amount)||amount<=0)return;
+
+      const payer=balances.get(payment.payer_user_id);
+      const receiver=balances.get(payment.receiver_user_id);
+
+      if(payer)payer.balance=Number(payer.balance||0)+amount;
+      if(receiver)receiver.balance=Number(receiver.balance||0)-amount;
     });
 
     return Array.from(balances.values());
@@ -766,52 +813,84 @@ function Game({membership,onBack,session}){
 
   function expenseTransfers(){
     const adjusted=adjustedExpenseBalances();
-    const creditors=adjusted.filter(r=>Number(r.balance)>0.005).map(r=>({user_id:r.user_id,nickname:r.nickname,amount:Number(r.balance)})).sort((a,b)=>b.amount-a.amount);
-    const debtors=adjusted.filter(r=>Number(r.balance)<-0.005).map(r=>({user_id:r.user_id,nickname:r.nickname,amount:-Number(r.balance)})).sort((a,b)=>b.amount-a.amount);
+    const creditors=adjusted
+      .filter(r=>Number(r.balance)>0.005)
+      .map(r=>({user_id:r.user_id,nickname:r.nickname,amount:Number(r.balance)}))
+      .sort((a,b)=>b.amount-a.amount);
+
+    const debtors=adjusted
+      .filter(r=>Number(r.balance)<-0.005)
+      .map(r=>({user_id:r.user_id,nickname:r.nickname,amount:-Number(r.balance)}))
+      .sort((a,b)=>b.amount-a.amount);
+
     const transfers=[];
     let i=0,j=0;
+
     while(i<debtors.length&&j<creditors.length){
       const amount=Math.min(debtors[i].amount,creditors[j].amount);
-      if(amount>=0.005)transfers.push({from:debtors[i].nickname,from_user_id:debtors[i].user_id,to:creditors[j].nickname,to_user_id:creditors[j].user_id,amount});
-      debtors[i].amount-=amount;creditors[j].amount-=amount;
+      if(amount>=0.005){
+        transfers.push({
+          from:debtors[i].nickname,
+          from_user_id:debtors[i].user_id,
+          to:creditors[j].nickname,
+          to_user_id:creditors[j].user_id,
+          amount:Math.round(amount*100)/100
+        });
+      }
+
+      debtors[i].amount-=amount;
+      creditors[j].amount-=amount;
+
       if(debtors[i].amount<0.005)i++;
       if(creditors[j].amount<0.005)j++;
     }
+
     return transfers;
   }
 
   async function markExpensePaid(transfer){
-    if(transfer.from_user_id!==session?.user?.id)return;
+    const currentUserId=session?.user?.id;
+    if(!currentUserId||transfer?.from_user_id!==currentUserId)return;
 
-    const amount=Number(transfer.amount.toFixed(2));
-    const ok=window.confirm(
-      `¿Confirmas que has pagado ${amount.toFixed(2)} € a ${transfer.to}?`
+    const amount=Math.round(Number(transfer.amount||0)*100)/100;
+    if(!Number.isFinite(amount)||amount<=0){
+      setExpenseMessage('No se ha podido calcular correctamente el importe.');
+      return;
+    }
+
+    const confirmed=window.confirm(
+      `¿Confirmas que ya has pagado ${amount.toFixed(2)} € a ${transfer.to}?`
     );
-    if(!ok)return;
+    if(!confirmed)return;
 
     setSettlementBusy(true);
     setExpenseMessage('');
 
-    const{error}=await supabase.rpc('settle_tripquest_expense',{
-      p_game_id:g.id,
-      p_receiver_user_id:transfer.to_user_id,
-      p_amount:amount
-    });
+    try{
+      const{error}=await supabase.rpc('settle_tripquest_expense',{
+        p_game_id:g.id,
+        p_receiver_user_id:transfer.to_user_id,
+        p_amount:amount
+      });
 
-    if(error){
-      setExpenseMessage(error.message);
-    }else{
-      setExpenseMessage(`Pago de ${amount.toFixed(2)} € a ${transfer.to} marcado como realizado.`);
-      await loadExpenses();
+      if(error){
+        setExpenseMessage(error.message);
+      }else{
+        setExpenseMessage(`✓ Pago de ${amount.toFixed(2)} € a ${transfer.to} registrado.`);
+        await loadExpenses();
+      }
+    }catch(error){
+      console.error(error);
+      setExpenseMessage(error?.message||'No se ha podido registrar el pago.');
+    }finally{
+      setSettlementBusy(false);
     }
-
-    setSettlementBusy(false);
   }
 
   async function copyExpensePhone(userId,nickname){
     const phone=expensePhones[userId];
     if(!phone){
-      setExpenseMessage(`${nickname} todavía no ha añadido un teléfono para Bizum.`);
+      setExpenseMessage(`📱 ${nickname} todavía no ha añadido su teléfono para Bizum.`);
       return;
     }
     try{
@@ -1874,14 +1953,24 @@ function Game({membership,onBack,session}){
               <div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) auto minmax(0,1fr)',gap:'8px',alignItems:'center'}}>
                 <strong>{t.from}</strong><span style={{display:'grid',justifyItems:'center'}}><small style={{fontWeight:'950'}}>{t.amount.toFixed(2)} €</small><ArrowRightLeft size={16}/></span><strong style={{textAlign:'right'}}>{t.to}</strong>
               </div>
-              <div style={{display:'flex',justifyContent:'flex-end',gap:'7px',marginTop:'8px',flexWrap:'wrap'}}>
-                <button type="button" className="secondary" onClick={()=>copyExpensePhone(t.to_user_id,t.to)} style={{padding:'7px 9px'}}>
-                  <Phone size={14}/>{copiedExpensePhone===t.to_user_id?'Teléfono copiado':'Copiar teléfono'}
+              <div style={{
+                display:'flex',justifyContent:'flex-end',
+                gap:'7px',marginTop:'8px',flexWrap:'wrap'
+              }}>
+                <button type="button" className="secondary"
+                  onClick={()=>copyExpensePhone(t.to_user_id,t.to)}
+                  style={{padding:'7px 9px'}}>
+                  <Phone size={14}/>
+                  {copiedExpensePhone===t.to_user_id?'Teléfono copiado':'Copiar teléfono'}
                 </button>
+
                 {t.from_user_id===session?.user?.id&&
-                  <button type="button" className="primary" disabled={settlementBusy}
-                    onClick={()=>markExpensePaid(t)} style={{padding:'7px 9px'}}>
-                    <CheckCircle2 size={14}/>Ya he pagado
+                  <button type="button" className="primary"
+                    disabled={settlementBusy}
+                    onClick={()=>markExpensePaid(t)}
+                    style={{padding:'7px 9px'}}>
+                    <CheckCircle2 size={14}/>
+                    {settlementBusy?'Guardando…':'Ya he pagado'}
                   </button>}
               </div>
             </div>)}
@@ -3605,5 +3694,5 @@ export default function App(){
 
   if(recovering)return <ResetPassword onDone={finishPasswordRecovery}/>
   if(confirmed)return <EmailConfirmed session={session} onContinue={continueAfterConfirmation}/>
-  return session?<Dashboard session={session}/>:<Auth/>
+  return session?<BrinkkandoErrorBoundary><Dashboard session={session}/></BrinkkandoErrorBoundary>:<Auth/>
 }
