@@ -790,7 +790,7 @@ function Game({membership,onBack,session}){
     const source=Array.isArray(expenseBalances)?expenseBalances:[];
     const settlements=Array.isArray(expenseSettlements)?expenseSettlements:[];
 
-    const balances=new Map(
+    const balances=new globalThis.Map(
       source.map(row=>[
         row.user_id,
         {...row,balance:Number(row.balance||0)}
