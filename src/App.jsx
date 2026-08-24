@@ -902,6 +902,24 @@ function Game({membership,onBack,session}){
     }
   }
 
+  function expenseBrinkkerName(userId){
+    return brinkkers.find(q=>q.user_id===userId)?.nickname||'Brinkker';
+  }
+
+  function formatSettlementDate(value){
+    if(!value)return '';
+    try{
+      return new Intl.DateTimeFormat('es-ES',{
+        day:'2-digit',
+        month:'short',
+        hour:'2-digit',
+        minute:'2-digit'
+      }).format(new Date(value));
+    }catch{
+      return '';
+    }
+  }
+
   const totalExpenses=expenses.reduce((sum,item)=>sum+Number(item.amount||0),0);
   const myExpenseBalance=adjustedExpenseBalances().find(row=>row.user_id===session?.user?.id);
 
@@ -2004,6 +2022,47 @@ function Game({membership,onBack,session}){
             </article>)}
             {!expensesLoading&&!expenses.length&&<article className="card" style={{padding:'16px'}}>💶 Todavía no hay gastos.</article>}
           </div>
+
+          {expenseSettlements.length>0&&<>
+            <p className="eyebrow" style={{marginTop:'16px',marginBottom:'7px',fontSize:'.67rem',letterSpacing:'.08em'}}>
+              PAGOS SALDADOS
+            </p>
+            <div style={{display:'grid',gap:'7px'}}>
+              {[...expenseSettlements].reverse().map(payment=>{
+                const payer=expenseBrinkkerName(payment.payer_user_id);
+                const receiver=expenseBrinkkerName(payment.receiver_user_id);
+                return <article className="card" key={payment.id} style={{
+                  padding:'10px 12px',
+                  border:'1px solid rgba(23,63,53,.08)',
+                  boxShadow:'none'
+                }}>
+                  <div style={{
+                    display:'grid',
+                    gridTemplateColumns:'30px minmax(0,1fr) auto',
+                    gap:'9px',
+                    alignItems:'center'
+                  }}>
+                    <span style={{
+                      width:'30px',height:'30px',borderRadius:'10px',
+                      display:'grid',placeItems:'center',
+                      background:'#eef6f2',fontSize:'1rem'
+                    }}>✓</span>
+                    <div style={{minWidth:0}}>
+                      <strong style={{display:'block',fontSize:'.84rem'}}>
+                        {payer} pagó a {receiver}
+                      </strong>
+                      <small style={{display:'block',color:'var(--muted)',marginTop:'1px'}}>
+                        {formatSettlementDate(payment.created_at)}
+                      </small>
+                    </div>
+                    <strong style={{whiteSpace:'nowrap',color:'#24715a',fontSize:'.86rem'}}>
+                      {Number(payment.amount||0).toFixed(2)} €
+                    </strong>
+                  </div>
+                </article>
+              })}
+            </div>
+          </>}
         </section>
 
       </>:mode==='player'?<>
