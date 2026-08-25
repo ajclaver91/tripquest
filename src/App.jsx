@@ -2646,43 +2646,104 @@ function Game({membership,onBack,session}){
           display:'flex',justifyContent:'space-between',
           gap:'10px',alignItems:'baseline'
         }}>
-          <h2 style={{margin:0,fontSize:'1.02rem'}}>Retos pendientes</h2>
+          <h2 style={{margin:0,fontSize:'.94rem'}}>Retos pendientes</h2>
           <small style={{color:'var(--muted)',fontWeight:'850'}}>
             {specialChallenges.filter(item=>item.group_status!=='approved').length}
           </small>
         </div>
       </section>
-      <section style={{marginTop:'10px'}}>
-        <p className="eyebrow" style={{margin:'0 0 4px',fontSize:'.66rem',letterSpacing:'.08em'}}>🏅 PREMIOS DE ETAPA</p>
-        <div style={{display:'grid',gap:'6px'}}>
-          {stageAwards.map(item=><article className="card" key={item.instance_id} style={{padding:'10px 11px',boxShadow:'none'}}>
-            <div style={{display:'grid',gridTemplateColumns:'30px minmax(0,1fr) auto',gap:'8px',alignItems:'center'}}>
-              <span style={{width:'30px',height:'30px',borderRadius:'10px',display:'grid',placeItems:'center',background:'#f3efe3'}}>{item.emoji}</span>
-              <div style={{minWidth:0}}>
-                <strong style={{display:'block',fontSize:'.84rem'}}>{item.title}</strong>
-                <small style={{color:'var(--muted)'}}>{item.resolution_method==='vote'?'🗳️ Votación':'✅ Aprobación Admin'}</small>
-              </div>
-              <strong style={{fontSize:'.73rem'}}>⭐ {item.points}</strong>
+      <section style={{marginTop:'9px'}}>
+        <div className="card" style={{
+          padding:'10px 11px',
+          border:'1px solid rgba(23,63,53,.09)',
+          boxShadow:'none'
+        }}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'10px'}}>
+            <div style={{minWidth:0}}>
+              <p className="eyebrow" style={{margin:'0 0 1px',fontSize:'.64rem',letterSpacing:'.08em'}}>🏆 PREMIOS DE ETAPA</p>
+              <strong style={{fontSize:'.88rem'}}>Puntos para el Ranking</strong>
             </div>
-            <p style={{color:'var(--muted)',fontSize:'.78rem',lineHeight:1.38,margin:'7px 0 0'}}>{item.resolved_description}</p>
-
-            {item.resolution_method==='vote'&&item.status==='open'&&<div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) auto',gap:'7px',marginTop:'8px'}}>
-              <select value={stageAwardVotes[item.instance_id]||item.my_vote_user_id||''} onChange={e=>setStageAwardVotes({...stageAwardVotes,[item.instance_id]:e.target.value})}>
-                <option value="">¿Quién se lo merece?</option>
-                {brinkkers.filter(q=>q.user_id!==session?.user?.id).map(q=><option key={q.user_id} value={q.user_id}>{q.nickname}</option>)}
-              </select>
-              <button className="primary" disabled={stageAwardsBusy} onClick={()=>voteStageAward(item)}><Check size={14}/>Votar</button>
-            </div>}
-
-            {item.resolution_method==='approval'&&item.status==='open'&&<button className="primary wide" disabled={stageAwardsBusy||item.my_request_status==='pending'} onClick={()=>requestStageAwardApproval(item)} style={{marginTop:'8px'}}>
-              <CheckCircle2 size={14}/>{item.my_request_status==='pending'?'Solicitud enviada':'Solicitar puntos'}
-            </button>}
-
-            {item.status==='resolved'&&<small style={{display:'block',marginTop:'7px',color:'#24715a',fontWeight:'900'}}>🏆 {item.winner_nickname}</small>}
-          </article>)}
-          {!stageAwards.length&&<article className="card" style={{padding:'11px'}}>🏅 No hay premios de etapa para hoy.</article>}
+            <span style={{
+              flex:'0 0 auto',padding:'5px 8px',borderRadius:'999px',
+              background:'#f3efe3',fontWeight:'950',fontSize:'.72rem'
+            }}>🏆 ⭐ RANKING</span>
+          </div>
         </div>
-        {stageAwardsMessage&&<p className="msg">{stageAwardsMessage}</p>}
+
+        <div style={{display:'grid',gap:'5px',marginTop:'6px'}}>
+          {stageAwards.map(item=><details className="card" key={item.instance_id} style={{
+            padding:'0',boxShadow:'none',
+            border:'1px solid rgba(23,63,53,.08)',
+            overflow:'hidden'
+          }}>
+            <summary style={{
+              listStyle:'none',cursor:'pointer',
+              padding:'9px 10px',
+              display:'grid',
+              gridTemplateColumns:'28px minmax(0,1fr) auto',
+              gap:'8px',alignItems:'center'
+            }}>
+              <span style={{
+                width:'28px',height:'28px',borderRadius:'9px',
+                display:'grid',placeItems:'center',
+                background:'#f3efe3',fontSize:'.92rem'
+              }}>{item.emoji||'🏆'}</span>
+              <div style={{minWidth:0}}>
+                <strong style={{
+                  display:'block',fontSize:'.82rem',
+                  overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'
+                }}>{item.title}</strong>
+                <small style={{display:'block',color:'var(--muted)',fontSize:'.68rem'}}>
+                  {item.status==='resolved'
+                    ?`🏆 ${item.winner_nickname||'Resuelto'}`
+                    :item.resolution_method==='vote'?'🗳️ Votación del grupo':'✅ Completa y solicita'}
+                </small>
+              </div>
+              <strong style={{fontSize:'.72rem',whiteSpace:'nowrap'}}>+{item.points} ⭐</strong>
+            </summary>
+
+            <div style={{
+              padding:'0 10px 10px 46px',
+              borderTop:'1px solid rgba(23,63,53,.05)'
+            }}>
+              <p style={{
+                color:'var(--muted)',fontSize:'.76rem',
+                lineHeight:1.38,margin:'8px 0 0'
+              }}>{item.resolved_description}</p>
+
+              {item.resolution_method==='vote'&&item.status==='open'&&
+                <div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) auto',gap:'6px',marginTop:'8px'}}>
+                  <select value={stageAwardVotes[item.instance_id]||item.my_vote_user_id||''}
+                    onChange={e=>setStageAwardVotes({...stageAwardVotes,[item.instance_id]:e.target.value})}>
+                    <option value="">¿Quién se lo merece?</option>
+                    {brinkkers.filter(q=>q.user_id!==session?.user?.id).map(q=>
+                      <option key={q.user_id} value={q.user_id}>{q.nickname}</option>
+                    )}
+                  </select>
+                  <button className="primary" disabled={stageAwardsBusy}
+                    onClick={()=>voteStageAward(item)}
+                    style={{padding:'8px 10px'}}>
+                    <Check size={14}/>Votar
+                  </button>
+                </div>}
+
+              {item.resolution_method==='approval'&&item.status==='open'&&
+                <button className="primary wide"
+                  disabled={stageAwardsBusy||item.my_request_status==='pending'}
+                  onClick={()=>requestStageAwardApproval(item)}
+                  style={{marginTop:'8px',padding:'8px',fontSize:'.77rem'}}>
+                  <CheckCircle2 size={14}/>
+                  {item.my_request_status==='pending'?'Solicitud enviada':'Solicitar puntos'}
+                </button>}
+            </div>
+          </details>)}
+
+          {!stageAwards.length&&
+            <article className="card" style={{padding:'9px 10px',boxShadow:'none'}}>
+              🏆 No hay premios de etapa para hoy.
+            </article>}
+        </div>
+        {stageAwardsMessage&&<p className="msg" style={{marginTop:'6px'}}>{stageAwardsMessage}</p>}
       </section>
 
 
@@ -2716,82 +2777,64 @@ function Game({membership,onBack,session}){
                   ?'Rechazado'
                   :'Pendiente';
 
-            return <article className="card" key={item.group_id} style={{
-              padding:'10px 11px',
+            return <details className="card" key={item.group_id} style={{
+              padding:0,
               border:'1px solid rgba(23,63,53,.08)',
-              boxShadow:'none'
+              boxShadow:'none',
+              overflow:'hidden'
             }}>
-              <div style={{
+              <summary style={{
+                listStyle:'none',cursor:'pointer',
+                padding:'9px 10px',
                 display:'grid',
-                gridTemplateColumns:'30px minmax(0,1fr) auto',
+                gridTemplateColumns:'28px minmax(0,1fr) auto',
                 gap:'8px',alignItems:'center'
               }}>
                 <span style={{
-                  width:'30px',height:'30px',borderRadius:'10px',
+                  width:'28px',height:'28px',borderRadius:'9px',
                   display:'grid',placeItems:'center',
-                  background:
-                    rewardType==='coins'
-                      ?'#fff5d9'
-                      :rewardType==='mixed'
-                        ?'#f3efe3'
-                        :'#eef3ef',
-                  fontSize:'.98rem'
+                  background:rewardType==='coins'?'#fff5d9':rewardType==='mixed'?'#f3efe3':'#eef3ef',
+                  fontSize:'.92rem'
                 }}>
                   {rewardType==='coins'?'🪙':rewardType==='mixed'?'🎯':'⭐'}
                 </span>
-
                 <div style={{minWidth:0}}>
                   <strong style={{
-                    display:'block',fontSize:'.85rem',
-                    overflow:'hidden',textOverflow:'ellipsis',
-                    whiteSpace:'nowrap'
-                  }}>
-                    {item.title}
-                  </strong>
+                    display:'block',fontSize:'.82rem',
+                    overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'
+                  }}>{item.title}</strong>
                   <small style={{
                     display:'block',
                     color:item.group_status==='rejected'?'#a13f3f':'var(--muted)',
-                    fontWeight:'800',
-                    marginTop:'1px'
-                  }}>
-                    {statusText}
-                  </small>
+                    fontWeight:'800',fontSize:'.68rem'
+                  }}>{statusText}</small>
                 </div>
+                <strong style={{fontSize:'.71rem',whiteSpace:'nowrap'}}>{rewardLabel}</strong>
+              </summary>
 
-                <strong style={{
-                  fontSize:'.73rem',
-                  whiteSpace:'nowrap'
-                }}>
-                  {rewardLabel}
-                </strong>
-              </div>
-
-              <p style={{
-                color:'var(--muted)',
-                fontSize:'.78rem',
-                lineHeight:1.38,
-                margin:'7px 0 0'
+              <div style={{
+                padding:'0 10px 10px 46px',
+                borderTop:'1px solid rgba(23,63,53,.05)'
               }}>
-                {item.description}
-              </p>
+                <p style={{
+                  color:'var(--muted)',fontSize:'.76rem',
+                  lineHeight:1.38,margin:'8px 0 0'
+                }}>{item.description}</p>
 
-              {(item.kind==='secret_team'||item.kind==='random_team')&&
-                <small style={{
-                  display:'block',
-                  color:'var(--muted)',
-                  fontWeight:'800',
-                  marginTop:'6px'
-                }}>
-                  🤝 {item.member_names}
-                </small>}
+                {(item.kind==='secret_team'||item.kind==='random_team')&&
+                  <small style={{
+                    display:'block',color:'var(--muted)',
+                    fontWeight:'800',marginTop:'6px'
+                  }}>🤝 {item.member_names}</small>}
 
-              {(item.group_status==='pending'||item.group_status==='rejected')&&
-                <button className="primary wide"
-                  style={{marginTop:'8px',padding:'8px',fontSize:'.78rem'}}
-                  onClick={()=>submitSpecial(item.group_id)}>
-                  <Send size={14}/>Enviar a revisión
-                </button>}
-            </article>;
+                {(item.group_status==='pending'||item.group_status==='rejected')&&
+                  <button className="primary wide"
+                    style={{marginTop:'8px',padding:'8px',fontSize:'.77rem'}}
+                    onClick={()=>submitSpecial(item.group_id)}>
+                    <Send size={14}/>Enviar a revisión
+                  </button>}
+              </div>
+            </details>;
           })}
 
         {!specialLoading&&
