@@ -393,6 +393,8 @@ function Game({membership,onBack,session}){
   const[stageAwardsBusy,setStageAwardsBusy]=useState(false);
   const[stageAwardsMessage,setStageAwardsMessage]=useState('');
   const[stageAwardVotes,setStageAwardVotes]=useState({});
+  const[editingStageAward,setEditingStageAward]=useState(null);
+  const[challengeDistributionMode,setChallengeDistributionMode]=useState('individual');
   const[specialLoading,setSpecialLoading]=useState(false);
   const[library,setLibrary]=useState([]);
   const[adminDailyReviews,setAdminDailyReviews]=useState([]);
@@ -699,6 +701,27 @@ function Game({membership,onBack,session}){
     const{error}=await supabase.rpc('review_stage_award_request_v6',{p_request_id:requestId,p_approve:approve});
     setStageAwardsMessage(error?error.message:(approve?'Puntos aprobados':'Solicitud rechazada'));
     await loadStageAwards();await loadRanking();setStageAwardsBusy(false);
+  }
+
+  async function saveStageAwardSettings(item){
+    setStageAwardsBusy(true);
+    const{error}=await supabase.rpc('admin_update_stage_award_v6',{
+      p_game_id:g.id,p_award_id:item.award_id,p_title:item.title,
+      p_description:item.description_template,p_points:Number(item.points||0),
+      p_resolution_method:item.resolution_method,p_active:item.active!==false
+    });
+    setStageAwardsMessage(error?error.message:'🏆 Premio actualizado');
+    if(!error)setEditingStageAward(null);
+    await loadStageAwards();setStageAwardsBusy(false);
+  }
+
+  async function distributeChallengeMode(rewardType,mode){
+    setAutoChallengeBusy(true);setChallengeMessage('');
+    const{data,error}=await supabase.rpc('distribute_tripquest_challenge_round_v6',{
+      p_game_id:g.id,p_reward_type:rewardType,p_mode:mode
+    });
+    setChallengeMessage(error?error.message:(data||'Ronda repartida'));
+    await loadMySpecialChallenges();setAutoChallengeBusy(false);
   }
 
   async function loadMySpecialChallenges(){
@@ -2747,6 +2770,11 @@ function Game({membership,onBack,session}){
       </section>
 
 
+      <div style={{marginTop:'14px',paddingTop:'10px',borderTop:'2px solid rgba(23,63,53,.08)'}}>
+        <p className="eyebrow" style={{margin:'0 0 2px',fontSize:'.64rem',letterSpacing:'.08em'}}>🎯 RETOS</p>
+        <small style={{color:'var(--muted)',fontWeight:'800'}}>Misiones repartidas · individuales o en equipo</small>
+      </div>
+
       <section style={{display:'grid',gap:'6px',marginTop:'8px'}}>
         {specialLoading&&
           <article className="card" style={{padding:'11px 12px'}}>
@@ -3043,17 +3071,24 @@ function Game({membership,onBack,session}){
         <small style={{display:'block',color:'var(--muted)',marginBottom:'10px',lineHeight:1.4}}>
           La app elige automáticamente un reto diferente para cada Brinkker.
         </small>
-        <div className="actions" style={{gap:'7px'}}>
-          <button type="button" className="primary"
-            disabled={autoChallengeBusy}
-            onClick={()=>distributeAutoChallenges('competition')}>
-            ⭐ {autoChallengeBusy?'Repartiendo…':'Competición'}
-          </button>
-          <button type="button" className="secondary"
-            disabled={autoChallengeBusy}
-            onClick={()=>distributeAutoChallenges('dynamics')}>
-            🪙 {autoChallengeBusy?'Repartiendo…':'Dinámicas'}
-          </button>
+        <div style={{display:'grid',gap:'7px'}}>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'5px'}}>
+            {[['individual','👤 Individual'],['team','👥 Equipos'],['mixed','🎲 Mixto']].map(([value,label])=>
+              <button key={value} type="button"
+                className={challengeDistributionMode===value?'primary':'secondary'}
+                onClick={()=>setChallengeDistributionMode(value)}
+                style={{padding:'7px 5px',fontSize:'.72rem'}}>{label}</button>)}
+          </div>
+          <div className="actions" style={{gap:'7px'}}>
+            <button type="button" className="primary" disabled={autoChallengeBusy}
+              onClick={()=>distributeChallengeMode('competition',challengeDistributionMode)}>
+              ⭐ {autoChallengeBusy?'Repartiendo…':'Competición'}
+            </button>
+            <button type="button" className="secondary" disabled={autoChallengeBusy}
+              onClick={()=>distributeChallengeMode('dynamics',challengeDistributionMode)}>
+              🪙 {autoChallengeBusy?'Repartiendo…':'Dinámicas'}
+            </button>
+          </div>
         </div>
         {challengeMessage&&<p className="msg" style={{marginTop:'9px'}}>{challengeMessage}</p>}
       </section>
@@ -3163,6 +3198,44 @@ function Game({membership,onBack,session}){
           </article>))}
 
           {!stageAwards.some(item=>(item.resolution_method==='vote'&&item.status==='open')||(item.pending_requests||[]).length)&&<article className="card" style={{padding:'11px'}}>No hay premios pendientes.</article>}
+        </div>
+      </section>
+      <section style={{marginTop:'15px'}}>
+        <p className="eyebrow" style={{margin:'0 0 2px',fontSize:'.66rem'}}>⚙️ GESTIONAR PREMIOS DE ETAPA</p>
+        <small style={{color:'var(--muted)',fontWeight:'800'}}>Fijos del viaje · siempre dan ⭐ Ranking</small>
+        <div style={{display:'grid',gap:'6px',marginTop:'7px'}}>
+          {stageAwards.map(item=><article className="card" key={`manage-${item.instance_id}`} style={{padding:'9px 10px',boxShadow:'none'}}>
+            {editingStageAward?.award_id===item.award_id?<>
+              <input value={editingStageAward.title} onChange={e=>setEditingStageAward({...editingStageAward,title:e.target.value})}/>
+              <textarea rows={3} style={{marginTop:'6px'}} value={editingStageAward.description_template}
+                onChange={e=>setEditingStageAward({...editingStageAward,description_template:e.target.value})}/>
+              <div style={{display:'grid',gridTemplateColumns:'90px minmax(0,1fr)',gap:'6px',marginTop:'6px'}}>
+                <input type="number" min="1" value={editingStageAward.points}
+                  onChange={e=>setEditingStageAward({...editingStageAward,points:e.target.value})}/>
+                <select value={editingStageAward.resolution_method}
+                  onChange={e=>setEditingStageAward({...editingStageAward,resolution_method:e.target.value})}>
+                  <option value="vote">🗳️ Votación del grupo</option>
+                  <option value="approval">✅ Solicitud + validación Admin</option>
+                </select>
+              </div>
+              <label style={{display:'flex',gap:'7px',alignItems:'center',marginTop:'7px',fontSize:'.78rem',fontWeight:'800'}}>
+                <input type="checkbox" checked={editingStageAward.active!==false}
+                  onChange={e=>setEditingStageAward({...editingStageAward,active:e.target.checked})}/>Premio activo
+              </label>
+              <div className="actions" style={{gap:'6px',marginTop:'8px'}}>
+                <button className="primary" onClick={()=>saveStageAwardSettings(editingStageAward)}><Check size={14}/>Guardar</button>
+                <button className="secondary" onClick={()=>setEditingStageAward(null)}>Cancelar</button>
+              </div>
+            </>:<div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) auto',gap:'8px',alignItems:'center'}}>
+              <div><strong style={{fontSize:'.82rem'}}>{item.emoji} {item.title}</strong>
+                <small style={{display:'block',color:'var(--muted)'}}>+{item.points} ⭐ · {item.resolution_method==='vote'?'🗳️ Votación':'✅ Validación Admin'}</small>
+              </div>
+              <button className="secondary" onClick={()=>setEditingStageAward({
+                award_id:item.award_id,title:item.title,description_template:item.description_template,
+                points:item.points,resolution_method:item.resolution_method,active:item.active
+              })}>Editar</button>
+            </div>}
+          </article>)}
         </div>
       </section>
 
