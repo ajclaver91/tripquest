@@ -389,6 +389,10 @@ function Game({membership,onBack,session}){
   const[specialChallenges,setSpecialChallenges]=useState([]);
   const[showCompletedEnvelopes,setShowCompletedEnvelopes]=useState(false);
   const[autoChallengeBusy,setAutoChallengeBusy]=useState(false);
+  const[stageAwards,setStageAwards]=useState([]);
+  const[stageAwardsBusy,setStageAwardsBusy]=useState(false);
+  const[stageAwardsMessage,setStageAwardsMessage]=useState('');
+  const[stageAwardVotes,setStageAwardVotes]=useState({});
   const[specialLoading,setSpecialLoading]=useState(false);
   const[library,setLibrary]=useState([]);
   const[adminDailyReviews,setAdminDailyReviews]=useState([]);
@@ -506,6 +510,7 @@ function Game({membership,onBack,session}){
     loadBrinkkers();
     loadDailyChallenges();
     loadAuction();
+    loadStageAwards();
     loadStages();
     loadExpenses();
     loadNotificationCounts();
@@ -658,6 +663,42 @@ function Game({membership,onBack,session}){
       await loadDailyChallenges();
       await loadNotificationCounts();
     }
+  }
+
+  async function loadStageAwards(){
+    const{data,error}=await supabase.rpc('list_my_stage_awards_v6',{p_game_id:g.id});
+    if(error){setStageAwards([]);setStageAwardsMessage(error.message);return;}
+    setStageAwards(data||[]);
+  }
+
+  async function voteStageAward(item){
+    const nominee=stageAwardVotes[item.instance_id];
+    if(!nominee){setStageAwardsMessage('Selecciona un Brinkker.');return;}
+    setStageAwardsBusy(true);
+    const{error}=await supabase.rpc('vote_stage_award_v6',{p_instance_id:item.instance_id,p_nominee_user_id:nominee});
+    setStageAwardsMessage(error?error.message:'🗳️ Voto guardado');
+    await loadStageAwards();setStageAwardsBusy(false);
+  }
+
+  async function requestStageAwardApproval(item){
+    setStageAwardsBusy(true);
+    const{error}=await supabase.rpc('request_stage_award_approval_v6',{p_instance_id:item.instance_id});
+    setStageAwardsMessage(error?error.message:`✅ Solicitud enviada: ${item.title}`);
+    await loadStageAwards();await loadNotificationCounts();setStageAwardsBusy(false);
+  }
+
+  async function resolveStageAwardVoting(item){
+    setStageAwardsBusy(true);
+    const{data,error}=await supabase.rpc('resolve_stage_award_voting_v6',{p_instance_id:item.instance_id});
+    setStageAwardsMessage(error?error.message:(data||'Votación cerrada'));
+    await loadStageAwards();await loadRanking();setStageAwardsBusy(false);
+  }
+
+  async function reviewStageAwardRequest(requestId,approve){
+    setStageAwardsBusy(true);
+    const{error}=await supabase.rpc('review_stage_award_request_v6',{p_request_id:requestId,p_approve:approve});
+    setStageAwardsMessage(error?error.message:(approve?'Puntos aprobados':'Solicitud rechazada'));
+    await loadStageAwards();await loadRanking();setStageAwardsBusy(false);
   }
 
   async function loadMySpecialChallenges(){
@@ -1817,6 +1858,7 @@ function Game({membership,onBack,session}){
     }
     if(nextPage==='challenges'){
       loadMySpecialChallenges();
+      loadStageAwards();
       markSectionRead('challenges');
     }
     if(nextPage==='advantages'){
@@ -2610,6 +2652,39 @@ function Game({membership,onBack,session}){
           </small>
         </div>
       </section>
+      <section style={{marginTop:'10px'}}>
+        <p className="eyebrow" style={{margin:'0 0 4px',fontSize:'.66rem',letterSpacing:'.08em'}}>🏅 PREMIOS DE ETAPA</p>
+        <div style={{display:'grid',gap:'6px'}}>
+          {stageAwards.map(item=><article className="card" key={item.instance_id} style={{padding:'10px 11px',boxShadow:'none'}}>
+            <div style={{display:'grid',gridTemplateColumns:'30px minmax(0,1fr) auto',gap:'8px',alignItems:'center'}}>
+              <span style={{width:'30px',height:'30px',borderRadius:'10px',display:'grid',placeItems:'center',background:'#f3efe3'}}>{item.emoji}</span>
+              <div style={{minWidth:0}}>
+                <strong style={{display:'block',fontSize:'.84rem'}}>{item.title}</strong>
+                <small style={{color:'var(--muted)'}}>{item.resolution_method==='vote'?'🗳️ Votación':'✅ Aprobación Admin'}</small>
+              </div>
+              <strong style={{fontSize:'.73rem'}}>⭐ {item.points}</strong>
+            </div>
+            <p style={{color:'var(--muted)',fontSize:'.78rem',lineHeight:1.38,margin:'7px 0 0'}}>{item.resolved_description}</p>
+
+            {item.resolution_method==='vote'&&item.status==='open'&&<div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) auto',gap:'7px',marginTop:'8px'}}>
+              <select value={stageAwardVotes[item.instance_id]||item.my_vote_user_id||''} onChange={e=>setStageAwardVotes({...stageAwardVotes,[item.instance_id]:e.target.value})}>
+                <option value="">¿Quién se lo merece?</option>
+                {brinkkers.filter(q=>q.user_id!==session?.user?.id).map(q=><option key={q.user_id} value={q.user_id}>{q.nickname}</option>)}
+              </select>
+              <button className="primary" disabled={stageAwardsBusy} onClick={()=>voteStageAward(item)}><Check size={14}/>Votar</button>
+            </div>}
+
+            {item.resolution_method==='approval'&&item.status==='open'&&<button className="primary wide" disabled={stageAwardsBusy||item.my_request_status==='pending'} onClick={()=>requestStageAwardApproval(item)} style={{marginTop:'8px'}}>
+              <CheckCircle2 size={14}/>{item.my_request_status==='pending'?'Solicitud enviada':'Solicitar puntos'}
+            </button>}
+
+            {item.status==='resolved'&&<small style={{display:'block',marginTop:'7px',color:'#24715a',fontWeight:'900'}}>🏆 {item.winner_nickname}</small>}
+          </article>)}
+          {!stageAwards.length&&<article className="card" style={{padding:'11px'}}>🏅 No hay premios de etapa para hoy.</article>}
+        </div>
+        {stageAwardsMessage&&<p className="msg">{stageAwardsMessage}</p>}
+      </section>
+
 
       <section style={{display:'grid',gap:'6px',marginTop:'8px'}}>
         {specialLoading&&
@@ -2929,14 +3004,15 @@ function Game({membership,onBack,session}){
           <button type="button" className="primary"
             disabled={autoChallengeBusy}
             onClick={()=>distributeAutoChallenges('competition')}>
-            ⭐ Competición
+            ⭐ {autoChallengeBusy?'Repartiendo…':'Competición'}
           </button>
           <button type="button" className="secondary"
             disabled={autoChallengeBusy}
             onClick={()=>distributeAutoChallenges('dynamics')}>
-            🪙 Dinámicas
+            🪙 {autoChallengeBusy?'Repartiendo…':'Dinámicas'}
           </button>
         </div>
+        {challengeMessage&&<p className="msg" style={{marginTop:'9px'}}>{challengeMessage}</p>}
       </section>
 
       <form className="card" onSubmit={createChallenge} style={{padding:'14px',marginTop:'10px'}}>
@@ -3024,6 +3100,29 @@ function Game({membership,onBack,session}){
           {!adminSpecialReviews.length&&<article className="card" style={{padding:'12px'}}>No hay retos esperando validación.</article>}
         </div>
       </section>
+      <section style={{marginTop:'15px'}}>
+        <p className="eyebrow" style={{marginBottom:'4px',fontSize:'.67rem',letterSpacing:'.08em'}}>🏅 PREMIOS DE ETAPA</p>
+        <div style={{display:'grid',gap:'7px'}}>
+          {stageAwards.filter(item=>item.resolution_method==='vote'&&item.status==='open').map(item=><article className="card" key={item.instance_id} style={{padding:'11px 12px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',gap:'8px',alignItems:'center'}}>
+              <div><strong>{item.emoji} {item.title}</strong><small style={{display:'block',color:'var(--muted)'}}>{item.vote_count} votos</small></div>
+              <button className="secondary" disabled={stageAwardsBusy} onClick={()=>resolveStageAwardVoting(item)}><Trophy size={14}/>Cerrar</button>
+            </div>
+          </article>)}
+
+          {stageAwards.flatMap(item=>(item.pending_requests||[]).map(req=><article className="card" key={req.request_id} style={{padding:'11px 12px'}}>
+            <strong>{req.nickname} solicita ⭐ {item.points}</strong>
+            <small style={{display:'block',color:'var(--muted)'}}>{item.title}</small>
+            <div className="actions" style={{gap:'6px',marginTop:'8px'}}>
+              <button className="primary" disabled={stageAwardsBusy} onClick={()=>reviewStageAwardRequest(req.request_id,true)}><Check size={14}/>Aprobar</button>
+              <button className="secondary" disabled={stageAwardsBusy} onClick={()=>reviewStageAwardRequest(req.request_id,false)}>Rechazar</button>
+            </div>
+          </article>))}
+
+          {!stageAwards.some(item=>(item.resolution_method==='vote'&&item.status==='open')||(item.pending_requests||[]).length)&&<article className="card" style={{padding:'11px'}}>No hay premios pendientes.</article>}
+        </div>
+      </section>
+
     </>:page==='points'&&mode==='admin'?<>
       <section className="card" style={{padding:'15px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
         <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>ADMINISTRAR PUNTOS</p>
