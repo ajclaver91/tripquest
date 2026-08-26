@@ -720,7 +720,15 @@ function Game({membership,onBack,session}){
     const{data,error}=await supabase.rpc('distribute_tripquest_challenge_round_v6',{
       p_game_id:g.id,p_reward_type:rewardType,p_mode:mode
     });
-    setChallengeMessage(error?error.message:(data||'Ronda repartida'));
+    if(error){
+      setChallengeMessage(error.message);
+    }else{
+      const count=Number(data?.created_count||0);
+      const actualMode=data?.mode||mode;
+      const icon=actualMode==='team'?'👥':actualMode==='mixed'?'🎲':'👤';
+      const label=actualMode==='team'?'retos de equipo':'retos individuales';
+      setChallengeMessage(`${icon} ${count} ${label} repartidos`);
+    }
     await loadMySpecialChallenges();setAutoChallengeBusy(false);
   }
 
