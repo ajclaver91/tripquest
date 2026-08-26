@@ -382,6 +382,12 @@ function Game({membership,onBack,session}){
   const[historyLoading,setHistoryLoading]=useState(false);
   const[historyOpen,setHistoryOpen]=useState(false);
   const[historyShowAll,setHistoryShowAll]=useState(false);
+  const[tripMemories,setTripMemories]=useState([]);
+  const[tripMemoryBusy,setTripMemoryBusy]=useState(false);
+  const[tripMemoryMessage,setTripMemoryMessage]=useState('');
+  const[tripMemoryForm,setTripMemoryForm]=useState({moment:'',message:'',takeaway:''});
+  const[showTripBook,setShowTripBook]=useState(false);
+  const[showFinalRanking,setShowFinalRanking]=useState(false);
   const[notificationCounts,setNotificationCounts]=useState({ranking:0,challenges:0,advantages:0,admin:0});
 
   const[dailyChallenges,setDailyChallenges]=useState([]);
@@ -507,6 +513,13 @@ function Game({membership,onBack,session}){
 
   const g=membership.games;
   const owner=membership.role==='owner';
+  const todayIso=new Date().toISOString().slice(0,10);
+  const tripEnded=Boolean(g.end_date&&todayIso>g.end_date);
+  const tripDays=g.start_date&&g.end_date
+    ?Math.max(1,Math.round((new Date(g.end_date+'T00:00:00')-new Date(g.start_date+'T00:00:00'))/86400000)+1)
+    :null;
+  const tripDistance=stages.reduce((sum,s)=>sum+(Number(s.distance_km)||0),0);
+  const myTripMemory=tripMemories.find(m=>m.user_id===session?.user?.id)||null;
 
   useEffect(()=>{
     loadBrinkkers();
@@ -515,6 +528,8 @@ function Game({membership,onBack,session}){
     loadStageAwards();
     loadStages();
     loadExpenses();
+    loadRanking();
+    loadTripMemories();
     loadNotificationCounts();
   },[g.id]);
 
@@ -574,6 +589,43 @@ function Game({membership,onBack,session}){
       }
     }
     setBrinkkersLoading(false);
+  }
+
+  async function loadTripMemories(){
+    const{data,error}=await supabase.rpc('list_trip_memories_v7',{p_game_id:g.id});
+    if(error){
+      console.error('Error cargando recuerdos:',error);
+      setTripMemories([]);
+      return;
+    }
+    setTripMemories(data||[]);
+    const mine=(data||[]).find(item=>item.user_id===session?.user?.id);
+    if(mine){
+      setTripMemoryForm({
+        moment:mine.moment||'',
+        message:mine.message||'',
+        takeaway:mine.takeaway||''
+      });
+    }
+  }
+
+  async function saveTripMemory(e){
+    e.preventDefault();
+    if(!tripMemoryForm.moment.trim()&&!tripMemoryForm.message.trim()&&!tripMemoryForm.takeaway.trim()){
+      setTripMemoryMessage('Escribe al menos un recuerdo.');
+      return;
+    }
+    setTripMemoryBusy(true);
+    setTripMemoryMessage('');
+    const{error}=await supabase.rpc('save_trip_memory_v7',{
+      p_game_id:g.id,
+      p_moment:tripMemoryForm.moment.trim()||null,
+      p_message:tripMemoryForm.message.trim()||null,
+      p_takeaway:tripMemoryForm.takeaway.trim()||null
+    });
+    setTripMemoryMessage(error?error.message:'💌 Tu recuerdo se ha guardado');
+    if(!error)await loadTripMemories();
+    setTripMemoryBusy(false);
   }
 
   async function loadPointHistory(){
@@ -2351,7 +2403,163 @@ function Game({membership,onBack,session}){
         </section>
 
       </>:mode==='player'?<>
-        {stages.length>0&&(()=>{
+        {tripEnded&&<>
+          <section className="card" style={{
+            marginTop:'10px',padding:'13px 14px',
+            border:'1px solid rgba(214,166,62,.24)',
+            boxShadow:'0 8px 22px rgba(23,63,53,.05)'
+          }}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'10px'}}>
+              <div>
+                <p className="eyebrow" style={{margin:'0 0 2px',fontSize:'.66rem',letterSpacing:'.08em'}}>🏆 CLASIFICACIÓN FINAL</p>
+                <strong style={{fontSize:'.94rem'}}>Así terminó el Brinkkando</strong>
+              </div>
+              <small style={{fontWeight:'850',color:'var(--muted)'}}>{ranking.length} Brinkkers</small>
+            </div>
+
+            <div style={{display:'grid',gap:'5px',marginTop:'9px'}}>
+              {ranking.slice(0,3).map((q,index)=><div key={q.user_id} style={{
+                display:'grid',gridTemplateColumns:'28px 30px minmax(0,1fr) auto',
+                gap:'7px',alignItems:'center',
+                padding:'7px 8px',borderRadius:'11px',
+                background:index===0?'#fff7dc':'#f7f4eb'
+              }}>
+                <span style={{fontSize:'1.05rem',textAlign:'center'}}>{['🥇','🥈','🥉'][index]}</span>
+                <span style={{
+                  width:'30px',height:'30px',borderRadius:'9px',
+                  display:'grid',placeItems:'center',
+                  background:q.profile_color||'#e7eee9'
+                }}>{q.avatar_emoji||'🧭'}</span>
+                <strong style={{fontSize:'.8rem',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{q.nickname}</strong>
+                <strong style={{fontSize:'.8rem'}}>{q.total_points} ⭐</strong>
+              </div>)}
+            </div>
+
+            {ranking.length>3&&<button type="button"
+              onClick={()=>setShowFinalRanking(!showFinalRanking)}
+              style={{
+                width:'100%',border:0,background:'transparent',
+                color:'#2f7563',fontWeight:'900',fontSize:'.75rem',
+                padding:'9px 2px 0'
+              }}>
+              {showFinalRanking?'Ocultar clasificación':`Ver clasificación completa (${ranking.length})`}
+            </button>}
+
+            {showFinalRanking&&<div style={{display:'grid',gap:'4px',marginTop:'7px'}}>
+              {ranking.slice(3).map((q,index)=><div key={q.user_id} style={{
+                display:'grid',gridTemplateColumns:'24px minmax(0,1fr) auto',
+                gap:'7px',alignItems:'center',padding:'6px 4px',
+                borderTop:'1px solid rgba(23,63,53,.06)'
+              }}>
+                <small style={{fontWeight:'900',color:'var(--muted)',textAlign:'center'}}>{index+4}.</small>
+                <span style={{fontSize:'.78rem',fontWeight:'800'}}>{q.avatar_emoji||'🧭'} {q.nickname}</span>
+                <strong style={{fontSize:'.76rem'}}>{q.total_points} ⭐</strong>
+              </div>)}
+            </div>}
+          </section>
+
+          <section className="card" style={{
+            marginTop:'8px',padding:'12px 14px',
+            border:'1px solid rgba(23,63,53,.08)',boxShadow:'none'
+          }}>
+            <p className="eyebrow" style={{margin:'0 0 5px',fontSize:'.66rem',letterSpacing:'.08em'}}>🗺️ ASÍ FUE LA AVENTURA</p>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'6px',textAlign:'center'}}>
+              <div style={{padding:'8px 4px',background:'#f3f0e8',borderRadius:'10px'}}>
+                <strong style={{display:'block',fontSize:'.95rem'}}>{tripDays||'—'}</strong>
+                <small style={{color:'var(--muted)',fontSize:'.65rem'}}>días</small>
+              </div>
+              <div style={{padding:'8px 4px',background:'#f3f0e8',borderRadius:'10px'}}>
+                <strong style={{display:'block',fontSize:'.95rem'}}>{tripDistance?Math.round(tripDistance):'—'}</strong>
+                <small style={{color:'var(--muted)',fontSize:'.65rem'}}>km</small>
+              </div>
+              <div style={{padding:'8px 4px',background:'#f3f0e8',borderRadius:'10px'}}>
+                <strong style={{display:'block',fontSize:'.95rem'}}>{brinkkers.length}</strong>
+                <small style={{color:'var(--muted)',fontSize:'.65rem'}}>Brinkkers</small>
+              </div>
+            </div>
+            <button type="button" className="secondary wide"
+              onClick={()=>openPage('stages')}
+              style={{marginTop:'8px',padding:'8px'}}>
+              <Map size={15}/>Ver el viaje
+            </button>
+          </section>
+
+          <section className="card" style={{
+            marginTop:'8px',padding:'12px 14px',
+            border:'1px solid rgba(23,63,53,.08)',boxShadow:'none'
+          }}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',gap:'8px'}}>
+              <div>
+                <p className="eyebrow" style={{margin:'0 0 2px',fontSize:'.66rem',letterSpacing:'.08em'}}>💌 EL LIBRO DEL VIAJE</p>
+                <strong style={{fontSize:'.9rem'}}>{tripMemories.length} recuerdos del grupo</strong>
+              </div>
+              {tripMemories.length>0&&<button type="button"
+                onClick={()=>setShowTripBook(!showTripBook)}
+                style={{border:0,background:'transparent',color:'#2f7563',fontWeight:'900',fontSize:'.74rem'}}>
+                {showTripBook?'Cerrar':'Leer todos'}
+              </button>}
+            </div>
+
+            {tripMemories.length>0&&!showTripBook&&(()=>{
+              const memory=tripMemories[new Date().getDate()%tripMemories.length];
+              return <div style={{
+                marginTop:'9px',padding:'10px 11px',
+                borderRadius:'12px',background:'#f7f4eb'
+              }}>
+                <p style={{margin:0,fontSize:'.8rem',lineHeight:1.45,fontStyle:'italic'}}>
+                  “{memory.message||memory.moment||memory.takeaway}”
+                </p>
+                <small style={{display:'block',marginTop:'6px',fontWeight:'900',color:'var(--muted)'}}>
+                  {memory.avatar_emoji||'🧭'} {memory.nickname}
+                </small>
+              </div>;
+            })()}
+
+            {showTripBook&&<div style={{display:'grid',gap:'7px',marginTop:'9px'}}>
+              {tripMemories.map(memory=><article key={memory.user_id} style={{
+                padding:'9px 10px',borderRadius:'11px',
+                border:'1px solid rgba(23,63,53,.07)'
+              }}>
+                <strong style={{fontSize:'.78rem'}}>{memory.avatar_emoji||'🧭'} {memory.nickname}</strong>
+                {memory.moment&&<p style={{margin:'5px 0 0',fontSize:'.75rem'}}><b>✨ Momento:</b> {memory.moment}</p>}
+                {memory.message&&<p style={{margin:'5px 0 0',fontSize:'.75rem'}}><b>💬 Para el grupo:</b> {memory.message}</p>}
+                {memory.takeaway&&<p style={{margin:'5px 0 0',fontSize:'.75rem'}}><b>❤️ Me quedo con:</b> {memory.takeaway}</p>}
+              </article>)}
+            </div>}
+
+            {!myTripMemory&&<form onSubmit={saveTripMemory} style={{
+              marginTop:'10px',paddingTop:'9px',
+              borderTop:'1px solid rgba(23,63,53,.07)'
+            }}>
+              <strong style={{display:'block',fontSize:'.8rem',marginBottom:'6px'}}>✍️ Deja tu recuerdo</strong>
+              <input placeholder="Tu momento del viaje"
+                value={tripMemoryForm.moment}
+                onChange={e=>setTripMemoryForm({...tripMemoryForm,moment:e.target.value})}/>
+              <textarea rows={2} style={{marginTop:'6px'}}
+                placeholder="Una frase para el grupo"
+                value={tripMemoryForm.message}
+                onChange={e=>setTripMemoryForm({...tripMemoryForm,message:e.target.value})}/>
+              <input style={{marginTop:'6px'}}
+                placeholder="¿Con qué te quedas?"
+                value={tripMemoryForm.takeaway}
+                onChange={e=>setTripMemoryForm({...tripMemoryForm,takeaway:e.target.value})}/>
+              <button className="primary wide" disabled={tripMemoryBusy}
+                style={{marginTop:'7px',padding:'8px'}}>
+                <Save size={15}/>{tripMemoryBusy?'Guardando…':'Guardar recuerdo'}
+              </button>
+            </form>}
+
+            {myTripMemory&&<button type="button" className="secondary wide"
+              onClick={()=>setTripMemories(current=>current.filter(m=>m.user_id!==session?.user?.id))}
+              style={{marginTop:'9px',padding:'8px'}}>
+              <Pencil size={15}/>Editar mi recuerdo
+            </button>}
+
+            {tripMemoryMessage&&<p className="msg" style={{marginTop:'7px'}}>{tripMemoryMessage}</p>}
+          </section>
+        </>}
+
+        {!tripEnded&&stages.length>0&&(()=>{
           const today=new Date().toISOString().slice(0,10);
           const current=stages.find(s=>s.stage_date===today)
             ||stages.find(s=>s.stage_date&&s.stage_date>today)
