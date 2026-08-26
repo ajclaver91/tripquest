@@ -518,7 +518,9 @@ function Game({membership,onBack,session}){
   const tripDays=g.start_date&&g.end_date
     ?Math.max(1,Math.round((new Date(g.end_date+'T00:00:00')-new Date(g.start_date+'T00:00:00'))/86400000)+1)
     :null;
-  const tripDistance=stages.reduce((sum,s)=>sum+(Number(s.distance_km)||0),0);
+  const bikeStages=stages.filter(s=>!s.same_place&&s.transport_mode==='bicycle');
+  const tripBikeDistance=bikeStages.reduce((sum,s)=>sum+(Number(s.distance_km)||0),0);
+  const tripBikeElevation=bikeStages.reduce((sum,s)=>sum+(Number(s.elevation_m)||0),0);
   const myTripMemory=tripMemories.find(m=>m.user_id===session?.user?.id)||null;
 
   useEffect(()=>{
@@ -2463,18 +2465,22 @@ function Game({membership,onBack,session}){
             border:'1px solid rgba(23,63,53,.08)',boxShadow:'none'
           }}>
             <p className="eyebrow" style={{margin:'0 0 5px',fontSize:'.66rem',letterSpacing:'.08em'}}>🗺️ ASÍ FUE LA AVENTURA</p>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'6px',textAlign:'center'}}>
-              <div style={{padding:'8px 4px',background:'#f3f0e8',borderRadius:'10px'}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'6px',textAlign:'center'}}>
+              <div style={{padding:'8px 3px',background:'#f3f0e8',borderRadius:'10px'}}>
                 <strong style={{display:'block',fontSize:'.95rem'}}>{tripDays||'—'}</strong>
-                <small style={{color:'var(--muted)',fontSize:'.65rem'}}>días</small>
+                <small style={{color:'var(--muted)',fontSize:'.62rem'}}>días</small>
               </div>
-              <div style={{padding:'8px 4px',background:'#f3f0e8',borderRadius:'10px'}}>
-                <strong style={{display:'block',fontSize:'.95rem'}}>{tripDistance?Math.round(tripDistance):'—'}</strong>
-                <small style={{color:'var(--muted)',fontSize:'.65rem'}}>km</small>
+              <div style={{padding:'8px 3px',background:'#f3f0e8',borderRadius:'10px'}}>
+                <strong style={{display:'block',fontSize:'.95rem'}}>🚴 {tripBikeDistance?Math.round(tripBikeDistance):'—'}</strong>
+                <small style={{color:'var(--muted)',fontSize:'.62rem'}}>km en bici</small>
               </div>
-              <div style={{padding:'8px 4px',background:'#f3f0e8',borderRadius:'10px'}}>
+              <div style={{padding:'8px 3px',background:'#f3f0e8',borderRadius:'10px'}}>
+                <strong style={{display:'block',fontSize:'.95rem'}}>⛰️ {tripBikeElevation?Math.round(tripBikeElevation).toLocaleString('es-ES'):'—'}</strong>
+                <small style={{color:'var(--muted)',fontSize:'.62rem'}}>m desnivel</small>
+              </div>
+              <div style={{padding:'8px 3px',background:'#f3f0e8',borderRadius:'10px'}}>
                 <strong style={{display:'block',fontSize:'.95rem'}}>{brinkkers.length}</strong>
-                <small style={{color:'var(--muted)',fontSize:'.65rem'}}>Brinkkers</small>
+                <small style={{color:'var(--muted)',fontSize:'.62rem'}}>Brinkkers</small>
               </div>
             </div>
             <button type="button" className="secondary wide"
@@ -4331,14 +4337,28 @@ function Dashboard({session}){
 
   async function load(){
     setLoading(true);
-    const{data,error}=await supabase.rpc('list_my_tripquest_games_v2');
-    if(error){
-      console.error('Error cargando aventuras:',error);
-      setMemberships([]);
-      setLoading(false);
-      return;
+    let rows=[];
+    let lastError=null;
+
+    // Al abrir la PWA/Safari/Chrome móvil, Supabase puede tardar unas décimas
+    // en tener la sesión plenamente disponible para el RPC. Si la primera
+    // respuesta llega vacía, reintentamos antes de enseñar "sin Brinkkandos".
+    for(let attempt=0;attempt<3;attempt++){
+      const{data,error}=await supabase.rpc('list_my_tripquest_games_v2');
+      if(!error){
+        rows=data||[];
+        if(rows.length>0)break;
+      }else{
+        lastError=error;
+      }
+      if(attempt<2)await new Promise(resolve=>setTimeout(resolve,450*(attempt+1)));
     }
-    setMemberships((data||[]).map(row=>({
+
+    if(lastError&&rows.length===0){
+      console.error('Error cargando aventuras:',lastError);
+    }
+
+    setMemberships(rows.map(row=>({
       id:row.membership_id,
       role:row.member_role,
       joined_at:row.joined_at,
