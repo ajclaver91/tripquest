@@ -776,36 +776,44 @@ function Game({membership,onBack,session}){
 
   async function distributeChallengeMode(rewardType,mode){
     setAutoChallengeBusy(true);setChallengeMessage('');
-    const{data,error}=await supabase.rpc('distribute_tripquest_challenge_round_v6',{
-      p_game_id:g.id,p_reward_type:rewardType,p_mode:mode
+    const family=rewardType==='dynamics'?'dynamic':'competition';
+    const{data,error}=await supabase.rpc('distribute_master_challenge_round_v10',{
+      p_game_id:g.id,p_family:family,p_mode:mode
     });
     if(error){
       setChallengeMessage(error.message);
     }else{
-      const count=Number(data?.created_count||0);
-      const actualMode=data?.mode||mode;
-      const icon=actualMode==='team'?'👥':actualMode==='mixed'?'🎲':'👤';
-      const label=actualMode==='team'?'retos de equipo':'retos individuales';
-      setChallengeMessage(`${icon} ${count} ${label} repartidos`);
+      const assignments=Number(data?.assignments_created||0);
+      const players=Number(data?.players_assigned||0);
+      const icon=mode==='team'?'👥':mode==='mixed'?'🎲':'👤';
+      setChallengeMessage(`${icon} ${assignments} retos repartidos · ${players} Brinkkers`);
     }
-    await loadMySpecialChallenges();setAutoChallengeBusy(false);
+    await loadMySpecialChallenges();
+    await loadAdminChallenges();
+    setAutoChallengeBusy(false);
   }
 
   async function loadMySpecialChallenges(){
     setSpecialLoading(true);
-    const{data,error}=await supabase.rpc('list_my_tripquest_envelopes_v4',{p_game_id:g.id});
-    if(error){
-      console.error('Error cargando retos:',error);
-      setSpecialChallenges([]);
-    }else{
-      setSpecialChallenges(data||[]);
-    }
+    const [legacyResult,masterResult]=await Promise.all([
+      supabase.rpc('list_my_tripquest_envelopes_v4',{p_game_id:g.id}),
+      supabase.rpc('list_my_master_challenges_v10',{p_game_id:g.id})
+    ]);
+
+    if(legacyResult.error)console.error('Error cargando retos antiguos:',legacyResult.error);
+    if(masterResult.error)console.error('Error cargando Biblioteca Maestra:',masterResult.error);
+
+    const legacy=(legacyResult.data||[]).map(item=>({...item,source_type:'legacy'}));
+    const master=(masterResult.data||[]).map(item=>({...item,source_type:'master'}));
+    setSpecialChallenges([...master,...legacy]);
     setSpecialLoading(false);
   }
 
-  async function submitSpecial(groupId){
+  async function submitSpecial(item){
     setChallengeMessage('');
-    const{error}=await supabase.rpc('submit_tripquest_challenge_group',{p_group_id:groupId});
+    const{error}=item.source_type==='master'
+      ?await supabase.rpc('submit_master_challenge_v10',{p_assignment_id:item.group_id})
+      :await supabase.rpc('submit_tripquest_challenge_group',{p_group_id:item.group_id});
     if(error)setChallengeMessage(error.message);
     else{
       setChallengeMessage('Reto enviado a revisión');
@@ -1803,15 +1811,18 @@ function Game({membership,onBack,session}){
   }
 
   async function loadAdminChallenges(){
-    const [libraryResult,dailyReviewResult,specialReviewResult,roundResult]=await Promise.all([
+    const [libraryResult,dailyReviewResult,legacyReviewResult,masterReviewResult,roundResult]=await Promise.all([
       supabase.rpc('list_tripquest_daily_library',{p_game_id:g.id}),
       supabase.rpc('list_admin_daily_reviews',{p_game_id:g.id}),
       supabase.rpc('list_admin_tripquest_envelope_reviews_v4',{p_game_id:g.id}),
+      supabase.rpc('list_admin_master_challenge_reviews_v10',{p_game_id:g.id}),
       supabase.rpc('list_blind_envelope_rounds',{p_game_id:g.id})
     ]);
     if(!libraryResult.error)setLibrary(libraryResult.data||[]);
     if(!dailyReviewResult.error)setAdminDailyReviews(dailyReviewResult.data||[]);
-    if(!specialReviewResult.error)setAdminSpecialReviews(specialReviewResult.data||[]);
+    const legacy=(legacyReviewResult.data||[]).map(item=>({...item,source_type:'legacy'}));
+    const master=(masterReviewResult.data||[]).map(item=>({...item,source_type:'master'}));
+    setAdminSpecialReviews([...master,...legacy]);
     if(!roundResult.error)setEnvelopeRounds(roundResult.data||[]);
   }
 
@@ -1949,16 +1960,31 @@ function Game({membership,onBack,session}){
     setChallengeBusy(false);
   }
 
-  async function reviewSpecial(groupId,approve){
+  async function reviewSpecial(item,approve){
     setChallengeBusy(true);
-    const{error}=await supabase.rpc('review_tripquest_envelope_v4',{
-      p_group_id:groupId,
-      p_approve:approve
-    });
-    if(error)setChallengeMessage(error.message);
+    let result;
+
+    if(item.source_type==='master'){
+      result=await supabase.rpc('review_master_challenge_v10',{
+        p_assignment_id:item.group_id,
+        p_approve:approve
+      });
+    }else if(!approve){
+      result=await supabase.rpc('reject_legacy_challenge_delete_v10',{
+        p_group_id:item.group_id
+      });
+    }else{
+      result=await supabase.rpc('review_tripquest_envelope_v4',{
+        p_group_id:item.group_id,
+        p_approve:true
+      });
+    }
+
+    if(result.error)setChallengeMessage(result.error.message);
     else{
-      setChallengeMessage(approve?'Reto aprobado':'Reto rechazado');
+      setChallengeMessage(approve?'Reto aprobado':'Reto rechazado y eliminado');
       await loadAdminChallenges();
+      await loadMySpecialChallenges();
       await loadRanking();
       await loadAuction();
     }
@@ -3116,7 +3142,7 @@ function Game({membership,onBack,session}){
                 {(item.group_status==='pending'||item.group_status==='rejected')&&
                   <button className="primary wide"
                     style={{marginTop:'8px',padding:'8px',fontSize:'.77rem'}}
-                    onClick={()=>submitSpecial(item.group_id)}>
+                    onClick={()=>submitSpecial(item)}>
                     <Send size={14}/>Enviar a revisión
                   </button>}
               </div>
@@ -3379,7 +3405,7 @@ function Game({membership,onBack,session}){
       <section style={{marginTop:'15px'}}>
         <p className="eyebrow" style={{marginBottom:'4px',fontSize:'.67rem',letterSpacing:'.08em'}}>PENDIENTES DE VALIDAR</p>
         <div style={{display:'grid',gap:'7px'}}>
-          {adminSpecialReviews.map(item=><article className="card" key={item.group_id} style={{padding:'11px 12px'}}>
+          {adminSpecialReviews.map(item=><article className="card" key={`${item.source_type||'legacy'}-${item.group_id}`} style={{padding:'11px 12px'}}>
             <div style={{display:'flex',justifyContent:'space-between',gap:'8px',alignItems:'flex-start'}}>
               <div style={{minWidth:0}}>
                 <strong style={{display:'block',fontSize:'.87rem'}}>{item.title}</strong>
@@ -3392,10 +3418,10 @@ function Game({membership,onBack,session}){
               </strong>
             </div>
             <div className="actions" style={{gap:'6px',marginTop:'9px'}}>
-              <button className="primary" disabled={challengeBusy} onClick={()=>reviewSpecial(item.group_id,true)}>
+              <button className="primary" disabled={challengeBusy} onClick={()=>reviewSpecial(item,true)}>
                 <Check size={15}/>Aprobar
               </button>
-              <button className="secondary" disabled={challengeBusy} onClick={()=>reviewSpecial(item.group_id,false)}>
+              <button className="secondary" disabled={challengeBusy} onClick={()=>reviewSpecial(item,false)}>
                 Rechazar
               </button>
             </div>
