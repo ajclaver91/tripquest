@@ -423,6 +423,11 @@ function Game({membership,onBack,session}){
   const[selectedPackId,setSelectedPackId]=useState('');
   const[packBusy,setPackBusy]=useState(false);
   const[packMessage,setPackMessage]=useState('');
+  const[masterLibrary,setMasterLibrary]=useState([]);
+  const[masterLibraryBusy,setMasterLibraryBusy]=useState(false);
+  const[masterLibraryMessage,setMasterLibraryMessage]=useState('');
+  const[masterLibraryFamily,setMasterLibraryFamily]=useState('competition');
+  const[masterLibraryExpanded,setMasterLibraryExpanded]=useState(null);
   const[newPack,setNewPack]=useState({name:'',emoji:'🎒',description:''});
   const[newTemplate,setNewTemplate]=useState({
     title:'',
@@ -535,7 +540,7 @@ function Game({membership,onBack,session}){
     loadRanking();
     loadTripMemories();
     loadNotificationCounts();
-    loadAdminActionCounts();
+    if(owner)loadAdminActionCounts();
   },[g.id]);
 
   useEffect(()=>{
@@ -551,18 +556,18 @@ function Game({membership,onBack,session}){
   },[auction?.auction_id,auction?.status,g.id]);
 
   async function loadAdminActionCounts(){
+    if(!owner)return;
     const{data,error}=await supabase.rpc('get_admin_action_counts_v11',{p_game_id:g.id});
     if(error){
       console.error('Error cargando pendientes Admin:',error);
       return;
     }
-    const next={
+    setAdminActionCounts({
       challenges:Number(data?.challenges||0),
       awards:Number(data?.awards||0),
-      advantages:Number(data?.advantages||0)
-    };
-    next.total=next.challenges+next.awards+next.advantages;
-    setAdminActionCounts(next);
+      advantages:Number(data?.advantages||0),
+      total:Number(data?.total||0)
+    });
   }
 
   async function loadNotificationCounts(){
@@ -766,14 +771,14 @@ function Game({membership,onBack,session}){
     setStageAwardsBusy(true);
     const{data,error}=await supabase.rpc('resolve_stage_award_voting_v6',{p_instance_id:item.instance_id});
     setStageAwardsMessage(error?error.message:(data||'Votación cerrada'));
-    await loadStageAwards();await loadAdminActionCounts();await loadRanking();setStageAwardsBusy(false);
+    await loadStageAwards();await loadRanking();setStageAwardsBusy(false);
   }
 
   async function reviewStageAwardRequest(requestId,approve){
     setStageAwardsBusy(true);
     const{error}=await supabase.rpc('review_stage_award_request_v6',{p_request_id:requestId,p_approve:approve});
     setStageAwardsMessage(error?error.message:(approve?'Puntos aprobados':'Solicitud rechazada'));
-    await loadStageAwards();await loadAdminActionCounts();await loadRanking();setStageAwardsBusy(false);
+    await loadStageAwards();await loadRanking();setStageAwardsBusy(false);
   }
 
   async function saveStageAwardSettings(item){
@@ -790,36 +795,44 @@ function Game({membership,onBack,session}){
 
   async function distributeChallengeMode(rewardType,mode){
     setAutoChallengeBusy(true);setChallengeMessage('');
-    const{data,error}=await supabase.rpc('distribute_tripquest_challenge_round_v6',{
-      p_game_id:g.id,p_reward_type:rewardType,p_mode:mode
+    const family=rewardType==='dynamics'?'dynamic':'competition';
+    const{data,error}=await supabase.rpc('distribute_master_challenge_round_v10',{
+      p_game_id:g.id,p_family:family,p_mode:mode
     });
     if(error){
       setChallengeMessage(error.message);
     }else{
-      const count=Number(data?.created_count||0);
-      const actualMode=data?.mode||mode;
-      const icon=actualMode==='team'?'👥':actualMode==='mixed'?'🎲':'👤';
-      const label=actualMode==='team'?'retos de equipo':'retos individuales';
-      setChallengeMessage(`${icon} ${count} ${label} repartidos`);
+      const assignments=Number(data?.assignments_created||0);
+      const players=Number(data?.players_assigned||0);
+      const icon=mode==='team'?'👥':mode==='mixed'?'🎲':'👤';
+      setChallengeMessage(`${icon} ${assignments} retos repartidos · ${players} Brinkkers`);
     }
-    await loadMySpecialChallenges();setAutoChallengeBusy(false);
+    await loadMySpecialChallenges();
+    await loadAdminChallenges();
+    setAutoChallengeBusy(false);
   }
 
   async function loadMySpecialChallenges(){
     setSpecialLoading(true);
-    const{data,error}=await supabase.rpc('list_my_tripquest_envelopes_v4',{p_game_id:g.id});
-    if(error){
-      console.error('Error cargando retos:',error);
-      setSpecialChallenges([]);
-    }else{
-      setSpecialChallenges(data||[]);
-    }
+    const [legacyResult,masterResult]=await Promise.all([
+      supabase.rpc('list_my_tripquest_envelopes_v4',{p_game_id:g.id}),
+      supabase.rpc('list_my_master_challenges_v10',{p_game_id:g.id})
+    ]);
+
+    if(legacyResult.error)console.error('Error cargando retos antiguos:',legacyResult.error);
+    if(masterResult.error)console.error('Error cargando Biblioteca Maestra:',masterResult.error);
+
+    const legacy=(legacyResult.data||[]).map(item=>({...item,source_type:'legacy'}));
+    const master=(masterResult.data||[]).map(item=>({...item,source_type:'master'}));
+    setSpecialChallenges([...master,...legacy]);
     setSpecialLoading(false);
   }
 
-  async function submitSpecial(groupId){
+  async function submitSpecial(item){
     setChallengeMessage('');
-    const{error}=await supabase.rpc('submit_tripquest_challenge_group',{p_group_id:groupId});
+    const{error}=item.source_type==='master'
+      ?await supabase.rpc('submit_master_challenge_v10',{p_assignment_id:item.group_id})
+      :await supabase.rpc('submit_tripquest_challenge_group',{p_group_id:item.group_id});
     if(error)setChallengeMessage(error.message);
     else{
       setChallengeMessage('Reto enviado a revisión');
@@ -1672,6 +1685,37 @@ function Game({membership,onBack,session}){
     setAdvantageBusy(false);
   }
 
+  async function loadMasterLibrary(){
+    setMasterLibraryBusy(true);
+    setMasterLibraryMessage('');
+    const{data,error}=await supabase.rpc('list_game_challenge_library_v8',{p_game_id:g.id});
+    if(error){
+      console.error('Error cargando biblioteca maestra:',error);
+      setMasterLibrary([]);
+      setMasterLibraryMessage(error.message);
+    }else{
+      setMasterLibrary(data||[]);
+    }
+    setMasterLibraryBusy(false);
+  }
+
+  async function toggleMasterLibraryChallenge(challenge){
+    setMasterLibraryBusy(true);
+    setMasterLibraryMessage('');
+    const{error}=await supabase.rpc('set_game_challenge_enabled_v8',{
+      p_game_id:g.id,
+      p_challenge_id:challenge.challenge_id,
+      p_enabled:!challenge.enabled
+    });
+    if(error){
+      setMasterLibraryMessage(error.message);
+    }else{
+      setMasterLibrary(prev=>prev.map(item=>item.challenge_id===challenge.challenge_id?{...item,enabled:!challenge.enabled}:item));
+      setMasterLibraryMessage(challenge.enabled?'Reto desactivado para este Brinkkando':'Reto activado');
+    }
+    setMasterLibraryBusy(false);
+  }
+
   async function loadPacks(){
     const{data,error}=await supabase.rpc('list_tripquest_packs',{p_game_id:g.id});
     if(error){
@@ -1786,15 +1830,18 @@ function Game({membership,onBack,session}){
   }
 
   async function loadAdminChallenges(){
-    const [libraryResult,dailyReviewResult,specialReviewResult,roundResult]=await Promise.all([
+    const [libraryResult,dailyReviewResult,legacyReviewResult,masterReviewResult,roundResult]=await Promise.all([
       supabase.rpc('list_tripquest_daily_library',{p_game_id:g.id}),
       supabase.rpc('list_admin_daily_reviews',{p_game_id:g.id}),
       supabase.rpc('list_admin_tripquest_envelope_reviews_v4',{p_game_id:g.id}),
+      supabase.rpc('list_admin_master_challenge_reviews_v10',{p_game_id:g.id}),
       supabase.rpc('list_blind_envelope_rounds',{p_game_id:g.id})
     ]);
     if(!libraryResult.error)setLibrary(libraryResult.data||[]);
     if(!dailyReviewResult.error)setAdminDailyReviews(dailyReviewResult.data||[]);
-    if(!specialReviewResult.error)setAdminSpecialReviews(specialReviewResult.data||[]);
+    const legacy=(legacyReviewResult.data||[]).map(item=>({...item,source_type:'legacy'}));
+    const master=(masterReviewResult.data||[]).map(item=>({...item,source_type:'master'}));
+    setAdminSpecialReviews([...master,...legacy]);
     if(!roundResult.error)setEnvelopeRounds(roundResult.data||[]);
   }
 
@@ -1932,16 +1979,32 @@ function Game({membership,onBack,session}){
     setChallengeBusy(false);
   }
 
-  async function reviewSpecial(groupId,approve){
+  async function reviewSpecial(item,approve){
     setChallengeBusy(true);
-    const{error}=await supabase.rpc('review_tripquest_envelope_v4',{
-      p_group_id:groupId,
-      p_approve:approve
-    });
-    if(error)setChallengeMessage(error.message);
+    let result;
+
+    if(item.source_type==='master'){
+      result=await supabase.rpc('review_master_challenge_v10',{
+        p_assignment_id:item.group_id,
+        p_approve:approve
+      });
+    }else if(!approve){
+      result=await supabase.rpc('reject_legacy_challenge_delete_v10',{
+        p_group_id:item.group_id
+      });
+    }else{
+      result=await supabase.rpc('review_tripquest_envelope_v4',{
+        p_group_id:item.group_id,
+        p_approve:true
+      });
+    }
+
+    if(result.error)setChallengeMessage(result.error.message);
     else{
-      setChallengeMessage(approve?'Reto aprobado':'Reto rechazado');
+      setChallengeMessage(approve?'Reto aprobado':'Reto rechazado y eliminado');
       await loadAdminChallenges();
+      await loadAdminActionCounts();
+      await loadMySpecialChallenges();
       await loadRanking();
       await loadAuction();
     }
@@ -1985,8 +2048,8 @@ function Game({membership,onBack,session}){
       loadBrinkkers();
       loadAdminChallenges();
     }
-    if(nextPage==='packs'){
-      loadPacks();
+    if(nextPage==='library'){
+      loadMasterLibrary();
     }
   }
 
@@ -1994,6 +2057,7 @@ function Game({membership,onBack,session}){
     setMode(nextMode);
     setPage('home');
     if(nextMode==='admin'){
+      loadAdminActionCounts();
       markSectionRead('admin');
     }else if(nextMode==='expenses'){
       loadBrinkkers();
@@ -2010,7 +2074,7 @@ function Game({membership,onBack,session}){
   }
 
   const adminSections=[
-    {id:'packs',label:'🎒 Packs',detail:'Biblioteca y pruebas'},
+    {id:'library',label:'📚 Biblioteca',detail:'Retos activos del viaje'},
     {id:'adminChallenges',label:'🎯 Retos',detail:'Competición, dinámicas y especiales'},
     {id:'points',label:'⭐ Puntos',detail:'Gestionar clasificación'},
     {id:'auction',label:'🔨 Subasta',detail:'Objetos y pujas'},
@@ -2034,7 +2098,7 @@ function Game({membership,onBack,session}){
     page==='points'?'Puntos':
     page==='challenges'?'Retos':
     page==='adminChallenges'?'Retos':
-    page==='packs'?'Packs':
+    page==='library'?'Biblioteca':
     page==='stages'?'Plan':
     page==='auction'?'Subasta':
     page==='settings'?'Ajustes':
@@ -2100,7 +2164,7 @@ function Game({membership,onBack,session}){
         style={{position:'relative',fontSize:'.76rem',padding:'9px 5px',gap:'5px'}}>
         <Settings size={16}/>Administrar
         {adminActionCounts.total>0&&<span style={{
-          position:'absolute',right:'4px',top:'2px',
+          position:'absolute',right:'3px',top:'1px',
           minWidth:'17px',height:'17px',padding:'0 4px',
           borderRadius:'999px',background:'#e05b4f',color:'white',
           border:'2px solid white',fontSize:'.58rem',fontWeight:'950',
@@ -2174,32 +2238,24 @@ function Game({membership,onBack,session}){
         marginTop:'12px',padding:'13px 14px',
         border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'
       }}>
-        <div style={{display:'flex',justifyContent:'space-between',gap:'10px',alignItems:'baseline'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'10px'}}>
           <div>
             <p className="eyebrow" style={{margin:'0 0 2px',fontSize:'.66rem',letterSpacing:'.08em'}}>🔔 PENDIENTES</p>
-            <strong style={{fontSize:'.94rem'}}>{adminActionCounts.total>0?'Tienes cosas por revisar':'Todo al día'}</strong>
+            <strong style={{fontSize:'.95rem'}}>{adminActionCounts.total>0?'Tienes cosas por revisar':'Todo al día'}</strong>
           </div>
-          {adminActionCounts.total>0&&<span style={{padding:'5px 8px',borderRadius:'999px',background:'#fff0eb',color:'#a33f31',fontWeight:'950',fontSize:'.72rem'}}>
-            {adminActionCounts.total}
-          </span>}
+          {adminActionCounts.total>0&&<span style={{padding:'5px 8px',borderRadius:'999px',background:'#fff0eb',color:'#a33f31',fontWeight:'950',fontSize:'.72rem'}}>{adminActionCounts.total}</span>}
         </div>
-
         {adminActionCounts.total>0?<div style={{display:'grid',gap:'6px',marginTop:'9px'}}>
-          {adminActionCounts.challenges>0&&<button type="button" className="secondary wide"
-            onClick={()=>openPage('adminChallenges')} style={{justifyContent:'space-between',padding:'9px 10px'}}>
+          {adminActionCounts.challenges>0&&<button type="button" className="secondary wide" onClick={()=>openPage('adminChallenges')} style={{justifyContent:'space-between',padding:'9px 10px'}}>
             <span>🎯 Retos por validar</span><strong>{adminActionCounts.challenges} ›</strong>
           </button>}
-          {adminActionCounts.awards>0&&<button type="button" className="secondary wide"
-            onClick={()=>openPage('adminChallenges')} style={{justifyContent:'space-between',padding:'9px 10px'}}>
+          {adminActionCounts.awards>0&&<button type="button" className="secondary wide" onClick={()=>openPage('adminChallenges')} style={{justifyContent:'space-between',padding:'9px 10px'}}>
             <span>🏆 Premios por gestionar</span><strong>{adminActionCounts.awards} ›</strong>
           </button>}
-          {adminActionCounts.advantages>0&&<button type="button" className="secondary wide"
-            onClick={()=>openPage('adminAdvantages')} style={{justifyContent:'space-between',padding:'9px 10px'}}>
-            <span>🎁 Objetos / ventajas</span><strong>{adminActionCounts.advantages} ›</strong>
+          {adminActionCounts.advantages>0&&<button type="button" className="secondary wide" onClick={()=>openPage('adminAdvantages')} style={{justifyContent:'space-between',padding:'9px 10px'}}>
+            <span>🎒 Ventajas pendientes</span><strong>{adminActionCounts.advantages} ›</strong>
           </button>}
-        </div>:<small style={{display:'block',marginTop:'7px',color:'var(--muted)'}}>
-          No tienes validaciones ni gestiones pendientes.
-        </small>}
+        </div>:<small style={{display:'block',marginTop:'7px',color:'var(--muted)'}}>No tienes validaciones pendientes.</small>}
       </section>}
 
       {mode==='admin'&&<section className="card" style={{marginTop:'14px',padding:'16px 18px'}}>
@@ -2801,7 +2857,11 @@ function Game({membership,onBack,session}){
             boxShadow:'none'
           }}>
             <span style={{minWidth:0}}>
-              <strong style={{display:'block',fontSize:'.95rem'}}>{section.label}</strong>
+              <span style={{display:'flex',alignItems:'center',gap:'7px',flexWrap:'wrap'}}>
+                <strong style={{display:'block',fontSize:'.95rem'}}>{section.label}</strong>
+                {section.id==='adminChallenges'&&adminActionCounts.challenges>0&&<span style={{minWidth:'17px',height:'17px',padding:'0 4px',borderRadius:'999px',background:'#e05b4f',color:'white',fontSize:'.58rem',fontWeight:'950',display:'grid',placeItems:'center'}}>{adminActionCounts.challenges>9?'9+':adminActionCounts.challenges}</span>}
+                {section.id==='adminAdvantages'&&adminActionCounts.advantages>0&&<span style={{minWidth:'17px',height:'17px',padding:'0 4px',borderRadius:'999px',background:'#e05b4f',color:'white',fontSize:'.58rem',fontWeight:'950',display:'grid',placeItems:'center'}}>{adminActionCounts.advantages>9?'9+':adminActionCounts.advantages}</span>}
+              </span>
               <small style={{display:'block',color:'var(--muted)',marginTop:'2px'}}>
                 {section.detail}
               </small>
@@ -3137,7 +3197,7 @@ function Game({membership,onBack,session}){
                 {(item.group_status==='pending'||item.group_status==='rejected')&&
                   <button className="primary wide"
                     style={{marginTop:'8px',padding:'8px',fontSize:'.77rem'}}
-                    onClick={()=>submitSpecial(item.group_id)}>
+                    onClick={()=>submitSpecial(item)}>
                     <Send size={14}/>Enviar a revisión
                   </button>}
               </div>
@@ -3238,105 +3298,72 @@ function Game({membership,onBack,session}){
                 })}
             </div>}
         </section>}
-    </>:page==='packs'&&mode==='admin'?<>
+    </>:page==='library'&&mode==='admin'?<>
       <section className="card" style={{padding:'15px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
-        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>BIBLIOTECA DE PACKS</p>
-        <h2 style={{marginBottom:'4px'}}>Elige qué tipo de viaje quieres jugar</h2>
-        <p style={{color:'var(--muted)',marginBottom:0}}>
-          Solo se usarán en las rondas aleatorias los packs y pruebas que estén activos.
+        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>📚 BIBLIOTECA</p>
+        <h2 style={{marginBottom:'4px'}}>Brinkkando elige la mezcla</h2>
+        <p style={{color:'var(--muted)',marginBottom:0,fontSize:'.8rem',lineHeight:1.4}}>
+          Todos los retos compatibles con este viaje están activos por defecto. Si alguno no os encaja, desactívalo solo para este Brinkkando.
         </p>
       </section>
 
-      <section style={{display:'grid',gap:'8px',marginTop:'12px'}}>
-        {packs.map(pack=><article className="card" key={pack.pack_id} style={{
-          padding:'16px',
-          border:pack.is_enabled?'2px solid #2f7563':'1px solid rgba(23,63,53,.11)'
-        }}>
-          <div style={{display:'flex',alignItems:'center',gap:'12px',minWidth:0}}>
-            <div style={{width:'46px',height:'46px',borderRadius:'15px',background:'#eef3ef',display:'grid',placeItems:'center',fontSize:'1.45rem'}}>
-              {pack.emoji||'🎒'}
-            </div>
-            <div style={{flex:1}}>
-              <strong>{pack.name}</strong>
-              <small style={{display:'block',color:'var(--muted)'}}>
-                {pack.enabled_templates}/{pack.total_templates} pruebas activas
-              </small>
-            </div>
-            <button className={pack.is_enabled?'primary':'secondary'} disabled={packBusy}
-              onClick={()=>togglePack(pack)}>
-              {pack.is_enabled?'Activo':'Activar'}
-            </button>
-          </div>
-          {pack.description&&<p style={{color:'var(--muted)',margin:'12px 0 0'}}>{pack.description}</p>}
-          <button className="secondary wide" style={{marginTop:'12px'}} onClick={async()=>{
-            setSelectedPackId(pack.pack_id);
-            await loadPackTemplates(pack.pack_id);
-          }}>
-            <PackageOpen size={17}/>Gestionar pruebas
-          </button>
-        </article>)}
+      <section style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'6px',marginTop:'10px'}}>
+        {[
+          ['competition','⭐','Competición'],
+          ['dynamic','🪙','Dinámicas'],
+          ['stage_award','🏆','Premios']
+        ].map(([family,emoji,label])=>{
+          const items=masterLibrary.filter(item=>item.family===family);
+          const active=items.filter(item=>item.enabled).length;
+          return <button key={family} type="button"
+            className={masterLibraryFamily===family?'primary':'secondary'}
+            onClick={()=>setMasterLibraryFamily(family)}
+            style={{padding:'9px 5px',fontSize:'.72rem',display:'grid',gap:'2px',placeItems:'center'}}>
+            <span>{emoji} {label}</span>
+            <small style={{fontWeight:'800',opacity:.8}}>{active}/{items.length}</small>
+          </button>;
+        })}
       </section>
 
-      {selectedPackId&&<section className="card" style={{padding:'17px',marginTop:'22px'}}>
-        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>PRUEBAS DEL PACK</p>
-        <h2 style={{marginBottom:'14px'}}>
-          {packs.find(pack=>pack.pack_id===selectedPackId)?.name||'Pack'}
-        </h2>
+      {masterLibraryMessage&&<p className="msg" style={{marginTop:'9px'}}>{masterLibraryMessage}</p>}
 
-        <div style={{display:'grid',gap:'8px'}}>
-          {packTemplates.map(template=><button key={template.template_id} disabled={packBusy}
-            onClick={()=>togglePackTemplate(template)} style={{
-              border:template.is_enabled?'2px solid #2f7563':'1px solid #d8d3c6',
-              borderRadius:'14px',
-              padding:'14px',
-              background:template.is_enabled?'#eef6f2':'white',
-              display:'flex',
-              alignItems:'center',
-              gap:'12px',
-              color:'inherit',
-              textAlign:'left'
-            }}>
-            <span style={{width:'28px',height:'28px',borderRadius:'9px',display:'grid',placeItems:'center',
-              background:template.is_enabled?'#2f7563':'#eef3ef',color:template.is_enabled?'white':'#62736d'}}>
-              {template.is_enabled?<Check size={17}/>:''}
-            </span>
-            <span style={{flex:1}}>
-              <strong>{template.title}</strong>
-              <small style={{display:'block',color:'var(--muted)'}}>{template.description}</small>
-            </span>
-            <small style={{fontWeight:'900'}}>{template.audience==='team'?'Equipo':template.audience==='both'?'Ambos':'Individual'} · {template.points} pt</small>
-          </button>)}
-          {!packTemplates.length&&<article style={{padding:'14px',color:'var(--muted)'}}>Este pack todavía no tiene pruebas.</article>}
-        </div>
-
-        <form onSubmit={createPackTemplate} style={{marginTop:'20px'}}>
-          <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>AÑADIR PRUEBA</p>
-          <label>Título<input value={newTemplate.title} onChange={e=>setNewTemplate({...newTemplate,title:e.target.value})}/></label>
-          <label>Descripción<textarea rows="3" value={newTemplate.description} onChange={e=>setNewTemplate({...newTemplate,description:e.target.value})}/></label>
-          <div className="cols">
-            <label>Tipo<select value={newTemplate.audience} onChange={e=>setNewTemplate({...newTemplate,audience:e.target.value})}>
-              <option value="individual">Individual</option>
-              <option value="team">Equipo</option>
-              <option value="both">Ambos</option>
-            </select></label>
-            <label>Puntos<input type="number" min="0" step="1" value={newTemplate.points} onChange={e=>setNewTemplate({...newTemplate,points:e.target.value})}/></label>
-          </div>
-          <button className="primary wide" disabled={packBusy}><Plus size={18}/>Añadir prueba</button>
-        </form>
-      </section>}
-
-      <form className="card" onSubmit={createCustomPack} style={{padding:'17px',marginTop:'22px'}}>
-        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>CREAR PACK PROPIO</p>
-        <h2 style={{marginBottom:'14px'}}>Tu propia colección</h2>
-        <div className="cols">
-          <label>Nombre<input value={newPack.name} onChange={e=>setNewPack({...newPack,name:e.target.value})} placeholder="Galicia salvaje"/></label>
-          <label>Emoji<input maxLength="4" value={newPack.emoji} onChange={e=>setNewPack({...newPack,emoji:e.target.value})}/></label>
-        </div>
-        <label>Descripción<textarea rows="3" value={newPack.description} onChange={e=>setNewPack({...newPack,description:e.target.value})}/></label>
-        <button className="primary wide" disabled={packBusy}><Plus size={18}/>Crear pack</button>
-        {packMessage&&<p className="msg">{packMessage}</p>}
-      </form>
+      <section style={{display:'grid',gap:'6px',marginTop:'10px'}}>
+        {masterLibraryBusy&&!masterLibrary.length&&<article className="card" style={{padding:'18px',textAlign:'center',color:'var(--muted)'}}>Cargando biblioteca…</article>}
+        {masterLibrary.filter(item=>item.family===masterLibraryFamily).map(item=>{
+          const expanded=masterLibraryExpanded===item.challenge_id;
+          const reward=item.reward_amount?`${item.reward_type==='ranking'?'⭐':'🪙'} ${item.reward_amount}`:(item.reward_type==='ranking'?'⭐ Ranking':'🪙 Monedas');
+          const format=item.format==='team'?'👥 Equipo':item.format==='group'?'👥 Grupo':'👤 Individual';
+          const resolution=item.resolution==='vote'?'🗳️ Votación':item.resolution==='validation'?'✓ Validación':'';
+          return <article key={item.challenge_id} className="card" style={{
+            padding:'10px 11px',
+            border:item.enabled?'1px solid rgba(23,63,53,.10)':'1px solid rgba(23,63,53,.06)',
+            boxShadow:'none',
+            opacity:item.enabled?1:.58
+          }}>
+            <div style={{display:'grid',gridTemplateColumns:'34px minmax(0,1fr) auto',gap:'8px',alignItems:'center'}}>
+              <button type="button" onClick={()=>setMasterLibraryExpanded(expanded?null:item.challenge_id)} style={{
+                width:'34px',height:'34px',border:0,borderRadius:'10px',background:'#eef3ef',fontSize:'1.05rem',padding:0
+              }}>{item.emoji||'🎯'}</button>
+              <button type="button" onClick={()=>setMasterLibraryExpanded(expanded?null:item.challenge_id)} style={{border:0,background:'transparent',padding:0,textAlign:'left',color:'inherit',minWidth:0}}>
+                <strong style={{display:'block',fontSize:'.82rem',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.title}</strong>
+                <small style={{display:'block',color:'var(--muted)',fontSize:'.66rem',marginTop:'2px'}}>{format} · {reward}{resolution?` · ${resolution}`:''}</small>
+              </button>
+              <button type="button" disabled={masterLibraryBusy} onClick={()=>toggleMasterLibraryChallenge(item)} className={item.enabled?'secondary':'primary'} style={{padding:'6px 8px',fontSize:'.68rem'}}>
+                {item.enabled?'✓ Activo':'Activar'}
+              </button>
+            </div>
+            {expanded&&<div style={{padding:'9px 2px 1px 42px'}}>
+              <p style={{margin:0,color:'var(--muted)',fontSize:'.76rem',lineHeight:1.45}}>{item.description}</p>
+              <small style={{display:'block',marginTop:'7px',color:'var(--muted)',fontSize:'.63rem'}}>
+                {item.code} · {item.category||'general'}{item.difficulty?` · ${item.difficulty}`:''}{item.secret?' · 🔒 secreto':''}
+              </small>
+            </div>}
+          </article>;
+        })}
+        {!masterLibraryBusy&&!masterLibrary.filter(item=>item.family===masterLibraryFamily).length&&<article className="card" style={{padding:'18px',textAlign:'center',color:'var(--muted)'}}>No hay retos en esta sección.</article>}
+      </section>
     </>:page==='adminChallenges'&&mode==='admin'?<>
+
       <section className="card" style={{padding:'14px 15px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
         <p className="eyebrow" style={{marginBottom:'2px',fontSize:'.67rem',letterSpacing:'.08em'}}>🎯 RETOS</p>
         <h2 style={{margin:'0 0 3px',fontSize:'1.05rem'}}>Competir, liarla y ganar</h2>
@@ -3433,7 +3460,7 @@ function Game({membership,onBack,session}){
       <section style={{marginTop:'15px'}}>
         <p className="eyebrow" style={{marginBottom:'4px',fontSize:'.67rem',letterSpacing:'.08em'}}>PENDIENTES DE VALIDAR</p>
         <div style={{display:'grid',gap:'7px'}}>
-          {adminSpecialReviews.map(item=><article className="card" key={item.group_id} style={{padding:'11px 12px'}}>
+          {adminSpecialReviews.map(item=><article className="card" key={`${item.source_type||'legacy'}-${item.group_id}`} style={{padding:'11px 12px'}}>
             <div style={{display:'flex',justifyContent:'space-between',gap:'8px',alignItems:'flex-start'}}>
               <div style={{minWidth:0}}>
                 <strong style={{display:'block',fontSize:'.87rem'}}>{item.title}</strong>
@@ -3446,10 +3473,10 @@ function Game({membership,onBack,session}){
               </strong>
             </div>
             <div className="actions" style={{gap:'6px',marginTop:'9px'}}>
-              <button className="primary" disabled={challengeBusy} onClick={()=>reviewSpecial(item.group_id,true)}>
+              <button className="primary" disabled={challengeBusy} onClick={()=>reviewSpecial(item,true)}>
                 <Check size={15}/>Aprobar
               </button>
-              <button className="secondary" disabled={challengeBusy} onClick={()=>reviewSpecial(item.group_id,false)}>
+              <button className="secondary" disabled={challengeBusy} onClick={()=>reviewSpecial(item,false)}>
                 Rechazar
               </button>
             </div>
@@ -3522,13 +3549,25 @@ function Game({membership,onBack,session}){
       <section className="card" style={{padding:'15px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
         <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>ADMINISTRAR PUNTOS</p>
         <h2 style={{marginBottom:'4px'}}>Actualiza la clasificación</h2>
-        <p style={{color:'var(--muted)',marginBottom:0}}>Usa cantidades positivas para sumar y negativas para restar.</p>
+        <p style={{color:'var(--muted)',marginBottom:0}}>Elige si quieres añadir o quitar puntos. En móvil no necesitas escribir el signo −.</p>
       </section>
       <form className="card" onSubmit={adjustPoints} style={{padding:'16px',marginTop:'14px'}}>
         <label>Brinkker<select value={pointsForm.user_id} onChange={e=>setPointsForm({...pointsForm,user_id:e.target.value})}><option value="">Selecciona un Brinkker</option>{brinkkers.map(q=><option key={q.user_id} value={q.user_id}>{q.nickname}</option>)}</select></label>
-        <label>Puntos<input type="number" step="1" value={pointsForm.amount} onChange={e=>setPointsForm({...pointsForm,amount:e.target.value})}/></label>
+        <label>Operación
+          <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'7px',marginTop:'5px'}}>
+            <button type="button" className={pointsOperation==='subtract'?'primary':'secondary'}
+              onClick={()=>setPointsOperation('subtract')} style={{padding:'9px'}}>
+              − Quitar
+            </button>
+            <button type="button" className={pointsOperation==='add'?'primary':'secondary'}
+              onClick={()=>setPointsOperation('add')} style={{padding:'9px'}}>
+              + Añadir
+            </button>
+          </div>
+        </label>
+        <label>Puntos<input type="number" inputMode="numeric" min="1" step="1" value={pointsForm.amount} onChange={e=>setPointsForm({...pointsForm,amount:e.target.value})}/></label>
         <label>Motivo<input value={pointsForm.reason} onChange={e=>setPointsForm({...pointsForm,reason:e.target.value})} placeholder="Reto completado, penalización…"/></label>
-        <button className="primary wide" disabled={pointsBusy}><Star size={18}/>{pointsBusy?'Guardando…':'Registrar puntos'}</button>
+        <button className="primary wide" disabled={pointsBusy}><Star size={18}/>{pointsBusy?'Guardando…':pointsOperation==='subtract'?'Quitar puntos':'Añadir puntos'}</button>
         {pointsMessage&&<p className="msg">{pointsMessage}</p>}
       </form>
     </>:page==='brinkkers'?<>
