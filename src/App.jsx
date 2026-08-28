@@ -379,6 +379,11 @@ function Game({membership,onBack,session}){
   const[pointsBusy,setPointsBusy]=useState(false);
   const[pointsMessage,setPointsMessage]=useState('');
   const[pointsOperation,setPointsOperation]=useState('add');
+  const[coinsOperation,setCoinsOperation]=useState('add');
+  const[rewardPointsOpen,setRewardPointsOpen]=useState(true);
+  const[rewardCoinsOpen,setRewardCoinsOpen]=useState(false);
+  const[rewardCoinsBusy,setRewardCoinsBusy]=useState(false);
+  const[rewardCoinsMessage,setRewardCoinsMessage]=useState('');
   const[pointHistory,setPointHistory]=useState([]);
   const[historyLoading,setHistoryLoading]=useState(false);
   const[historyOpen,setHistoryOpen]=useState(false);
@@ -738,6 +743,46 @@ function Game({membership,onBack,session}){
       await loadPointHistory();
     }
     setPointsBusy(false);
+  }
+
+  async function adjustCoins(e){
+    e.preventDefault();
+    setRewardCoinsBusy(true);
+    setRewardCoinsMessage('');
+    const baseAmount=Math.abs(Number(auctionWalletForm.amount));
+    const amount=coinsOperation==='subtract'?-baseAmount:baseAmount;
+
+    if(!auctionWalletForm.user_id){
+      setRewardCoinsMessage('Selecciona un Brinkker.');
+      setRewardCoinsBusy(false);
+      return;
+    }
+    if(!Number.isInteger(baseAmount)||baseAmount===0){
+      setRewardCoinsMessage('Las monedas deben ser un entero distinto de cero.');
+      setRewardCoinsBusy(false);
+      return;
+    }
+    if(!auctionWalletForm.reason.trim()){
+      setRewardCoinsMessage('Escribe el motivo.');
+      setRewardCoinsBusy(false);
+      return;
+    }
+
+    const{error}=await supabase.rpc('admin_adjust_tripquest_coins_v15',{
+      p_game_id:g.id,
+      p_user_id:auctionWalletForm.user_id,
+      p_amount:amount,
+      p_reason:auctionWalletForm.reason.trim()
+    });
+
+    if(error){
+      setRewardCoinsMessage(error.message);
+    }else{
+      setRewardCoinsMessage(amount>0?'🪙 Monedas añadidas':'🪙 Monedas descontadas');
+      setAuctionWalletForm(form=>({...form,amount:'10',reason:''}));
+      if(auctionWalletForm.user_id===session?.user?.id)await loadAuction();
+    }
+    setRewardCoinsBusy(false);
   }
 
   async function loadDailyChallenges(){
@@ -2269,7 +2314,7 @@ function Game({membership,onBack,session}){
     {id:'library',label:'📚 Biblioteca',detail:'Qué puede aparecer en el viaje'},
     {id:'adminChallenges',label:'🎯 Retos',detail:'Pendientes, en juego e historial'},
     {id:'adminAwards',label:'🏆 Premios',detail:'Votaciones y premios de etapa'},
-    {id:'points',label:'⭐ Puntos',detail:'Gestionar clasificación'},
+    {id:'points',label:'💰 Recompensas',detail:'Puntos y monedas'},
     {id:'auction',label:'🔨 Subasta',detail:'Objetos y pujas'},
     {id:'adminAdvantages',label:'🎒 Ventajas',detail:'Objetos e inventario'},
     {id:'stages',label:'📅 Plan',detail:'Trayectos y alojamientos'},
@@ -2288,7 +2333,7 @@ function Game({membership,onBack,session}){
   const title=
     page==='ranking'?'Ranking':
     page==='brinkkers'?'Brinkkers':
-    page==='points'?'Puntos':
+    page==='points'?'Recompensas':
     page==='challenges'?'Retos':
     page==='adminChallenges'?'Retos':
     page==='adminAwards'?'Premios':
@@ -4003,30 +4048,95 @@ function Game({membership,onBack,session}){
       </details>
 
     </>:page==='points'&&mode==='admin'?<>
-      <section className="card" style={{padding:'15px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
-        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>ADMINISTRAR PUNTOS</p>
-        <h2 style={{marginBottom:'4px'}}>Actualiza la clasificación</h2>
-        <p style={{color:'var(--muted)',marginBottom:0}}>Elige si quieres añadir o quitar puntos. En móvil no necesitas escribir el signo −.</p>
+      <section className="card" style={{padding:'14px 15px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
+        <p className="eyebrow" style={{marginBottom:'2px',fontSize:'.67rem',letterSpacing:'.08em'}}>💰 RECOMPENSAS</p>
+        <h2 style={{margin:'0 0 4px',fontSize:'1.08rem'}}>Ajustes de la partida</h2>
+        <p style={{color:'var(--muted)',margin:0,fontSize:'.79rem',lineHeight:1.4}}>
+          Añade o quita ⭐ puntos de ranking y 🪙 monedas. Los saldos de monedas siguen siendo privados para cada Brinkker.
+        </p>
       </section>
-      <form className="card" onSubmit={adjustPoints} style={{padding:'16px',marginTop:'14px'}}>
-        <label>Brinkker<select value={pointsForm.user_id} onChange={e=>setPointsForm({...pointsForm,user_id:e.target.value})}><option value="">Selecciona un Brinkker</option>{brinkkers.map(q=><option key={q.user_id} value={q.user_id}>{q.nickname}</option>)}</select></label>
-        <label>Operación
-          <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'7px',marginTop:'5px'}}>
-            <button type="button" className={pointsOperation==='subtract'?'primary':'secondary'}
-              onClick={()=>setPointsOperation('subtract')} style={{padding:'9px'}}>
-              − Quitar
-            </button>
-            <button type="button" className={pointsOperation==='add'?'primary':'secondary'}
-              onClick={()=>setPointsOperation('add')} style={{padding:'9px'}}>
-              + Añadir
-            </button>
+
+      <section className="card" style={{padding:'11px 12px',marginTop:'10px',boxShadow:'none'}}>
+        <button type="button" onClick={()=>setRewardPointsOpen(v=>!v)}
+          style={{width:'100%',border:0,background:'transparent',padding:0,color:'inherit',display:'flex',justifyContent:'space-between',alignItems:'center',gap:'10px',textAlign:'left'}}>
+          <div>
+            <strong style={{display:'block',fontSize:'.88rem'}}>⭐ Ajustar ranking</strong>
+            <small style={{display:'block',color:'var(--muted)',marginTop:'2px'}}>Añadir o quitar puntos</small>
           </div>
-        </label>
-        <label>Puntos<input type="number" inputMode="numeric" min="1" step="1" value={pointsForm.amount} onChange={e=>setPointsForm({...pointsForm,amount:e.target.value})}/></label>
-        <label>Motivo<input value={pointsForm.reason} onChange={e=>setPointsForm({...pointsForm,reason:e.target.value})} placeholder="Reto completado, penalización…"/></label>
-        <button className="primary wide" disabled={pointsBusy}><Star size={18}/>{pointsBusy?'Guardando…':pointsOperation==='subtract'?'Quitar puntos':'Añadir puntos'}</button>
-        {pointsMessage&&<p className="msg">{pointsMessage}</p>}
-      </form>
+          <strong>{rewardPointsOpen?'▴':'▾'}</strong>
+        </button>
+
+        {rewardPointsOpen&&<form onSubmit={adjustPoints} style={{marginTop:'10px',borderTop:'1px solid #ece8df',paddingTop:'9px'}}>
+          <label>Brinkker
+            <select value={pointsForm.user_id} onChange={e=>setPointsForm({...pointsForm,user_id:e.target.value})}>
+              <option value="">Selecciona un Brinkker</option>
+              {brinkkers.map(q=><option key={q.user_id} value={q.user_id}>{q.nickname}</option>)}
+            </select>
+          </label>
+
+          <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'6px',margin:'7px 0'}}>
+            <button type="button" className={pointsOperation==='subtract'?'primary':'secondary'} onClick={()=>setPointsOperation('subtract')} style={{padding:'8px'}}>− Quitar</button>
+            <button type="button" className={pointsOperation==='add'?'primary':'secondary'} onClick={()=>setPointsOperation('add')} style={{padding:'8px'}}>+ Añadir</button>
+          </div>
+
+          <div className="cols">
+            <label>⭐ Puntos
+              <input type="number" inputMode="numeric" min="1" step="1" value={pointsForm.amount} onChange={e=>setPointsForm({...pointsForm,amount:e.target.value})}/>
+            </label>
+            <label>Motivo
+              <input value={pointsForm.reason} onChange={e=>setPointsForm({...pointsForm,reason:e.target.value})} placeholder="Premio, penalización…"/>
+            </label>
+          </div>
+
+          <button className="primary wide" disabled={pointsBusy}>
+            <Star size={17}/>{pointsBusy?'Guardando…':pointsOperation==='subtract'?'Quitar puntos':'Añadir puntos'}
+          </button>
+          {pointsMessage&&<p className="msg" style={{marginTop:'8px'}}>{pointsMessage}</p>}
+        </form>}
+      </section>
+
+      <section className="card" style={{padding:'11px 12px',marginTop:'8px',boxShadow:'none'}}>
+        <button type="button" onClick={()=>setRewardCoinsOpen(v=>!v)}
+          style={{width:'100%',border:0,background:'transparent',padding:0,color:'inherit',display:'flex',justifyContent:'space-between',alignItems:'center',gap:'10px',textAlign:'left'}}>
+          <div>
+            <strong style={{display:'block',fontSize:'.88rem'}}>🪙 Ajustar monedas</strong>
+            <small style={{display:'block',color:'var(--muted)',marginTop:'2px'}}>Sin mostrar el saldo del Brinkker</small>
+          </div>
+          <strong>{rewardCoinsOpen?'▴':'▾'}</strong>
+        </button>
+
+        {rewardCoinsOpen&&<form onSubmit={adjustCoins} style={{marginTop:'10px',borderTop:'1px solid #ece8df',paddingTop:'9px'}}>
+          <label>Brinkker
+            <select value={auctionWalletForm.user_id} onChange={e=>setAuctionWalletForm({...auctionWalletForm,user_id:e.target.value})}>
+              <option value="">Selecciona un Brinkker</option>
+              {brinkkers.map(q=><option key={q.user_id} value={q.user_id}>{q.nickname}</option>)}
+            </select>
+          </label>
+
+          <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'6px',margin:'7px 0'}}>
+            <button type="button" className={coinsOperation==='subtract'?'primary':'secondary'} onClick={()=>setCoinsOperation('subtract')} style={{padding:'8px'}}>− Quitar</button>
+            <button type="button" className={coinsOperation==='add'?'primary':'secondary'} onClick={()=>setCoinsOperation('add')} style={{padding:'8px'}}>+ Añadir</button>
+          </div>
+
+          <div className="cols">
+            <label>🪙 Monedas
+              <input type="number" inputMode="numeric" min="1" step="1" value={auctionWalletForm.amount} onChange={e=>setAuctionWalletForm({...auctionWalletForm,amount:e.target.value})}/>
+            </label>
+            <label>Motivo
+              <input value={auctionWalletForm.reason} onChange={e=>setAuctionWalletForm({...auctionWalletForm,reason:e.target.value})} placeholder="Premio, ajuste…"/>
+            </label>
+          </div>
+
+          <button className="primary wide" disabled={rewardCoinsBusy}>
+            <Gift size={17}/>{rewardCoinsBusy?'Guardando…':coinsOperation==='subtract'?'Quitar monedas':'Añadir monedas'}
+          </button>
+          {rewardCoinsMessage&&<p className="msg" style={{marginTop:'8px'}}>{rewardCoinsMessage}</p>}
+        </form>}
+      </section>
+
+      <small style={{display:'block',color:'var(--muted)',marginTop:'9px',padding:'0 3px',lineHeight:1.4}}>
+        🔒 El Admin puede hacer ajustes de monedas, pero nunca consultar el saldo privado de otro Brinkker.
+      </small>
     </>:page==='brinkkers'?<>
       <section className="card" style={{padding:'15px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
         <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>{mode==='admin'?'GESTIÓN DE LA AVENTURA':'COMPAÑEROS DE VIAJE'}</p>
@@ -4243,51 +4353,6 @@ function Game({membership,onBack,session}){
         </button>
       </>}
 
-      <form className="card" onSubmit={grantAuctionCoins}
-        style={{padding:'14px',marginTop:'14px'}}>
-        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>
-          🪙 RECOMPENSAS
-        </p>
-        <strong style={{display:'block',marginBottom:'5px'}}>
-          Dar monedas extra
-        </strong>
-        <small style={{
-          display:'block',color:'var(--muted)',
-          marginBottom:'9px'
-        }}>
-          Todos empiezan con 100 🪙. Cada Brinkker ve su monedero arriba; el Admin puede dar premios, pero no ve saldos ajenos.
-        </small>
-
-        <label>Brinkker
-          <select value={auctionWalletForm.user_id}
-            onChange={e=>setAuctionWalletForm({...auctionWalletForm,user_id:e.target.value})}>
-            <option value="">Selecciona un Brinkker</option>
-            {brinkkers.map(q=>
-              <option key={q.user_id} value={q.user_id}>
-                {q.nickname}
-              </option>
-            )}
-          </select>
-        </label>
-
-        <div className="cols">
-          <label>Monedas
-            <input type="number" min="1" step="5"
-              value={auctionWalletForm.amount}
-              onChange={e=>setAuctionWalletForm({...auctionWalletForm,amount:e.target.value})}/>
-          </label>
-
-          <label>Motivo
-            <input value={auctionWalletForm.reason}
-              onChange={e=>setAuctionWalletForm({...auctionWalletForm,reason:e.target.value})}
-              placeholder="Sobre, prueba…"/>
-          </label>
-        </div>
-
-        <button className="secondary wide" disabled={auctionBusy}>
-          <Gift size={16}/>Entregar monedas
-        </button>
-      </form>
 
       {auctionMessage&&<p className="msg" style={{marginTop:'9px'}}>
         {auctionMessage}
