@@ -2422,25 +2422,26 @@ function Game({membership,onBack,session}){
         border:'1px solid rgba(23,63,53,.09)',
         boxShadow:'0 8px 22px rgba(23,63,53,.06)'
       }}>
-        <div style={{display:'grid',gridTemplateColumns:'46px minmax(0,1fr)',alignItems:'center',gap:'11px'}}>
+        <div style={{display:'grid',gridTemplateColumns:mode==='admin'?'36px minmax(0,1fr)':'46px minmax(0,1fr)',alignItems:'center',gap:'11px'}}>
           <div style={{
-            width:'46px',height:'46px',borderRadius:'15px',
+            width:mode==='admin'?'36px':'46px',height:mode==='admin'?'36px':'46px',borderRadius:mode==='admin'?'11px':'15px',
             background:'#eef3ef',display:'grid',placeItems:'center',
-            fontSize:'1.55rem'
+            fontSize:mode==='admin'?'1.12rem':'1.55rem'
           }}>{g.emoji}</div>
           <div style={{minWidth:0}}>
-            <p className="eyebrow" style={{marginBottom:'2px',fontSize:'.67rem',letterSpacing:'.08em'}}>
-              {mode==='admin'?'MODO ADMIN':mode==='expenses'?'GASTOS':'BRINKKANDO'}
-            </p>
-            <h2 style={{margin:'0 0 2px',fontSize:'1.28rem'}}>
+            {mode!=='admin'&&<p className="eyebrow" style={{marginBottom:'2px',fontSize:'.67rem',letterSpacing:'.08em'}}>
+              {mode==='expenses'?'GASTOS':'BRINKKANDO'}
+            </p>}
+            {mode==='admin'&&<small style={{display:'block',fontWeight:'950',fontSize:'.62rem',color:'var(--muted)',marginBottom:'1px'}}>ADMIN · {g.name}</small>}
+            <h2 style={{margin:'0 0 2px',fontSize:mode==='admin'?'.92rem':'1.28rem'}}>
               {tripStatus(g.start_date,g.end_date)}
             </h2>
-            <p style={{
+            {mode!=='admin'&&<p style={{
               margin:0,color:'var(--muted)',fontSize:'.82rem',
               lineHeight:1.35
             }}>
               {g.description||'Haz que este Brinkkando sea inolvidable.'}
-            </p>
+            </p>}
           </div>
         </div>
 
@@ -2477,37 +2478,28 @@ function Game({membership,onBack,session}){
         </button>}
       </section>
 
-      {mode==='admin'&&<section className="card" style={{
-        marginTop:'12px',padding:'13px 14px',
-        border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'
+      {mode==='admin'&&(adminActionCounts.total>0?<section className="card" style={{
+        marginTop:'8px',padding:'10px 12px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'
       }}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'10px'}}>
-          <div>
-            <p className="eyebrow" style={{margin:'0 0 2px',fontSize:'.66rem',letterSpacing:'.08em'}}>🔔 PENDIENTES</p>
-            <strong style={{fontSize:'.95rem'}}>{adminActionCounts.total>0?'Tienes cosas por revisar':'Todo al día'}</strong>
-          </div>
-          {adminActionCounts.total>0&&<span style={{padding:'5px 8px',borderRadius:'999px',background:'#fff0eb',color:'#a33f31',fontWeight:'950',fontSize:'.72rem'}}>{adminActionCounts.total}</span>}
+          <strong style={{fontSize:'.8rem'}}>🔔 Pendientes por revisar</strong>
+          <span style={{padding:'4px 7px',borderRadius:'999px',background:'#fff0eb',color:'#a33f31',fontWeight:'950',fontSize:'.68rem'}}>{adminActionCounts.total}</span>
         </div>
-        {adminActionCounts.total>0?<div style={{display:'grid',gap:'6px',marginTop:'9px'}}>
-          {adminActionCounts.challenges>0&&<button type="button" className="secondary wide" onClick={()=>openPage('adminChallenges')} style={{justifyContent:'space-between',padding:'9px 10px'}}>
-            <span>🎯 Retos por validar</span><strong>{adminActionCounts.challenges} ›</strong>
-          </button>}
-          {adminActionCounts.awards>0&&<button type="button" className="secondary wide" onClick={()=>openPage('adminAwards')} style={{justifyContent:'space-between',padding:'9px 10px'}}>
-            <span>🏆 Premios por gestionar</span><strong>{adminActionCounts.awards} ›</strong>
-          </button>}
-          {adminActionCounts.advantages>0&&<button type="button" className="secondary wide" onClick={()=>openPage('adminAdvantages')} style={{justifyContent:'space-between',padding:'9px 10px'}}>
-            <span>🎒 Ventajas pendientes</span><strong>{adminActionCounts.advantages} ›</strong>
-          </button>}
-        </div>:<small style={{display:'block',marginTop:'7px',color:'var(--muted)'}}>No tienes validaciones pendientes.</small>}
-      </section>}
+        <div style={{display:'grid',gap:'5px',marginTop:'7px'}}>
+          {adminActionCounts.challenges>0&&<button type="button" className="secondary wide" onClick={()=>openPage('adminChallenges')} style={{justifyContent:'space-between',padding:'7px 9px',fontSize:'.72rem'}}><span>🎯 Retos</span><strong>{adminActionCounts.challenges} ›</strong></button>}
+          {adminActionCounts.awards>0&&<button type="button" className="secondary wide" onClick={()=>openPage('adminAwards')} style={{justifyContent:'space-between',padding:'7px 9px',fontSize:'.72rem'}}><span>🏆 Premios</span><strong>{adminActionCounts.awards} ›</strong></button>}
+          {adminActionCounts.advantages>0&&<button type="button" className="secondary wide" onClick={()=>openPage('adminAdvantages')} style={{justifyContent:'space-between',padding:'7px 9px',fontSize:'.72rem'}}><span>🎒 Objetos</span><strong>{adminActionCounts.advantages} ›</strong></button>}
+        </div>
+      </section>:<div style={{marginTop:'7px',padding:'6px 10px',borderRadius:'12px',background:'rgba(255,253,247,.62)',color:'var(--muted)',fontWeight:'850',fontSize:'.7rem'}}>🔔 Sin pendientes</div>)}
 
-      {mode==='admin'&&<section className="card" style={{marginTop:'14px',padding:'16px 18px'}}>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'12px',flexWrap:'wrap'}}>
-          <div>
-            <p className="eyebrow" style={{marginBottom:'4px',fontSize:'.67rem',letterSpacing:'.08em'}}>CÓDIGO DE INVITACIÓN</p>
-            <strong style={{fontSize:'1.03rem',letterSpacing:'.12em'}}>{g.invite_code}</strong>
+
+      {mode==='admin'&&<section className="card" style={{marginTop:'8px',padding:'8px 10px',boxShadow:'none'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'9px'}}>
+          <div style={{display:'flex',alignItems:'baseline',gap:'8px'}}>
+            <small style={{fontWeight:'900',fontSize:'.62rem',color:'var(--muted)'}}>🔗 CÓDIGO</small>
+            <strong style={{fontSize:'.84rem',letterSpacing:'.1em'}}>{g.invite_code}</strong>
           </div>
-          <button className="secondary" onClick={copyCode}><Copy size={17}/>{copied?'Copiado':'Copiar'}</button>
+          <button className="secondary" onClick={copyCode} style={{padding:'6px 8px',fontSize:'.7rem'}}><Copy size={14}/>{copied?'Copiado':'Copiar'}</button>
         </div>
       </section>}
 
