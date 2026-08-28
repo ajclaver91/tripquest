@@ -468,6 +468,10 @@ function Game({membership,onBack,session}){
   const[advantageHistory,setAdvantageHistory]=useState([]);
   const[advantageBusy,setAdvantageBusy]=useState(false);
   const[advantageMessage,setAdvantageMessage]=useState('');
+  const[adminInventoryOpen,setAdminInventoryOpen]=useState(false);
+  const[adminManageObjectsOpen,setAdminManageObjectsOpen]=useState(false);
+  const[adminCatalogOpen,setAdminCatalogOpen]=useState(false);
+  const[adminCreateObjectOpen,setAdminCreateObjectOpen]=useState(false);
   const[newAdvantage,setNewAdvantage]=useState({
     name:'',
     emoji:'🎁',
@@ -4358,158 +4362,162 @@ function Game({membership,onBack,session}){
         {auctionMessage}
       </p>}
     </>:page==='adminAdvantages'&&mode==='admin'?<>
-      <section className="card" style={{
-        padding:'15px',
-        border:'1px solid rgba(23,63,53,.09)',
-        boxShadow:'none'
-      }}>
-        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>OBJETOS</p>
-        <h2 style={{marginBottom:'4px'}}>Gestiona los objetos</h2>
-        <p style={{color:'var(--muted)',marginBottom:0,fontSize:'.84rem'}}>
-          Asigna objetos oficiales o crea objetos personalizados para este Brinkkando.
+      <section className="card" style={{padding:'14px 15px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
+        <p className="eyebrow" style={{marginBottom:'2px',fontSize:'.67rem',letterSpacing:'.08em'}}>🎒 OBJETOS · PARTIDA ACTUAL</p>
+        <h2 style={{margin:'0 0 4px',fontSize:'1.08rem'}}>Inventario del Brinkkando</h2>
+        <p style={{color:'var(--muted)',margin:0,fontSize:'.79rem',lineHeight:1.4}}>
+          Revisa usos pendientes y consulta los objetos repartidos. La gestión del catálogo queda recogida al final.
         </p>
       </section>
 
-      <section className="card" style={{padding:'17px',marginTop:'14px'}}>
-        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>ASIGNAR OBJETO</p>
-        <form onSubmit={assignAdvantageToUser}>
-          <label>Objeto
-            <select value={assignAdvantage.advantage_id}
-              onChange={e=>setAssignAdvantage({...assignAdvantage,advantage_id:e.target.value})}>
-              <option value="">Selecciona un objeto</option>
-              {advantageCatalog.map(item=><option key={item.advantage_id} value={item.advantage_id}>
-                {item.emoji} {item.name}
-              </option>)}
-            </select>
-          </label>
-          <label>Brinkker
-            <select value={assignAdvantage.user_id}
-              onChange={e=>setAssignAdvantage({...assignAdvantage,user_id:e.target.value})}>
-              <option value="">Selecciona un Brinkker</option>
-              {brinkkers.map(q=><option key={q.user_id} value={q.user_id}>{q.nickname}</option>)}
-            </select>
-          </label>
-          <button className="primary wide" disabled={advantageBusy}>
-            <Gift size={18}/>{advantageBusy?'Asignando…':'Asignar objeto'}
-          </button>
-        </form>
-      </section>
-
-      <section style={{marginTop:'20px'}}>
-        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>SOLICITUDES DE USO</p>
-        <div style={{display:'grid',gap:'9px'}}>
-          {advantageRequests.map(request=><article className="card" key={request.request_id}
-            style={{padding:'17px'}}>
-            <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
-              <span style={{fontSize:'1.7rem'}}>{request.emoji}</span>
-              <div style={{flex:1}}>
-                <strong>{request.nickname} quiere usar {request.advantage_name}</strong>
-                <small style={{display:'block',color:'var(--muted)'}}>{request.description}</small>
+      {advantageRequests.length>0&&<section style={{marginTop:'11px'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',gap:'8px',marginBottom:'6px'}}>
+          <div>
+            <p className="eyebrow" style={{margin:'0 0 2px',fontSize:'.67rem',letterSpacing:'.08em'}}>🔴 SOLICITUDES PENDIENTES</p>
+            <small style={{color:'var(--muted)'}}>Solo aparece cuando un Brinkker necesita una decisión.</small>
+          </div>
+          <strong style={{fontSize:'.74rem',color:'#a33f31'}}>{advantageRequests.length} pendiente{advantageRequests.length===1?'':'s'}</strong>
+        </div>
+        <div style={{display:'grid',gap:'7px'}}>
+          {advantageRequests.map(request=><article className="card" key={request.request_id} style={{padding:'11px 12px',boxShadow:'none'}}>
+            <div style={{display:'grid',gridTemplateColumns:'34px minmax(0,1fr)',gap:'9px',alignItems:'center'}}>
+              <span style={{width:'34px',height:'34px',borderRadius:'10px',background:'#eef3ef',display:'grid',placeItems:'center',fontSize:'1.05rem'}}>{request.emoji}</span>
+              <div style={{minWidth:0}}>
+                <strong style={{display:'block',fontSize:'.82rem'}}>{request.nickname} · {request.advantage_name}</strong>
+                <small style={{display:'block',color:'var(--muted)',fontSize:'.68rem',marginTop:'2px'}}>{request.description}</small>
               </div>
             </div>
-            <div className="actions" style={{marginTop:'12px'}}>
-              <button className="primary" disabled={advantageBusy}
-                onClick={()=>reviewAdvantageRequest(request.request_id,true)}>
-                <ShieldCheck size={17}/>Confirmar uso
+            <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'6px',marginTop:'9px'}}>
+              <button className="primary" disabled={advantageBusy} onClick={()=>reviewAdvantageRequest(request.request_id,true)} style={{padding:'8px 6px'}}>
+                <ShieldCheck size={16}/>Confirmar
               </button>
-              <button className="secondary" disabled={advantageBusy}
-                onClick={()=>reviewAdvantageRequest(request.request_id,false)}>
-                Rechazar
-              </button>
+              <button className="secondary" disabled={advantageBusy} onClick={()=>reviewAdvantageRequest(request.request_id,false)} style={{padding:'8px 6px'}}>Rechazar</button>
             </div>
           </article>)}
-          {!advantageRequests.length&&<article className="card" style={{padding:'16px'}}>
-            No hay solicitudes pendientes.
-          </article>}
         </div>
-      </section>
+      </section>}
 
-      <section style={{marginTop:'20px'}}>
-        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>INVENTARIO ACTUAL</p>
-        <div style={{display:'grid',gap:'9px'}}>
-          {advantageAssignments.map(item=><article className="card" key={item.assignment_id}
-            style={{padding:'16px',display:'flex',alignItems:'center',gap:'12px'}}>
-            <span style={{fontSize:'1.7rem'}}>{item.emoji}</span>
-            <div style={{flex:1}}>
-              <strong>{item.advantage_name}</strong>
-              <small style={{display:'block',color:'var(--muted)'}}>
-                {item.nickname} · {item.assignment_status==='available'?'Disponible':'Uso solicitado'}
+      {(()=>{
+        const ownersWithObjects=new Set(advantageAssignments.map(x=>x.user_id||x.nickname)).size;
+        return <section className="card" style={{padding:'11px 12px',marginTop:'11px',boxShadow:'none'}}>
+          <button type="button" onClick={()=>setAdminInventoryOpen(v=>!v)}
+            style={{width:'100%',border:0,background:'transparent',padding:0,color:'inherit',display:'flex',justifyContent:'space-between',alignItems:'center',gap:'10px',textAlign:'left'}}>
+            <div>
+              <strong style={{display:'block',fontSize:'.88rem'}}>🎒 En juego · {advantageAssignments.length} objeto{advantageAssignments.length===1?'':'s'}</strong>
+              <small style={{display:'block',color:'var(--muted)',marginTop:'2px'}}>
+                {ownersWithObjects} Brinkker{ownersWithObjects===1?'':'s'} con objetos
               </small>
             </div>
-            <button className="secondary" disabled={advantageBusy}
-              onClick={()=>removeAdvantageAssignment(item.assignment_id)}>
-              <Archive size={17}/>Quitar
-            </button>
-          </article>)}
-          {!advantageAssignments.length&&<article className="card" style={{padding:'16px'}}>
-            Todavía no hay objetos asignados.
-          </article>}
-        </div>
-      </section>
+            <strong>{adminInventoryOpen?'▴':'▾'}</strong>
+          </button>
 
-      <form className="card" onSubmit={createAdvantage} style={{padding:'17px',marginTop:'22px'}}>
-        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>OBJETO PERSONALIZADO</p>
-        <h2 style={{marginBottom:'14px'}}>Crea una ventaja nueva</h2>
-        <div className="cols">
-          <label>Nombre
-            <input value={newAdvantage.name}
-              onChange={e=>setNewAdvantage({...newAdvantage,name:e.target.value})}
-              placeholder="El salvoconducto"/>
-          </label>
-          <label>Emoji
-            <input maxLength="4" value={newAdvantage.emoji}
-              onChange={e=>setNewAdvantage({...newAdvantage,emoji:e.target.value})}/>
-          </label>
-        </div>
-        <label>Descripción
-          <textarea rows="3" value={newAdvantage.description}
-            onChange={e=>setNewAdvantage({...newAdvantage,description:e.target.value})}
-            placeholder="Explica qué permite hacer y cómo se usa."/>
-        </label>
-        <button className="primary wide" disabled={advantageBusy}>
-          <Plus size={18}/>Crear objeto
+          {adminInventoryOpen&&<div style={{display:'grid',gap:'5px',marginTop:'9px',borderTop:'1px solid #ece8df',paddingTop:'8px'}}>
+            {advantageAssignments.map(item=><article key={item.assignment_id} style={{
+              display:'grid',gridTemplateColumns:'32px minmax(0,1fr) auto',gap:'8px',alignItems:'center',
+              padding:'7px 3px',borderBottom:'1px solid rgba(23,63,53,.06)'
+            }}>
+              <span style={{width:'32px',height:'32px',borderRadius:'9px',background:'#eef3ef',display:'grid',placeItems:'center'}}>{item.emoji}</span>
+              <div style={{minWidth:0}}>
+                <strong style={{display:'block',fontSize:'.79rem',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.advantage_name}</strong>
+                <small style={{display:'block',color:'var(--muted)',fontSize:'.66rem'}}>
+                  {item.nickname} · {item.assignment_status==='available'?'🟢 Disponible':'🟠 Uso solicitado'}
+                </small>
+              </div>
+              <button className="secondary" disabled={advantageBusy} onClick={()=>removeAdvantageAssignment(item.assignment_id)}
+                style={{padding:'6px 7px',fontSize:'.66rem'}}><Archive size={14}/>Quitar</button>
+            </article>)}
+            {!advantageAssignments.length&&<small style={{color:'var(--muted)',padding:'5px 2px'}}>Todavía no hay objetos repartidos.</small>}
+          </div>}
+        </section>;
+      })()}
+
+      <section className="card" style={{padding:'11px 12px',marginTop:'8px',boxShadow:'none'}}>
+        <button type="button" onClick={()=>setAdminManageObjectsOpen(v=>!v)}
+          style={{width:'100%',border:0,background:'transparent',padding:0,color:'inherit',display:'flex',justifyContent:'space-between',alignItems:'center',gap:'10px',textAlign:'left'}}>
+          <div>
+            <strong style={{display:'block',fontSize:'.88rem'}}>⚙️ Gestionar objetos</strong>
+            <small style={{display:'block',color:'var(--muted)',marginTop:'2px'}}>Asignar, crear y editar catálogo</small>
+          </div>
+          <strong>{adminManageObjectsOpen?'▴':'▾'}</strong>
         </button>
-        {advantageMessage&&<p className="msg">{advantageMessage}</p>}
-      </form>
 
-      <section style={{marginTop:'22px'}}>
-        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>CATÁLOGO DE OBJETOS</p>
-        <div style={{display:'grid',gap:'9px'}}>
-          {advantageCatalog.map(item=><article className="card" key={item.advantage_id}
-            style={{padding:'16px',display:'flex',alignItems:'center',gap:'12px'}}>
-            <span style={{fontSize:'1.7rem'}}>{item.emoji}</span>
-            <div style={{flex:1}}>
-              <strong>{item.name}</strong>
-              <small style={{display:'block',color:'var(--muted)'}}>{item.description}</small>
-            </div>
-            {item.is_standard
-              ?<small style={{fontWeight:'900'}}>Oficial</small>
-              :<div style={{display:'flex',gap:'6px',flexShrink:0}}>
-                <button className="secondary" disabled={advantageBusy}
-                  onClick={()=>startEditAdvantage(item)}><Pencil size={15}/></button>
-                <button className="secondary" disabled={advantageBusy}
-                  onClick={()=>deleteCustomAdvantage(item.advantage_id)}><Trash2 size={15}/></button>
-              </div>}
-          </article>)}
-        </div>
+        {adminManageObjectsOpen&&<div style={{marginTop:'9px',borderTop:'1px solid #ece8df',paddingTop:'8px'}}>
+          <details>
+            <summary style={{cursor:'pointer',fontWeight:'900',fontSize:'.8rem',padding:'5px 0'}}>🎁 Asignar objeto manualmente</summary>
+            <form onSubmit={assignAdvantageToUser} style={{paddingTop:'7px'}}>
+              <label>Objeto
+                <select value={assignAdvantage.advantage_id} onChange={e=>setAssignAdvantage({...assignAdvantage,advantage_id:e.target.value})}>
+                  <option value="">Selecciona un objeto</option>
+                  {advantageCatalog.map(item=><option key={item.advantage_id} value={item.advantage_id}>{item.emoji} {item.name}</option>)}
+                </select>
+              </label>
+              <label>Brinkker
+                <select value={assignAdvantage.user_id} onChange={e=>setAssignAdvantage({...assignAdvantage,user_id:e.target.value})}>
+                  <option value="">Selecciona un Brinkker</option>
+                  {brinkkers.map(q=><option key={q.user_id} value={q.user_id}>{q.nickname}</option>)}
+                </select>
+              </label>
+              <button className="primary wide" disabled={advantageBusy}><Gift size={17}/>{advantageBusy?'Asignando…':'Asignar objeto'}</button>
+            </form>
+          </details>
 
-        {editingAdvantage&&<form className="card" onSubmit={saveCustomAdvantage}
-          style={{padding:'15px',marginTop:'12px'}}>
-          <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>EDITAR OBJETO PERSONALIZADO</p>
-          <div className="cols">
-            <label>Nombre<input value={editAdvantageForm.name}
-              onChange={e=>setEditAdvantageForm({...editAdvantageForm,name:e.target.value})}/></label>
-            <label>Emoji<input maxLength="4" value={editAdvantageForm.emoji}
-              onChange={e=>setEditAdvantageForm({...editAdvantageForm,emoji:e.target.value})}/></label>
+          <div style={{borderTop:'1px solid #ece8df',marginTop:'8px',paddingTop:'8px'}}>
+            <button type="button" onClick={()=>setAdminCreateObjectOpen(v=>!v)}
+              style={{width:'100%',border:0,background:'transparent',padding:'4px 0',color:'inherit',display:'flex',justifyContent:'space-between',fontWeight:'900',fontSize:'.8rem'}}>
+              <span>➕ Crear objeto personalizado</span><span>{adminCreateObjectOpen?'▴':'▾'}</span>
+            </button>
+            {adminCreateObjectOpen&&<form onSubmit={createAdvantage} style={{paddingTop:'7px'}}>
+              <div className="cols">
+                <label>Nombre<input value={newAdvantage.name} onChange={e=>setNewAdvantage({...newAdvantage,name:e.target.value})} placeholder="El salvoconducto"/></label>
+                <label>Emoji<input maxLength="4" value={newAdvantage.emoji} onChange={e=>setNewAdvantage({...newAdvantage,emoji:e.target.value})}/></label>
+              </div>
+              <label>Descripción<textarea rows="3" value={newAdvantage.description} onChange={e=>setNewAdvantage({...newAdvantage,description:e.target.value})} placeholder="Explica qué permite hacer y cómo se usa."/></label>
+              <button className="primary wide" disabled={advantageBusy}><Plus size={17}/>Crear objeto</button>
+            </form>}
           </div>
-          <label>Descripción<textarea rows="3" value={editAdvantageForm.description}
-            onChange={e=>setEditAdvantageForm({...editAdvantageForm,description:e.target.value})}/></label>
-          <div className="actions" style={{gap:'8px'}}>
-            <button className="primary" disabled={advantageBusy}><Save size={16}/>Guardar</button>
-            <button type="button" className="secondary" onClick={()=>setEditingAdvantage(null)}>Cancelar</button>
+
+          <div style={{borderTop:'1px solid #ece8df',marginTop:'8px',paddingTop:'8px'}}>
+            <button type="button" onClick={()=>setAdminCatalogOpen(v=>!v)}
+              style={{width:'100%',border:0,background:'transparent',padding:'4px 0',color:'inherit',display:'flex',justifyContent:'space-between',fontWeight:'900',fontSize:'.8rem'}}>
+              <span>📦 Catálogo · {advantageCatalog.length}</span><span>{adminCatalogOpen?'▴':'▾'}</span>
+            </button>
+
+            {adminCatalogOpen&&<div style={{display:'grid',gap:'5px',paddingTop:'7px'}}>
+              {advantageCatalog.map(item=><article key={item.advantage_id} style={{
+                display:'grid',gridTemplateColumns:'32px minmax(0,1fr) auto',gap:'8px',alignItems:'center',
+                padding:'7px 3px',borderBottom:'1px solid rgba(23,63,53,.06)'
+              }}>
+                <span style={{width:'32px',height:'32px',borderRadius:'9px',background:'#eef3ef',display:'grid',placeItems:'center'}}>{item.emoji}</span>
+                <div style={{minWidth:0}}>
+                  <strong style={{display:'block',fontSize:'.79rem'}}>{item.name}</strong>
+                  <small style={{display:'block',color:'var(--muted)',fontSize:'.65rem',lineHeight:1.3}}>{item.description}</small>
+                </div>
+                {item.is_standard
+                  ?<small style={{fontWeight:'900',fontSize:'.63rem'}}>Oficial</small>
+                  :<div style={{display:'flex',gap:'4px'}}>
+                    <button className="secondary" disabled={advantageBusy} onClick={()=>startEditAdvantage(item)} style={{padding:'6px'}}><Pencil size={14}/></button>
+                    <button className="secondary" disabled={advantageBusy} onClick={()=>deleteCustomAdvantage(item.advantage_id)} style={{padding:'6px'}}><Trash2 size={14}/></button>
+                  </div>}
+              </article>)}
+
+              {editingAdvantage&&<form className="card" onSubmit={saveCustomAdvantage} style={{padding:'11px',marginTop:'5px',boxShadow:'none'}}>
+                <strong style={{display:'block',fontSize:'.8rem',marginBottom:'7px'}}>✏️ Editar objeto personalizado</strong>
+                <div className="cols">
+                  <label>Nombre<input value={editAdvantageForm.name} onChange={e=>setEditAdvantageForm({...editAdvantageForm,name:e.target.value})}/></label>
+                  <label>Emoji<input maxLength="4" value={editAdvantageForm.emoji} onChange={e=>setEditAdvantageForm({...editAdvantageForm,emoji:e.target.value})}/></label>
+                </div>
+                <label>Descripción<textarea rows="3" value={editAdvantageForm.description} onChange={e=>setEditAdvantageForm({...editAdvantageForm,description:e.target.value})}/></label>
+                <div className="actions" style={{gap:'6px'}}>
+                  <button className="primary" disabled={advantageBusy}><Save size={15}/>Guardar</button>
+                  <button type="button" className="secondary" onClick={()=>setEditingAdvantage(null)}>Cancelar</button>
+                </div>
+              </form>}
+            </div>}
           </div>
-        </form>}
+        </div>}
       </section>
+
+      {advantageMessage&&<p className="msg" style={{marginTop:'9px'}}>{advantageMessage}</p>}
     </>:page==='settings'&&mode==='admin'?<>
       <form className="card" onSubmit={saveAdminSettings} style={{padding:'15px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
         <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>AJUSTES BÁSICOS</p>
