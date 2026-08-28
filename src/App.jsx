@@ -421,6 +421,9 @@ function Game({membership,onBack,session}){
   const[libraryEditor,setLibraryEditor]=useState(null);
   const[libraryEditorBusy,setLibraryEditorBusy]=useState(false);
   const[libraryEditorMessage,setLibraryEditorMessage]=useState('');
+  const[adminActiveChallengesOpen,setAdminActiveChallengesOpen]=useState(false);
+  const[adminActiveCompetitionOpen,setAdminActiveCompetitionOpen]=useState(true);
+  const[adminActiveDynamicsOpen,setAdminActiveDynamicsOpen]=useState(true);
   const[challengeBusy,setChallengeBusy]=useState(false);
   const[challengeMessage,setChallengeMessage]=useState('');
   const[challengeForm,setChallengeForm]=useState({
@@ -3795,28 +3798,81 @@ function Game({membership,onBack,session}){
               </form>
             </details>
 
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',gap:'8px',margin:'14px 0 6px'}}>
-              <div><p className="eyebrow" style={{margin:'0 0 2px',fontSize:'.67rem',letterSpacing:'.08em'}}>EN JUEGO</p><small style={{color:'var(--muted)'}}>Retos repartidos que aún no han terminado.</small></div>
-              <strong style={{fontSize:'.74rem'}}>{activeItems.length}</strong>
-            </div>
-            <div style={{display:'grid',gap:'7px'}}>
-              {adminChallengeActivityBusy&&<article className="card" style={{padding:'14px'}}>Cargando retos…</article>}
-              {!adminChallengeActivityBusy&&activeItems.map(item=><article className="card" key={`${item.source_type}-${item.assignment_id}`} style={{padding:'11px 12px'}}>
-                <div style={{display:'flex',justifyContent:'space-between',gap:'8px',alignItems:'flex-start'}}>
-                  <div style={{minWidth:0}}>
-                    <small style={{display:'block',color:'var(--muted)',fontWeight:'800',marginBottom:'2px'}}>
-                      {item.family==='dynamic'?'🪙 Dinámica':'⭐ Competición'} · {item.format==='team'?'👥 Equipo':'👤 Individual'}
+            {(()=>{
+              const activeCompetition=activeItems.filter(item=>item.family!=='dynamic');
+              const activeDynamics=activeItems.filter(item=>item.family==='dynamic');
+              return <section className="card" style={{padding:'11px 12px',marginTop:'12px',boxShadow:'none'}}>
+                <button
+                  type="button"
+                  onClick={()=>setAdminActiveChallengesOpen(v=>!v)}
+                  style={{
+                    width:'100%',border:0,background:'transparent',padding:0,color:'inherit',
+                    display:'flex',justifyContent:'space-between',alignItems:'center',gap:'10px',textAlign:'left'
+                  }}>
+                  <div>
+                    <strong style={{display:'block',fontSize:'.88rem'}}>🟢 Retos activos · {activeItems.length}</strong>
+                    <small style={{display:'block',color:'var(--muted)',marginTop:'2px'}}>
+                      ⭐ {activeCompetition.length} Competición · 🪙 {activeDynamics.length} Dinámicas
                     </small>
-                    <strong style={{display:'block',fontSize:'.86rem'}}>{item.secret?'🔒 Misión secreta':`${item.emoji||'🎯'} ${item.title}`}</strong>
-                    <small style={{display:'block',color:'var(--muted)',marginTop:'3px'}}>{item.member_names||'Sin destinatarios'}</small>
                   </div>
-                  <span style={{fontSize:'.66rem',fontWeight:'900',padding:'3px 6px',borderRadius:'999px',background:item.status==='submitted'?'#fff0eb':'#eef6f2'}}>
-                    {item.status==='submitted'?'Esperando revisión':'Activo'}
-                  </span>
-                </div>
-              </article>)}
-              {!adminChallengeActivityBusy&&!activeItems.length&&<article className="card" style={{padding:'16px',textAlign:'center',color:'var(--muted)'}}>No hay retos activos ahora mismo.</article>}
-            </div>
+                  <strong style={{fontSize:'1rem'}}>{adminActiveChallengesOpen?'▴':'▾'}</strong>
+                </button>
+
+                {adminActiveChallengesOpen&&<div style={{display:'grid',gap:'8px',marginTop:'10px'}}>
+                  {adminChallengeActivityBusy&&<div style={{padding:'10px',color:'var(--muted)'}}>Cargando retos…</div>}
+
+                  {!adminChallengeActivityBusy&&activeCompetition.length>0&&<section style={{borderTop:'1px solid #ece8df',paddingTop:'8px'}}>
+                    <button type="button" onClick={()=>setAdminActiveCompetitionOpen(v=>!v)}
+                      style={{width:'100%',border:0,background:'transparent',padding:'2px 0',display:'flex',justifyContent:'space-between',alignItems:'center',color:'inherit',fontWeight:'900',fontSize:'.78rem'}}>
+                      <span>⭐ Competición · {activeCompetition.length}</span><span>{adminActiveCompetitionOpen?'▴':'▾'}</span>
+                    </button>
+                    {adminActiveCompetitionOpen&&<div style={{display:'grid',gap:'4px',marginTop:'6px'}}>
+                      {activeCompetition.map(item=><div key={`${item.source_type}-${item.assignment_id}`}
+                        style={{padding:'8px 0',borderTop:'1px solid #f2efe8',display:'grid',gridTemplateColumns:'minmax(0,1fr) auto',gap:'8px',alignItems:'center'}}>
+                        <div style={{minWidth:0}}>
+                          <strong style={{display:'block',fontSize:'.8rem',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                            {item.secret?'🔒 Misión secreta':`${item.emoji||'⭐'} ${item.title}`}
+                          </strong>
+                          <small style={{display:'block',color:'var(--muted)',fontSize:'.68rem',marginTop:'2px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                            {item.member_names||'Sin destinatarios'} · {item.format==='team'?'👥 Equipo':'👤 Individual'}
+                          </small>
+                        </div>
+                        <strong style={{fontSize:'.7rem',whiteSpace:'nowrap'}}>
+                          {Number(item.points||0)>0?`⭐ ${item.points}`:''}
+                        </strong>
+                      </div>)}
+                    </div>}
+                  </section>}
+
+                  {!adminChallengeActivityBusy&&activeDynamics.length>0&&<section style={{borderTop:'1px solid #ece8df',paddingTop:'8px'}}>
+                    <button type="button" onClick={()=>setAdminActiveDynamicsOpen(v=>!v)}
+                      style={{width:'100%',border:0,background:'transparent',padding:'2px 0',display:'flex',justifyContent:'space-between',alignItems:'center',color:'inherit',fontWeight:'900',fontSize:'.78rem'}}>
+                      <span>🪙 Dinámicas · {activeDynamics.length}</span><span>{adminActiveDynamicsOpen?'▴':'▾'}</span>
+                    </button>
+                    {adminActiveDynamicsOpen&&<div style={{display:'grid',gap:'4px',marginTop:'6px'}}>
+                      {activeDynamics.map(item=><div key={`${item.source_type}-${item.assignment_id}`}
+                        style={{padding:'8px 0',borderTop:'1px solid #f2efe8',display:'grid',gridTemplateColumns:'minmax(0,1fr) auto',gap:'8px',alignItems:'center'}}>
+                        <div style={{minWidth:0}}>
+                          <strong style={{display:'block',fontSize:'.8rem',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                            {item.secret?'🔒 Misión secreta':`${item.emoji||'🪙'} ${item.title}`}
+                          </strong>
+                          <small style={{display:'block',color:'var(--muted)',fontSize:'.68rem',marginTop:'2px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                            {item.member_names||'Sin destinatarios'} · {item.format==='team'?'👥 Equipo':'👤 Individual'}
+                          </small>
+                        </div>
+                        <strong style={{fontSize:'.7rem',whiteSpace:'nowrap'}}>
+                          {Number(item.coins||0)>0?`🪙 ${item.coins}`:''}
+                        </strong>
+                      </div>)}
+                    </div>}
+                  </section>}
+
+                  {!adminChallengeActivityBusy&&!activeItems.length&&<div style={{padding:'10px 0',textAlign:'center',color:'var(--muted)'}}>
+                    No hay retos activos ahora mismo.
+                  </div>}
+                </div>}
+              </section>;
+            })()}
           </section>}
 
           {adminChallengeTab==='history'&&<section style={{marginTop:'11px'}}>
