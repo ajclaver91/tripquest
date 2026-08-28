@@ -417,6 +417,10 @@ function Game({membership,onBack,session}){
   const[manualCreatorResolution,setManualCreatorResolution]=useState('vote');
   const[manualCreatorBusy,setManualCreatorBusy]=useState(false);
   const[manualCreatorMessage,setManualCreatorMessage]=useState('');
+  const[libraryEditorOpen,setLibraryEditorOpen]=useState(false);
+  const[libraryEditor,setLibraryEditor]=useState(null);
+  const[libraryEditorBusy,setLibraryEditorBusy]=useState(false);
+  const[libraryEditorMessage,setLibraryEditorMessage]=useState('');
   const[challengeBusy,setChallengeBusy]=useState(false);
   const[challengeMessage,setChallengeMessage]=useState('');
   const[challengeForm,setChallengeForm]=useState({
@@ -1724,6 +1728,99 @@ function Game({membership,onBack,session}){
       setMasterLibraryMessage(challenge.enabled?'Reto desactivado para este Brinkkando':'Reto activado');
     }
     setMasterLibraryBusy(false);
+  }
+
+  function openNewLibraryItem(){
+    const family=masterLibraryFamily||'competition';
+    setLibraryEditor({
+      challenge_id:null,
+      family,
+      format:family==='stage_award'?'individual':'individual',
+      emoji:family==='competition'?'⭐':family==='dynamic'?'🪙':'🏆',
+      title:'',
+      description:'',
+      reward_type:family==='dynamic'?'coins':'ranking',
+      reward_amount:family==='dynamic'?15:10,
+      resolution:family==='stage_award'?'vote':'validation',
+      secret:family==='dynamic',
+      difficulty:null,
+      category:'',
+      stage_recurring:family==='stage_award'
+    });
+    setLibraryEditorMessage('');
+    setLibraryEditorOpen(true);
+  }
+
+  function openEditLibraryItem(item){
+    setLibraryEditor({...item});
+    setLibraryEditorMessage('');
+    setLibraryEditorOpen(true);
+  }
+
+  async function saveLibraryItem(e){
+    e?.preventDefault?.();
+    if(!owner||!libraryEditor||libraryEditorBusy)return;
+    if(!libraryEditor.title?.trim()||!libraryEditor.description?.trim()){
+      setLibraryEditorMessage('Añade título y descripción.');
+      return;
+    }
+    setLibraryEditorBusy(true);
+    setLibraryEditorMessage('');
+    const rpc=libraryEditor.challenge_id?'save_game_library_item_v13':'create_game_library_item_v13';
+    const params=libraryEditor.challenge_id?{
+      p_game_id:g.id,
+      p_challenge_id:libraryEditor.challenge_id,
+      p_family:libraryEditor.family,
+      p_format:libraryEditor.format,
+      p_title:libraryEditor.title.trim(),
+      p_description:libraryEditor.description.trim(),
+      p_emoji:libraryEditor.emoji||'🎯',
+      p_reward_type:libraryEditor.family==='dynamic'?'coins':'ranking',
+      p_reward_amount:Math.max(0,Number(libraryEditor.reward_amount)||0),
+      p_resolution:libraryEditor.resolution||'validation',
+      p_secret:!!libraryEditor.secret,
+      p_difficulty:libraryEditor.difficulty||null,
+      p_category:libraryEditor.category?.trim()||null,
+      p_stage_recurring:!!libraryEditor.stage_recurring
+    }:{
+      p_game_id:g.id,
+      p_family:libraryEditor.family,
+      p_format:libraryEditor.format,
+      p_title:libraryEditor.title.trim(),
+      p_description:libraryEditor.description.trim(),
+      p_emoji:libraryEditor.emoji||'🎯',
+      p_reward_type:libraryEditor.family==='dynamic'?'coins':'ranking',
+      p_reward_amount:Math.max(0,Number(libraryEditor.reward_amount)||0),
+      p_resolution:libraryEditor.resolution||'validation',
+      p_secret:!!libraryEditor.secret,
+      p_difficulty:libraryEditor.difficulty||null,
+      p_category:libraryEditor.category?.trim()||null,
+      p_stage_recurring:!!libraryEditor.stage_recurring
+    };
+    const{error}=await supabase.rpc(rpc,params);
+    if(error){
+      console.error(error);
+      setLibraryEditorMessage(error.message);
+    }else{
+      setLibraryEditorMessage(libraryEditor.challenge_id?'Cambios guardados para este Brinkkando.':'Añadido a tu Biblioteca.');
+      await loadMasterLibrary();
+      setTimeout(()=>{setLibraryEditorOpen(false);setLibraryEditor(null);setLibraryEditorMessage('');},450);
+    }
+    setLibraryEditorBusy(false);
+  }
+
+  async function removeCustomLibraryItem(item){
+    if(!owner||libraryEditorBusy)return;
+    if(!confirm(`¿Quitar "${item.title}" de tu Biblioteca?`))return;
+    setLibraryEditorBusy(true);
+    const{error}=await supabase.rpc('remove_game_library_item_v13',{p_game_id:g.id,p_challenge_id:item.challenge_id});
+    if(error)setMasterLibraryMessage(error.message);
+    else{
+      setMasterLibraryMessage('Contenido retirado de tu Biblioteca.');
+      if(masterLibraryExpanded===item.challenge_id)setMasterLibraryExpanded(null);
+      await loadMasterLibrary();
+    }
+    setLibraryEditorBusy(false);
   }
 
   async function loadPacks(){
@@ -3387,7 +3484,11 @@ function Game({membership,onBack,session}){
         </p>
       </section>
 
-      <section style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'6px',marginTop:'10px'}}>
+      <button type="button" className="primary wide" onClick={openNewLibraryItem} style={{marginTop:'10px'}}>
+        ＋ Añadir a la Biblioteca
+      </button>
+
+      <section style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'6px',marginTop:'8px'}}>
         {[
           ['competition','⭐','Competición'],
           ['dynamic','🪙','Dinámicas'],
@@ -3437,11 +3538,72 @@ function Game({membership,onBack,session}){
               <small style={{display:'block',marginTop:'7px',color:'var(--muted)',fontSize:'.63rem'}}>
                 {item.code} · {item.category||'general'}{item.difficulty?` · ${item.difficulty}`:''}{item.secret?' · 🔒 secreto':''}
               </small>
+              <div className="actions" style={{gap:'6px',marginTop:'9px'}}>
+                <button type="button" className="secondary" onClick={()=>openEditLibraryItem(item)}>✏️ Editar para este viaje</button>
+                {item.code?.startsWith('USR-')&&<button type="button" className="secondary" disabled={libraryEditorBusy} onClick={()=>removeCustomLibraryItem(item)}>🗑️ Quitar</button>}
+              </div>
             </div>}
           </article>;
         })}
         {!masterLibraryBusy&&!masterLibrary.filter(item=>item.family===masterLibraryFamily).length&&<article className="card" style={{padding:'18px',textAlign:'center',color:'var(--muted)'}}>No hay retos en esta sección.</article>}
       </section>
+
+      {libraryEditorOpen&&libraryEditor&&<section className="card" style={{padding:'14px',marginTop:'11px',border:'2px solid rgba(47,117,99,.18)'}}>
+        <div style={{display:'flex',justifyContent:'space-between',gap:'8px',alignItems:'flex-start'}}>
+          <div>
+            <p className="eyebrow" style={{margin:'0 0 2px',fontSize:'.66rem',letterSpacing:'.08em'}}>📚 EDITOR DE BIBLIOTECA</p>
+            <strong>{libraryEditor.challenge_id?'Editar contenido':'Añadir contenido'}</strong>
+          </div>
+          <button type="button" className="secondary" onClick={()=>{setLibraryEditorOpen(false);setLibraryEditor(null);}}>Cerrar</button>
+        </div>
+        {libraryEditor.challenge_id&&<small style={{display:'block',color:'var(--muted)',marginTop:'5px',lineHeight:1.35}}>
+          Si es un reto oficial, los cambios solo afectan a este Brinkkando. El original de Brinkkando no se modifica.
+        </small>}
+        <form onSubmit={saveLibraryItem} style={{marginTop:'11px'}}>
+          <p className="eyebrow" style={{margin:'0 0 6px',fontSize:'.66rem'}}>TIPO</p>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(3,minmax(0,1fr))',gap:'5px'}}>
+            {[['competition','⭐ Competición'],['dynamic','🪙 Dinámica'],['stage_award','🏆 Premio']].map(([v,l])=>
+              <button type="button" key={v} className={libraryEditor.family===v?'primary':'secondary'} onClick={()=>setLibraryEditor(x=>({...x,family:v,reward_type:v==='dynamic'?'coins':'ranking',format:v==='stage_award'?'individual':x.format,emoji:v==='competition'?'⭐':v==='dynamic'?'🪙':'🏆',resolution:v==='stage_award'?'vote':'validation'}))} style={{padding:'8px 4px',fontSize:'.69rem'}}>{l}</button>)}
+          </div>
+
+          {libraryEditor.family!=='stage_award'&&<>
+            <p className="eyebrow" style={{margin:'11px 0 6px',fontSize:'.66rem'}}>FORMATO</p>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'5px'}}>
+              {[['individual','👤 Individual'],['team','👥 Equipo']].map(([v,l])=><button type="button" key={v} className={libraryEditor.format===v?'primary':'secondary'} onClick={()=>setLibraryEditor(x=>({...x,format:v}))}>{l}</button>)}
+            </div>
+          </>}
+
+          <div style={{display:'grid',gridTemplateColumns:'70px minmax(0,1fr)',gap:'7px',marginTop:'11px'}}>
+            <label>Emoji<input value={libraryEditor.emoji||''} onChange={e=>setLibraryEditor(x=>({...x,emoji:e.target.value}))} style={{textAlign:'center'}}/></label>
+            <label>Título<input value={libraryEditor.title||''} onChange={e=>setLibraryEditor(x=>({...x,title:e.target.value}))}/></label>
+          </div>
+          <label>Descripción<textarea rows="4" value={libraryEditor.description||''} onChange={e=>setLibraryEditor(x=>({...x,description:e.target.value}))}/></label>
+          <label>{libraryEditor.family==='dynamic'?'🪙 Monedas':'⭐ Puntos'}
+            <input type="number" min="0" value={libraryEditor.reward_amount??0} onChange={e=>setLibraryEditor(x=>({...x,reward_amount:e.target.value}))}/>
+          </label>
+
+          {libraryEditor.family==='stage_award'&&<>
+            <p className="eyebrow" style={{margin:'10px 0 6px',fontSize:'.66rem'}}>RESOLUCIÓN</p>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'5px'}}>
+              <button type="button" className={libraryEditor.resolution==='vote'?'primary':'secondary'} onClick={()=>setLibraryEditor(x=>({...x,resolution:'vote'}))}>🗳️ Votación</button>
+              <button type="button" className={libraryEditor.resolution==='validation'?'primary':'secondary'} onClick={()=>setLibraryEditor(x=>({...x,resolution:'validation'}))}>✅ Validación</button>
+            </div>
+          </>}
+
+          {libraryEditor.family==='dynamic'&&<label style={{display:'flex',gap:'7px',alignItems:'center',marginTop:'9px',fontWeight:'800',fontSize:'.78rem'}}>
+            <input type="checkbox" checked={!!libraryEditor.secret} onChange={e=>setLibraryEditor(x=>({...x,secret:e.target.checked}))}/>🔒 Misión secreta
+          </label>}
+
+          <label style={{marginTop:'9px'}}>Categoría opcional
+            <input value={libraryEditor.category||''} onChange={e=>setLibraryEditor(x=>({...x,category:e.target.value}))} placeholder="social, foto, local…"/>
+          </label>
+
+          {libraryEditorMessage&&<p className="msg">{libraryEditorMessage}</p>}
+          <button className="primary wide" disabled={libraryEditorBusy} style={{marginTop:'10px'}}>
+            <Check size={16}/>{libraryEditorBusy?'Guardando…':libraryEditor.challenge_id?'Guardar cambios':'Añadir a Biblioteca'}
+          </button>
+        </form>
+      </section>}
     </>:page==='adminChallenges'&&mode==='admin'?<>
 
       <section className="card" style={{padding:'14px 15px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
