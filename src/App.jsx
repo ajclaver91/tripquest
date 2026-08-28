@@ -407,6 +407,9 @@ function Game({membership,onBack,session}){
   const[library,setLibrary]=useState([]);
   const[adminDailyReviews,setAdminDailyReviews]=useState([]);
   const[adminSpecialReviews,setAdminSpecialReviews]=useState([]);
+  const[adminChallengeTab,setAdminChallengeTab]=useState('review');
+  const[adminChallengeActivity,setAdminChallengeActivity]=useState([]);
+  const[adminChallengeActivityBusy,setAdminChallengeActivityBusy]=useState(false);
   const[challengeBusy,setChallengeBusy]=useState(false);
   const[challengeMessage,setChallengeMessage]=useState('');
   const[challengeForm,setChallengeForm]=useState({
@@ -1829,6 +1832,15 @@ function Game({membership,onBack,session}){
     setPackBusy(false);
   }
 
+  async function loadAdminChallengeActivity(){
+    if(!owner)return;
+    setAdminChallengeActivityBusy(true);
+    const{data,error}=await supabase.rpc('list_admin_challenge_activity_v12',{p_game_id:g.id});
+    if(error)console.error('Error cargando actividad de retos:',error);
+    else setAdminChallengeActivity(data||[]);
+    setAdminChallengeActivityBusy(false);
+  }
+
   async function loadAdminChallenges(){
     const [libraryResult,dailyReviewResult,legacyReviewResult,masterReviewResult,roundResult]=await Promise.all([
       supabase.rpc('list_tripquest_daily_library',{p_game_id:g.id}),
@@ -1959,6 +1971,7 @@ function Game({membership,onBack,session}){
         recipient_ids:[]
       });
       await loadAdminChallenges();
+      await loadAdminChallengeActivity();
       await loadNotificationCounts();
     }
     setChallengeBusy(false);
@@ -2003,6 +2016,7 @@ function Game({membership,onBack,session}){
     else{
       setChallengeMessage(approve?'Reto aprobado':'Reto rechazado y eliminado');
       await loadAdminChallenges();
+      await loadAdminChallengeActivity();
       await loadAdminActionCounts();
       await loadMySpecialChallenges();
       await loadRanking();
@@ -2047,6 +2061,11 @@ function Game({membership,onBack,session}){
     if(nextPage==='adminChallenges'){
       loadBrinkkers();
       loadAdminChallenges();
+      loadAdminChallengeActivity();
+      setAdminChallengeTab(adminActionCounts.challenges>0?'review':'active');
+    }
+    if(nextPage==='adminAwards'){
+      loadStageAwards();
     }
     if(nextPage==='library'){
       loadMasterLibrary();
@@ -2074,8 +2093,9 @@ function Game({membership,onBack,session}){
   }
 
   const adminSections=[
-    {id:'library',label:'📚 Biblioteca',detail:'Retos activos del viaje'},
-    {id:'adminChallenges',label:'🎯 Retos',detail:'Competición, dinámicas y especiales'},
+    {id:'library',label:'📚 Biblioteca',detail:'Qué puede aparecer en el viaje'},
+    {id:'adminChallenges',label:'🎯 Retos',detail:'Pendientes, en juego e historial'},
+    {id:'adminAwards',label:'🏆 Premios',detail:'Votaciones y premios de etapa'},
     {id:'points',label:'⭐ Puntos',detail:'Gestionar clasificación'},
     {id:'auction',label:'🔨 Subasta',detail:'Objetos y pujas'},
     {id:'adminAdvantages',label:'🎒 Ventajas',detail:'Objetos e inventario'},
@@ -2098,6 +2118,7 @@ function Game({membership,onBack,session}){
     page==='points'?'Puntos':
     page==='challenges'?'Retos':
     page==='adminChallenges'?'Retos':
+    page==='adminAwards'?'Premios':
     page==='library'?'Biblioteca':
     page==='stages'?'Plan':
     page==='auction'?'Subasta':
@@ -2249,7 +2270,7 @@ function Game({membership,onBack,session}){
           {adminActionCounts.challenges>0&&<button type="button" className="secondary wide" onClick={()=>openPage('adminChallenges')} style={{justifyContent:'space-between',padding:'9px 10px'}}>
             <span>🎯 Retos por validar</span><strong>{adminActionCounts.challenges} ›</strong>
           </button>}
-          {adminActionCounts.awards>0&&<button type="button" className="secondary wide" onClick={()=>openPage('adminChallenges')} style={{justifyContent:'space-between',padding:'9px 10px'}}>
+          {adminActionCounts.awards>0&&<button type="button" className="secondary wide" onClick={()=>openPage('adminAwards')} style={{justifyContent:'space-between',padding:'9px 10px'}}>
             <span>🏆 Premios por gestionar</span><strong>{adminActionCounts.awards} ›</strong>
           </button>}
           {adminActionCounts.advantages>0&&<button type="button" className="secondary wide" onClick={()=>openPage('adminAdvantages')} style={{justifyContent:'space-between',padding:'9px 10px'}}>
@@ -2860,6 +2881,7 @@ function Game({membership,onBack,session}){
               <span style={{display:'flex',alignItems:'center',gap:'7px',flexWrap:'wrap'}}>
                 <strong style={{display:'block',fontSize:'.95rem'}}>{section.label}</strong>
                 {section.id==='adminChallenges'&&adminActionCounts.challenges>0&&<span style={{minWidth:'17px',height:'17px',padding:'0 4px',borderRadius:'999px',background:'#e05b4f',color:'white',fontSize:'.58rem',fontWeight:'950',display:'grid',placeItems:'center'}}>{adminActionCounts.challenges>9?'9+':adminActionCounts.challenges}</span>}
+                {section.id==='adminAwards'&&adminActionCounts.awards>0&&<span style={{minWidth:'17px',height:'17px',padding:'0 4px',borderRadius:'999px',background:'#e05b4f',color:'white',fontSize:'.58rem',fontWeight:'950',display:'grid',placeItems:'center'}}>{adminActionCounts.awards>9?'9+':adminActionCounts.awards}</span>}
                 {section.id==='adminAdvantages'&&adminActionCounts.advantages>0&&<span style={{minWidth:'17px',height:'17px',padding:'0 4px',borderRadius:'999px',background:'#e05b4f',color:'white',fontSize:'.58rem',fontWeight:'950',display:'grid',placeItems:'center'}}>{adminActionCounts.advantages>9?'9+':adminActionCounts.advantages}</span>}
               </span>
               <small style={{display:'block',color:'var(--muted)',marginTop:'2px'}}>
@@ -3365,127 +3387,176 @@ function Game({membership,onBack,session}){
     </>:page==='adminChallenges'&&mode==='admin'?<>
 
       <section className="card" style={{padding:'14px 15px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
-        <p className="eyebrow" style={{marginBottom:'2px',fontSize:'.67rem',letterSpacing:'.08em'}}>🎯 RETOS</p>
-        <h2 style={{margin:'0 0 3px',fontSize:'1.05rem'}}>Competir, liarla y ganar</h2>
-        <p style={{color:'var(--muted)',margin:0,fontSize:'.79rem',lineHeight:1.35}}>
-          ⭐ Competición suma Ranking · 🪙 Dinámicas alimentan la subasta · 🎯 Especiales pueden dar ambas.
+        <p className="eyebrow" style={{marginBottom:'2px',fontSize:'.67rem',letterSpacing:'.08em'}}>🎯 RETOS · PARTIDA ACTUAL</p>
+        <h2 style={{margin:'0 0 4px',fontSize:'1.08rem'}}>Lo que está pasando ahora</h2>
+        <p style={{color:'var(--muted)',margin:0,fontSize:'.79rem',lineHeight:1.4}}>
+          Revisa solicitudes, controla los retos repartidos y consulta lo que ya se ha completado.
+          La configuración del contenido está en 📚 Biblioteca.
         </p>
       </section>
 
-      <section className="card" style={{padding:'14px',marginTop:'10px'}}>
-        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>🎲 REPARTIR RONDA</p>
-        <small style={{display:'block',color:'var(--muted)',marginBottom:'10px',lineHeight:1.4}}>
-          La app elige automáticamente un reto diferente para cada Brinkker.
-        </small>
-        <div style={{display:'grid',gap:'7px'}}>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'5px'}}>
-            {[['individual','👤 Individual'],['team','👥 Equipos'],['mixed','🎲 Mixto']].map(([value,label])=>
-              <button key={value} type="button"
-                className={challengeDistributionMode===value?'primary':'secondary'}
-                onClick={()=>setChallengeDistributionMode(value)}
-                style={{padding:'7px 5px',fontSize:'.72rem'}}>{label}</button>)}
-          </div>
-          <div className="actions" style={{gap:'7px'}}>
-            <button type="button" className="primary" disabled={autoChallengeBusy}
-              onClick={()=>distributeChallengeMode('competition',challengeDistributionMode)}>
-              ⭐ {autoChallengeBusy?'Repartiendo…':'Competición'}
-            </button>
-            <button type="button" className="secondary" disabled={autoChallengeBusy}
-              onClick={()=>distributeChallengeMode('dynamics',challengeDistributionMode)}>
-              🪙 {autoChallengeBusy?'Repartiendo…':'Dinámicas'}
-            </button>
-          </div>
-        </div>
-        {challengeMessage&&<p className="msg" style={{marginTop:'9px'}}>{challengeMessage}</p>}
-      </section>
+      {(()=>{
+        const activeItems=adminChallengeActivity.filter(item=>item.status==='active'||item.status==='submitted');
+        const historyItems=adminChallengeActivity.filter(item=>item.status==='completed');
+        const pendingCount=adminSpecialReviews.length;
+        return <>
+          <section className="card" style={{padding:'10px',marginTop:'10px',boxShadow:'none'}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,minmax(0,1fr))',gap:'6px'}}>
+              <button type="button" className={adminChallengeTab==='review'?'primary':'secondary'} onClick={()=>setAdminChallengeTab('review')} style={{padding:'8px 5px',fontSize:'.72rem'}}>
+                🔴 Por revisar {pendingCount>0?`(${pendingCount})`:''}
+              </button>
+              <button type="button" className={adminChallengeTab==='active'?'primary':'secondary'} onClick={()=>setAdminChallengeTab('active')} style={{padding:'8px 5px',fontSize:'.72rem'}}>
+                🟢 En juego {activeItems.length?`(${activeItems.length})`:''}
+              </button>
+              <button type="button" className={adminChallengeTab==='history'?'primary':'secondary'} onClick={()=>setAdminChallengeTab('history')} style={{padding:'8px 5px',fontSize:'.72rem'}}>
+                📜 Historial
+              </button>
+            </div>
+          </section>
 
-      <form className="card" onSubmit={createChallenge} style={{padding:'14px',marginTop:'10px'}}>
-        <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>✍️ RETO MANUAL</p>
-        <label>Título
-          <input value={challengeForm.title}
-            onChange={e=>setChallengeForm({...challengeForm,title:e.target.value})}
-            placeholder="La misión imposible"/>
-        </label>
-        <label>Prueba
-          <textarea rows="3" value={challengeForm.description}
-            onChange={e=>setChallengeForm({...challengeForm,description:e.target.value})}
-            placeholder="¿Qué tienen que conseguir?"/>
-        </label>
-
-        <div className="cols">
-          <label>⭐ Ranking
-            <input type="number" min="0" step="1" value={challengeForm.points}
-              onChange={e=>setChallengeForm({...challengeForm,points:e.target.value})}/>
-          </label>
-          <label>🪙 Monedas
-            <input type="number" min="0" step="5" value={challengeForm.coins}
-              onChange={e=>setChallengeForm({...challengeForm,coins:e.target.value})}/>
-          </label>
-        </div>
-
-        <small style={{display:'block',color:'var(--muted)',margin:'-3px 0 10px'}}>
-          Solo ⭐ = competición · solo 🪙 = dinámica · ⭐+🪙 = especial.
-        </small>
-
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'8px'}}>
-          <p className="eyebrow" style={{margin:0,fontSize:'.67rem',letterSpacing:'.08em'}}>DESTINATARIOS</p>
-          <button type="button" className="secondary"
-            onClick={()=>setChallengeForm(form=>({
-              ...form,
-              recipient_ids:form.recipient_ids.length===brinkkers.length?[]:brinkkers.map(q=>q.user_id)
-            }))}>
-            {challengeForm.recipient_ids.length===brinkkers.length?'Quitar todos':'Todos'}
-          </button>
-        </div>
-
-        <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'6px',margin:'9px 0 12px'}}>
-          {brinkkers.map(q=><button type="button" key={q.user_id}
-            onClick={()=>toggleRecipient(q.user_id)}
-            style={{
-              border:challengeForm.recipient_ids.includes(q.user_id)?'2px solid #2f7563':'1px solid #d8d3c6',
-              borderRadius:'11px',padding:'8px',
-              background:challengeForm.recipient_ids.includes(q.user_id)?'#eef6f2':'white',
-              display:'flex',alignItems:'center',gap:'6px',
-              fontWeight:'800',fontSize:'.78rem',color:'inherit'
-            }}>
-            <span>{q.avatar_emoji||'🧭'}</span>{q.nickname}
-          </button>)}
-        </div>
-
-        <button className="primary wide" disabled={challengeBusy}>
-          <Send size={17}/>{challengeBusy?'Enviando…':'Enviar reto'}
-        </button>
-      </form>
-
-      <section style={{marginTop:'15px'}}>
-        <p className="eyebrow" style={{marginBottom:'4px',fontSize:'.67rem',letterSpacing:'.08em'}}>PENDIENTES DE VALIDAR</p>
-        <div style={{display:'grid',gap:'7px'}}>
-          {adminSpecialReviews.map(item=><article className="card" key={`${item.source_type||'legacy'}-${item.group_id}`} style={{padding:'11px 12px'}}>
-            <div style={{display:'flex',justifyContent:'space-between',gap:'8px',alignItems:'flex-start'}}>
-              <div style={{minWidth:0}}>
-                <strong style={{display:'block',fontSize:'.87rem'}}>{item.title}</strong>
-                <small style={{display:'block',color:'var(--muted)',marginTop:'2px'}}>{item.member_names}</small>
+          {adminChallengeTab==='review'&&<section style={{marginTop:'11px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',gap:'8px',marginBottom:'6px'}}>
+              <div>
+                <p className="eyebrow" style={{margin:'0 0 2px',fontSize:'.67rem',letterSpacing:'.08em'}}>POR REVISAR</p>
+                <small style={{color:'var(--muted)'}}>Solo aparece aquí lo que necesita una decisión tuya.</small>
               </div>
-              <strong style={{fontSize:'.74rem',whiteSpace:'nowrap'}}>
-                {Number(item.points||0)>0?`⭐ ${item.points}`:''}
-                {Number(item.points||0)>0&&Number(item.coins||0)>0?' · ':''}
-                {Number(item.coins||0)>0?`🪙 ${item.coins}`:''}
-              </strong>
+              {pendingCount>0&&<strong style={{fontSize:'.74rem',color:'#a33f31'}}>{pendingCount} pendiente{pendingCount===1?'':'s'}</strong>}
             </div>
-            <div className="actions" style={{gap:'6px',marginTop:'9px'}}>
-              <button className="primary" disabled={challengeBusy} onClick={()=>reviewSpecial(item,true)}>
-                <Check size={15}/>Aprobar
-              </button>
-              <button className="secondary" disabled={challengeBusy} onClick={()=>reviewSpecial(item,false)}>
-                Rechazar
-              </button>
+            <div style={{display:'grid',gap:'7px'}}>
+              {adminSpecialReviews.map(item=><article className="card" key={`${item.source_type||'legacy'}-${item.group_id}`} style={{padding:'12px'}}>
+                <div style={{display:'flex',justifyContent:'space-between',gap:'9px',alignItems:'flex-start'}}>
+                  <div style={{minWidth:0}}>
+                    <span style={{display:'inline-block',fontSize:'.64rem',fontWeight:'900',padding:'3px 6px',borderRadius:'999px',background:'#f1eee7',marginBottom:'5px'}}>
+                      {Number(item.coins||0)>0&&Number(item.points||0)===0?'🪙 Dinámica':Number(item.points||0)>0&&Number(item.coins||0)>0?'🎯 Especial':'⭐ Competición'}
+                    </span>
+                    <strong style={{display:'block',fontSize:'.9rem'}}>{item.title||'Misión secreta'}</strong>
+                    <small style={{display:'block',color:'var(--muted)',marginTop:'3px'}}>{item.member_names||'Participantes ocultos'}</small>
+                  </div>
+                  <strong style={{fontSize:'.74rem',whiteSpace:'nowrap'}}>
+                    {Number(item.points||0)>0?`⭐ ${item.points}`:''}
+                    {Number(item.points||0)>0&&Number(item.coins||0)>0?' · ':''}
+                    {Number(item.coins||0)>0?`🪙 ${item.coins}`:''}
+                  </strong>
+                </div>
+                <div className="actions" style={{gap:'6px',marginTop:'10px'}}>
+                  <button className="primary" disabled={challengeBusy} onClick={()=>reviewSpecial(item,true)}><Check size={15}/>Aprobar</button>
+                  <button className="secondary" disabled={challengeBusy} onClick={()=>reviewSpecial(item,false)}>Rechazar</button>
+                </div>
+              </article>)}
+              {!adminSpecialReviews.length&&<article className="card" style={{padding:'18px',textAlign:'center'}}>
+                <strong style={{display:'block'}}>✅ Todo revisado</strong>
+                <small style={{display:'block',color:'var(--muted)',marginTop:'4px'}}>No hay retos esperando tu decisión.</small>
+              </article>}
             </div>
-          </article>)}
-          {!adminSpecialReviews.length&&<article className="card" style={{padding:'12px'}}>No hay retos esperando validación.</article>}
-        </div>
+          </section>}
+
+          {adminChallengeTab==='active'&&<section style={{marginTop:'11px'}}>
+            <section className="card" style={{padding:'13px',boxShadow:'none'}}>
+              <p className="eyebrow" style={{margin:'0 0 2px',fontSize:'.67rem',letterSpacing:'.08em'}}>🎲 REPARTIR</p>
+              <small style={{color:'var(--muted)'}}>La Biblioteca decide qué retos pueden salir.</small>
+              <div style={{display:'grid',gap:'7px',marginTop:'9px'}}>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'5px'}}>
+                  {[['individual','👤 Individual'],['team','👥 Equipos'],['mixed','🎲 Mixto']].map(([value,label])=>
+                    <button key={value} type="button" className={challengeDistributionMode===value?'primary':'secondary'} onClick={()=>setChallengeDistributionMode(value)} style={{padding:'7px 5px',fontSize:'.71rem'}}>{label}</button>)}
+                </div>
+                <div className="actions" style={{gap:'7px'}}>
+                  <button type="button" className="primary" disabled={autoChallengeBusy} onClick={()=>distributeChallengeMode('competition',challengeDistributionMode)}>
+                    ⭐ {autoChallengeBusy?'Repartiendo…':'Competición'}
+                  </button>
+                  <button type="button" className="secondary" disabled={autoChallengeBusy} onClick={()=>distributeChallengeMode('dynamics',challengeDistributionMode)}>
+                    🪙 {autoChallengeBusy?'Repartiendo…':'Dinámicas'}
+                  </button>
+                </div>
+              </div>
+              {challengeMessage&&<p className="msg" style={{marginTop:'9px'}}>{challengeMessage}</p>}
+            </section>
+
+            <details className="card" style={{padding:'12px 13px',marginTop:'8px',boxShadow:'none'}}>
+              <summary style={{cursor:'pointer',fontWeight:'900',fontSize:'.84rem'}}>＋ Crear reto manual para esta partida</summary>
+              <form onSubmit={createChallenge} style={{marginTop:'10px'}}>
+                <label>Título<input value={challengeForm.title} onChange={e=>setChallengeForm({...challengeForm,title:e.target.value})} placeholder="La misión imposible"/></label>
+                <label>Prueba<textarea rows="3" value={challengeForm.description} onChange={e=>setChallengeForm({...challengeForm,description:e.target.value})} placeholder="¿Qué tienen que conseguir?"/></label>
+                <div className="cols">
+                  <label>⭐ Ranking<input type="number" min="0" step="1" value={challengeForm.points} onChange={e=>setChallengeForm({...challengeForm,points:e.target.value})}/></label>
+                  <label>🪙 Monedas<input type="number" min="0" step="5" value={challengeForm.coins} onChange={e=>setChallengeForm({...challengeForm,coins:e.target.value})}/></label>
+                </div>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'8px'}}>
+                  <p className="eyebrow" style={{margin:0,fontSize:'.67rem',letterSpacing:'.08em'}}>DESTINATARIOS</p>
+                  <button type="button" className="secondary" onClick={()=>setChallengeForm(form=>({...form,recipient_ids:form.recipient_ids.length===brinkkers.length?[]:brinkkers.map(q=>q.user_id)}))}>
+                    {challengeForm.recipient_ids.length===brinkkers.length?'Quitar todos':'Todos'}
+                  </button>
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'6px',margin:'9px 0 12px'}}>
+                  {brinkkers.map(q=><button type="button" key={q.user_id} onClick={()=>toggleRecipient(q.user_id)} style={{
+                    border:challengeForm.recipient_ids.includes(q.user_id)?'2px solid #2f7563':'1px solid #d8d3c6',
+                    borderRadius:'11px',padding:'8px',background:challengeForm.recipient_ids.includes(q.user_id)?'#eef6f2':'white',
+                    display:'flex',alignItems:'center',gap:'6px',fontWeight:'800',fontSize:'.78rem',color:'inherit'
+                  }}><span>{q.avatar_emoji||'🧭'}</span>{q.nickname}</button>)}
+                </div>
+                <button className="primary wide" disabled={challengeBusy}><Send size={17}/>{challengeBusy?'Enviando…':'Enviar reto'}</button>
+              </form>
+            </details>
+
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',gap:'8px',margin:'14px 0 6px'}}>
+              <div><p className="eyebrow" style={{margin:'0 0 2px',fontSize:'.67rem',letterSpacing:'.08em'}}>EN JUEGO</p><small style={{color:'var(--muted)'}}>Retos repartidos que aún no han terminado.</small></div>
+              <strong style={{fontSize:'.74rem'}}>{activeItems.length}</strong>
+            </div>
+            <div style={{display:'grid',gap:'7px'}}>
+              {adminChallengeActivityBusy&&<article className="card" style={{padding:'14px'}}>Cargando retos…</article>}
+              {!adminChallengeActivityBusy&&activeItems.map(item=><article className="card" key={`${item.source_type}-${item.assignment_id}`} style={{padding:'11px 12px'}}>
+                <div style={{display:'flex',justifyContent:'space-between',gap:'8px',alignItems:'flex-start'}}>
+                  <div style={{minWidth:0}}>
+                    <small style={{display:'block',color:'var(--muted)',fontWeight:'800',marginBottom:'2px'}}>
+                      {item.family==='dynamic'?'🪙 Dinámica':'⭐ Competición'} · {item.format==='team'?'👥 Equipo':'👤 Individual'}
+                    </small>
+                    <strong style={{display:'block',fontSize:'.86rem'}}>{item.secret?'🔒 Misión secreta':`${item.emoji||'🎯'} ${item.title}`}</strong>
+                    <small style={{display:'block',color:'var(--muted)',marginTop:'3px'}}>{item.member_names||'Sin destinatarios'}</small>
+                  </div>
+                  <span style={{fontSize:'.66rem',fontWeight:'900',padding:'3px 6px',borderRadius:'999px',background:item.status==='submitted'?'#fff0eb':'#eef6f2'}}>
+                    {item.status==='submitted'?'Esperando revisión':'Activo'}
+                  </span>
+                </div>
+              </article>)}
+              {!adminChallengeActivityBusy&&!activeItems.length&&<article className="card" style={{padding:'16px',textAlign:'center',color:'var(--muted)'}}>No hay retos activos ahora mismo.</article>}
+            </div>
+          </section>}
+
+          {adminChallengeTab==='history'&&<section style={{marginTop:'11px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',gap:'8px',marginBottom:'6px'}}>
+              <div><p className="eyebrow" style={{margin:'0 0 2px',fontSize:'.67rem',letterSpacing:'.08em'}}>HISTORIAL</p><small style={{color:'var(--muted)'}}>Retos ya completados en esta aventura.</small></div>
+              <strong style={{fontSize:'.74rem'}}>{historyItems.length}</strong>
+            </div>
+            <div style={{display:'grid',gap:'7px'}}>
+              {adminChallengeActivityBusy&&<article className="card" style={{padding:'14px'}}>Cargando historial…</article>}
+              {!adminChallengeActivityBusy&&historyItems.map(item=><article className="card" key={`${item.source_type}-${item.assignment_id}`} style={{padding:'11px 12px'}}>
+                <div style={{display:'flex',justifyContent:'space-between',gap:'8px'}}>
+                  <div style={{minWidth:0}}>
+                    <strong style={{display:'block',fontSize:'.86rem'}}>{item.emoji||'✅'} {item.title}</strong>
+                    <small style={{display:'block',color:'var(--muted)',marginTop:'3px'}}>{item.member_names}</small>
+                  </div>
+                  <strong style={{fontSize:'.72rem',whiteSpace:'nowrap'}}>
+                    {Number(item.points||0)>0?`⭐ ${item.points}`:''}
+                    {Number(item.points||0)>0&&Number(item.coins||0)>0?' · ':''}
+                    {Number(item.coins||0)>0?`🪙 ${item.coins}`:''}
+                  </strong>
+                </div>
+              </article>)}
+              {!adminChallengeActivityBusy&&!historyItems.length&&<article className="card" style={{padding:'16px',textAlign:'center',color:'var(--muted)'}}>Todavía no hay retos completados.</article>}
+            </div>
+          </section>}
+        </>;
+      })()}
+
+    </>:page==='adminAwards'&&mode==='admin'?<>
+
+      <section className="card" style={{padding:'14px 15px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
+        <p className="eyebrow" style={{marginBottom:'2px',fontSize:'.67rem',letterSpacing:'.08em'}}>🏆 PREMIOS DE ETAPA</p>
+        <h2 style={{margin:'0 0 4px',fontSize:'1.08rem'}}>Votaciones y validaciones</h2>
+        <p style={{color:'var(--muted)',margin:0,fontSize:'.79rem',lineHeight:1.4}}>Los premios quedan separados de los retos normales para que el Admin sea más claro.</p>
       </section>
-      <section style={{marginTop:'15px'}}>
-        <p className="eyebrow" style={{marginBottom:'4px',fontSize:'.67rem',letterSpacing:'.08em'}}>🏅 PREMIOS DE ETAPA</p>
+
+      <section style={{marginTop:'12px'}}>
+        <p className="eyebrow" style={{marginBottom:'5px',fontSize:'.67rem',letterSpacing:'.08em'}}>PENDIENTES</p>
         <div style={{display:'grid',gap:'7px'}}>
           {stageAwards.filter(item=>item.resolution_method==='vote'&&item.status==='open').map(item=><article className="card" key={item.instance_id} style={{padding:'11px 12px'}}>
             <div style={{display:'flex',justifyContent:'space-between',gap:'8px',alignItems:'center'}}>
@@ -3493,7 +3564,6 @@ function Game({membership,onBack,session}){
               <button className="secondary" disabled={stageAwardsBusy} onClick={()=>resolveStageAwardVoting(item)}><Trophy size={14}/>Cerrar</button>
             </div>
           </article>)}
-
           {stageAwards.flatMap(item=>(item.pending_requests||[]).map(req=><article className="card" key={req.request_id} style={{padding:'11px 12px'}}>
             <strong>{req.nickname} solicita ⭐ {item.points}</strong>
             <small style={{display:'block',color:'var(--muted)'}}>{item.title}</small>
@@ -3502,48 +3572,41 @@ function Game({membership,onBack,session}){
               <button className="secondary" disabled={stageAwardsBusy} onClick={()=>reviewStageAwardRequest(req.request_id,false)}>Rechazar</button>
             </div>
           </article>))}
-
-          {!stageAwards.some(item=>(item.resolution_method==='vote'&&item.status==='open')||(item.pending_requests||[]).length)&&<article className="card" style={{padding:'11px'}}>No hay premios pendientes.</article>}
+          {!stageAwards.some(item=>(item.resolution_method==='vote'&&item.status==='open')||(item.pending_requests||[]).length)&&<article className="card" style={{padding:'16px',textAlign:'center'}}>
+            <strong style={{display:'block'}}>✅ Todo al día</strong>
+            <small style={{display:'block',color:'var(--muted)',marginTop:'4px'}}>No hay premios esperando una acción.</small>
+          </article>}
         </div>
       </section>
-      <section style={{marginTop:'15px'}}>
-        <p className="eyebrow" style={{margin:'0 0 2px',fontSize:'.66rem'}}>⚙️ GESTIONAR PREMIOS DE ETAPA</p>
-        <small style={{color:'var(--muted)',fontWeight:'800'}}>Fijos del viaje · siempre dan ⭐ Ranking</small>
-        <div style={{display:'grid',gap:'6px',marginTop:'7px'}}>
+
+      <details className="card" style={{padding:'12px 13px',marginTop:'12px',boxShadow:'none'}}>
+        <summary style={{cursor:'pointer',fontWeight:'900',fontSize:'.84rem'}}>⚙️ Configurar premios de etapa</summary>
+        <small style={{display:'block',color:'var(--muted)',fontWeight:'800',margin:'5px 0 8px'}}>Fijos del viaje · siempre dan ⭐ Ranking</small>
+        <div style={{display:'grid',gap:'6px'}}>
           {stageAwards.map(item=><article className="card" key={`manage-${item.instance_id}`} style={{padding:'9px 10px',boxShadow:'none'}}>
             {editingStageAward?.award_id===item.award_id?<>
               <input value={editingStageAward.title} onChange={e=>setEditingStageAward({...editingStageAward,title:e.target.value})}/>
-              <textarea rows={3} style={{marginTop:'6px'}} value={editingStageAward.description_template}
-                onChange={e=>setEditingStageAward({...editingStageAward,description_template:e.target.value})}/>
+              <textarea rows={3} style={{marginTop:'6px'}} value={editingStageAward.description_template} onChange={e=>setEditingStageAward({...editingStageAward,description_template:e.target.value})}/>
               <div style={{display:'grid',gridTemplateColumns:'90px minmax(0,1fr)',gap:'6px',marginTop:'6px'}}>
-                <input type="number" min="1" value={editingStageAward.points}
-                  onChange={e=>setEditingStageAward({...editingStageAward,points:e.target.value})}/>
-                <select value={editingStageAward.resolution_method}
-                  onChange={e=>setEditingStageAward({...editingStageAward,resolution_method:e.target.value})}>
-                  <option value="vote">🗳️ Votación del grupo</option>
-                  <option value="approval">✅ Solicitud + validación Admin</option>
+                <input type="number" min="1" value={editingStageAward.points} onChange={e=>setEditingStageAward({...editingStageAward,points:e.target.value})}/>
+                <select value={editingStageAward.resolution_method} onChange={e=>setEditingStageAward({...editingStageAward,resolution_method:e.target.value})}>
+                  <option value="vote">🗳️ Votación del grupo</option><option value="approval">✅ Solicitud + validación Admin</option>
                 </select>
               </div>
               <label style={{display:'flex',gap:'7px',alignItems:'center',marginTop:'7px',fontSize:'.78rem',fontWeight:'800'}}>
-                <input type="checkbox" checked={editingStageAward.active!==false}
-                  onChange={e=>setEditingStageAward({...editingStageAward,active:e.target.checked})}/>Premio activo
+                <input type="checkbox" checked={editingStageAward.active!==false} onChange={e=>setEditingStageAward({...editingStageAward,active:e.target.checked})}/>Premio activo
               </label>
               <div className="actions" style={{gap:'6px',marginTop:'8px'}}>
                 <button className="primary" onClick={()=>saveStageAwardSettings(editingStageAward)}><Check size={14}/>Guardar</button>
                 <button className="secondary" onClick={()=>setEditingStageAward(null)}>Cancelar</button>
               </div>
             </>:<div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) auto',gap:'8px',alignItems:'center'}}>
-              <div><strong style={{fontSize:'.82rem'}}>{item.emoji} {item.title}</strong>
-                <small style={{display:'block',color:'var(--muted)'}}>+{item.points} ⭐ · {item.resolution_method==='vote'?'🗳️ Votación':'✅ Validación Admin'}</small>
-              </div>
-              <button className="secondary" onClick={()=>setEditingStageAward({
-                award_id:item.award_id,title:item.title,description_template:item.description_template,
-                points:item.points,resolution_method:item.resolution_method,active:item.active
-              })}>Editar</button>
+              <div><strong style={{fontSize:'.82rem'}}>{item.emoji} {item.title}</strong><small style={{display:'block',color:'var(--muted)'}}>+{item.points} ⭐ · {item.resolution_method==='vote'?'🗳️ Votación':'✅ Validación Admin'}</small></div>
+              <button className="secondary" onClick={()=>setEditingStageAward({award_id:item.award_id,title:item.title,description_template:item.description_template,points:item.points,resolution_method:item.resolution_method,active:item.active})}>Editar</button>
             </div>}
           </article>)}
         </div>
-      </section>
+      </details>
 
     </>:page==='points'&&mode==='admin'?<>
       <section className="card" style={{padding:'15px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
