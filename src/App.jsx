@@ -3539,7 +3539,7 @@ function Game({membership,onBack,session}){
                 {item.code} · {item.category||'general'}{item.difficulty?` · ${item.difficulty}`:''}{item.secret?' · 🔒 secreto':''}
               </small>
               <div className="actions" style={{gap:'6px',marginTop:'9px'}}>
-                <button type="button" className="secondary" onClick={()=>openEditLibraryItem(item)}>✏️ Editar para este viaje</button>
+                <button type="button" className="secondary" onClick={()=>openEditLibraryItem(item)} style={{fontWeight:'900'}}>✏️ Editar para este viaje</button>
                 {item.code?.startsWith('USR-')&&<button type="button" className="secondary" disabled={libraryEditorBusy} onClick={()=>removeCustomLibraryItem(item)}>🗑️ Quitar</button>}
               </div>
             </div>}
@@ -3548,7 +3548,24 @@ function Game({membership,onBack,session}){
         {!masterLibraryBusy&&!masterLibrary.filter(item=>item.family===masterLibraryFamily).length&&<article className="card" style={{padding:'18px',textAlign:'center',color:'var(--muted)'}}>No hay retos en esta sección.</article>}
       </section>
 
-      {libraryEditorOpen&&libraryEditor&&<section className="card" style={{padding:'14px',marginTop:'11px',border:'2px solid rgba(47,117,99,.18)'}}>
+      {libraryEditorOpen&&libraryEditor&&<div
+        onClick={()=>{setLibraryEditorOpen(false);setLibraryEditor(null);}}
+        style={{
+          position:'fixed',inset:0,zIndex:9999,
+          background:'rgba(15,28,24,.42)',
+          padding:'18px 12px',
+          display:'flex',alignItems:'flex-end',justifyContent:'center'
+        }}>
+        <section
+          className="card"
+          onClick={e=>e.stopPropagation()}
+          style={{
+            width:'100%',maxWidth:'560px',maxHeight:'88vh',overflowY:'auto',
+            padding:'14px',margin:0,
+            border:'2px solid rgba(47,117,99,.18)',
+            borderRadius:'18px 18px 12px 12px',
+            boxShadow:'0 18px 48px rgba(10,30,24,.22)'
+          }}>
         <div style={{display:'flex',justifyContent:'space-between',gap:'8px',alignItems:'flex-start'}}>
           <div>
             <p className="eyebrow" style={{margin:'0 0 2px',fontSize:'.66rem',letterSpacing:'.08em'}}>📚 EDITOR DE BIBLIOTECA</p>
@@ -3603,7 +3620,8 @@ function Game({membership,onBack,session}){
             <Check size={16}/>{libraryEditorBusy?'Guardando…':libraryEditor.challenge_id?'Guardar cambios':'Añadir a Biblioteca'}
           </button>
         </form>
-      </section>}
+        </section>
+      </div>}
     </>:page==='adminChallenges'&&mode==='admin'?<>
 
       <section className="card" style={{padding:'14px 15px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
