@@ -424,6 +424,9 @@ function Game({membership,onBack,session}){
   const[adminActiveChallengesOpen,setAdminActiveChallengesOpen]=useState(false);
   const[adminActiveCompetitionOpen,setAdminActiveCompetitionOpen]=useState(true);
   const[adminActiveDynamicsOpen,setAdminActiveDynamicsOpen]=useState(true);
+  const[libraryFormatFilter,setLibraryFormatFilter]=useState('all');
+  const[libraryTagFilter,setLibraryTagFilter]=useState('all');
+  const[libraryEnabledFilter,setLibraryEnabledFilter]=useState('all');
   const[challengeBusy,setChallengeBusy]=useState(false);
   const[challengeMessage,setChallengeMessage]=useState('');
   const[challengeForm,setChallengeForm]=useState({
@@ -1733,6 +1736,14 @@ function Game({membership,onBack,session}){
     setMasterLibraryBusy(false);
   }
 
+  const LIBRARY_TAGS=[
+    ['photo','📸','Foto'],['social','🤝','Social'],['interaction','🗣️','Interacción'],
+    ['exploration','🌍','Exploración'],['food','🍴','Gastronomía'],['humor','😂','Humor'],
+    ['creativity','🎨','Creatividad'],['ingenuity','🧠','Ingenio'],['nature','🐾','Naturaleza'],
+    ['activity','🚴','Actividad'],['help','❤️','Ayuda'],['video','🎬','Vídeo']
+  ];
+  const libraryTagMeta=code=>LIBRARY_TAGS.find(x=>x[0]===code);
+
   function openNewLibraryItem(){
     const family=masterLibraryFamily||'competition';
     setLibraryEditor({
@@ -1747,7 +1758,7 @@ function Game({membership,onBack,session}){
       resolution:family==='stage_award'?'vote':'validation',
       secret:family==='dynamic',
       difficulty:null,
-      category:'',
+      category:'social',
       stage_recurring:family==='stage_award'
     });
     setLibraryEditorMessage('');
@@ -1765,6 +1776,10 @@ function Game({membership,onBack,session}){
     if(!owner||!libraryEditor||libraryEditorBusy)return;
     if(!libraryEditor.title?.trim()||!libraryEditor.description?.trim()){
       setLibraryEditorMessage('Añade título y descripción.');
+      return;
+    }
+    if(!libraryEditor.category||!LIBRARY_TAGS.some(x=>x[0]===libraryEditor.category)){
+      setLibraryEditorMessage('Elige una etiqueta.');
       return;
     }
     setLibraryEditorBusy(true);
@@ -3511,9 +3526,30 @@ function Game({membership,onBack,session}){
 
       {masterLibraryMessage&&<p className="msg" style={{marginTop:'9px'}}>{masterLibraryMessage}</p>}
 
+      <section className="card" style={{padding:'10px 11px',marginTop:'9px',boxShadow:'none'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'8px'}}>
+          <strong style={{fontSize:'.78rem'}}>🔎 Filtros</strong>
+          {(libraryFormatFilter!=='all'||libraryTagFilter!=='all'||libraryEnabledFilter!=='all')&&<button type="button" className="secondary" onClick={()=>{setLibraryFormatFilter('all');setLibraryTagFilter('all');setLibraryEnabledFilter('all');}} style={{padding:'5px 7px',fontSize:'.65rem'}}>Limpiar</button>}
+        </div>
+        <div style={{display:'flex',gap:'5px',flexWrap:'wrap',marginTop:'7px'}}>
+          {[['all','Todos'],['individual','👤 Individual'],['team','👥 Equipo']].map(([v,l])=><button type="button" key={v} className={libraryFormatFilter===v?'primary':'secondary'} onClick={()=>setLibraryFormatFilter(v)} style={{padding:'6px 8px',fontSize:'.67rem'}}>{l}</button>)}
+        </div>
+        <div style={{display:'flex',gap:'5px',overflowX:'auto',padding:'7px 0 3px'}}>
+          <button type="button" className={libraryTagFilter==='all'?'primary':'secondary'} onClick={()=>setLibraryTagFilter('all')} style={{padding:'6px 8px',fontSize:'.67rem',whiteSpace:'nowrap'}}>🏷️ Todas</button>
+          {LIBRARY_TAGS.map(([code,emoji,label])=><button type="button" key={code} className={libraryTagFilter===code?'primary':'secondary'} onClick={()=>setLibraryTagFilter(code)} style={{padding:'6px 8px',fontSize:'.67rem',whiteSpace:'nowrap'}}>{emoji} {label}</button>)}
+        </div>
+        <div style={{display:'flex',gap:'5px',marginTop:'4px'}}>
+          {[['all','Todos'],['enabled','🟢 Activos'],['disabled','⚪ Desactivados']].map(([v,l])=><button type="button" key={v} className={libraryEnabledFilter===v?'primary':'secondary'} onClick={()=>setLibraryEnabledFilter(v)} style={{padding:'6px 8px',fontSize:'.67rem'}}>{l}</button>)}
+        </div>
+      </section>
+
       <section style={{display:'grid',gap:'6px',marginTop:'10px'}}>
         {masterLibraryBusy&&!masterLibrary.length&&<article className="card" style={{padding:'18px',textAlign:'center',color:'var(--muted)'}}>Cargando biblioteca…</article>}
-        {masterLibrary.filter(item=>item.family===masterLibraryFamily).map(item=>{
+        {masterLibrary.filter(item=>item.family===masterLibraryFamily &&
+          (libraryFormatFilter==='all'||item.format===libraryFormatFilter||(libraryFormatFilter==='team'&&item.format==='group')) &&
+          (libraryTagFilter==='all'||item.category===libraryTagFilter) &&
+          (libraryEnabledFilter==='all'||(libraryEnabledFilter==='enabled'?item.enabled:!item.enabled))
+        ).map(item=>{
           const expanded=masterLibraryExpanded===item.challenge_id;
           const reward=item.reward_amount?`${item.reward_type==='ranking'?'⭐':'🪙'} ${item.reward_amount}`:(item.reward_type==='ranking'?'⭐ Ranking':'🪙 Monedas');
           const format=item.format==='team'?'👥 Equipo':item.format==='group'?'👥 Grupo':'👤 Individual';
@@ -3530,7 +3566,7 @@ function Game({membership,onBack,session}){
               }}>{item.emoji||'🎯'}</button>
               <button type="button" onClick={()=>setMasterLibraryExpanded(expanded?null:item.challenge_id)} style={{border:0,background:'transparent',padding:0,textAlign:'left',color:'inherit',minWidth:0}}>
                 <strong style={{display:'block',fontSize:'.82rem',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.title}</strong>
-                <small style={{display:'block',color:'var(--muted)',fontSize:'.66rem',marginTop:'2px'}}>{format} · {reward}{resolution?` · ${resolution}`:''}</small>
+                <small style={{display:'block',color:'var(--muted)',fontSize:'.66rem',marginTop:'2px'}}>{format}{libraryTagMeta(item.category)?` · ${libraryTagMeta(item.category)[1]} ${libraryTagMeta(item.category)[2]}`:''} · {reward}{resolution?` · ${resolution}`:''}</small>
               </button>
               <button type="button" disabled={masterLibraryBusy} onClick={()=>toggleMasterLibraryChallenge(item)} className={item.enabled?'secondary':'primary'} style={{padding:'6px 8px',fontSize:'.68rem'}}>
                 {item.enabled?'✓ Activo':'Activar'}
@@ -3614,9 +3650,13 @@ function Game({membership,onBack,session}){
             <input type="checkbox" checked={!!libraryEditor.secret} onChange={e=>setLibraryEditor(x=>({...x,secret:e.target.checked}))}/>🔒 Misión secreta
           </label>}
 
-          <label style={{marginTop:'9px'}}>Categoría opcional
-            <input value={libraryEditor.category||''} onChange={e=>setLibraryEditor(x=>({...x,category:e.target.value}))} placeholder="social, foto, local…"/>
-          </label>
+          <p className="eyebrow" style={{margin:'11px 0 6px',fontSize:'.66rem'}}>ETIQUETA · OBLIGATORIA</p>
+          <div style={{display:'flex',flexWrap:'wrap',gap:'5px'}}>
+            {LIBRARY_TAGS.map(([code,emoji,label])=><button type="button" key={code}
+              className={libraryEditor.category===code?'primary':'secondary'}
+              onClick={()=>setLibraryEditor(x=>({...x,category:code}))}
+              style={{padding:'7px 8px',fontSize:'.7rem'}}>{emoji} {label}</button>)}
+          </div>
 
           {libraryEditorMessage&&<p className="msg">{libraryEditorMessage}</p>}
           <button className="primary wide" disabled={libraryEditorBusy} style={{marginTop:'10px'}}>
