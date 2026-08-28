@@ -410,6 +410,13 @@ function Game({membership,onBack,session}){
   const[adminChallengeTab,setAdminChallengeTab]=useState('review');
   const[adminChallengeActivity,setAdminChallengeActivity]=useState([]);
   const[adminChallengeActivityBusy,setAdminChallengeActivityBusy]=useState(false);
+  const[manualCreatorFamily,setManualCreatorFamily]=useState('competition');
+  const[manualCreatorFormat,setManualCreatorFormat]=useState('individual');
+  const[manualCreatorDestination,setManualCreatorDestination]=useState('game');
+  const[manualCreatorEmoji,setManualCreatorEmoji]=useState('🎯');
+  const[manualCreatorResolution,setManualCreatorResolution]=useState('vote');
+  const[manualCreatorBusy,setManualCreatorBusy]=useState(false);
+  const[manualCreatorMessage,setManualCreatorMessage]=useState('');
   const[challengeBusy,setChallengeBusy]=useState(false);
   const[challengeMessage,setChallengeMessage]=useState('');
   const[challengeForm,setChallengeForm]=useState({
@@ -1977,6 +1984,57 @@ function Game({membership,onBack,session}){
     setChallengeBusy(false);
   }
 
+  async function createManualContentV12B(e){
+    e.preventDefault();
+    if(!owner||manualCreatorBusy)return;
+    const title=challengeForm.title.trim();
+    const description=challengeForm.description.trim();
+    if(!title||!description){
+      setManualCreatorMessage('Añade título y descripción.');
+      return;
+    }
+    if(manualCreatorFamily!=='award'&&!challengeForm.recipient_ids.length){
+      setManualCreatorMessage('Selecciona al menos un destinatario.');
+      return;
+    }
+    setManualCreatorBusy(true);
+    setManualCreatorMessage('');
+    const rewardAmount=manualCreatorFamily==='dynamic'
+      ?Math.max(0,Number(challengeForm.coins)||0)
+      :Math.max(0,Number(challengeForm.points)||0);
+    const{data,error}=await supabase.rpc('create_manual_content_v12b',{
+      p_game_id:g.id,
+      p_family:manualCreatorFamily,
+      p_format:manualCreatorFormat,
+      p_title:title,
+      p_description:description,
+      p_emoji:manualCreatorEmoji||'🎯',
+      p_reward_amount:rewardAmount,
+      p_recipient_ids:manualCreatorFamily==='award'?[]:challengeForm.recipient_ids,
+      p_save_to_library:manualCreatorDestination==='library',
+      p_resolution_method:manualCreatorFamily==='award'?manualCreatorResolution:null
+    });
+    if(error){
+      console.error(error);
+      setManualCreatorMessage(error.message||'No se pudo crear.');
+    }else{
+      setManualCreatorMessage(
+        manualCreatorFamily==='award'
+          ?'🏆 Premio creado.'
+          :manualCreatorDestination==='library'
+            ?'📚 Guardado en Biblioteca y enviado.'
+            :'🎯 Reto enviado para esta partida.'
+      );
+      setChallengeForm({title:'',description:'',points:10,coins:10,recipient_ids:[]});
+      await loadAdminChallenges();
+      await loadAdminChallengeActivity();
+      await loadStageAwards();
+      await loadMasterLibrary();
+      await loadNotificationCounts();
+    }
+    setManualCreatorBusy(false);
+  }
+
   async function reviewDaily(progressId,approve){
     setChallengeBusy(true);
     const{error}=await supabase.rpc('review_daily_challenge',{
@@ -3472,28 +3530,88 @@ function Game({membership,onBack,session}){
             </section>
 
             <details className="card" style={{padding:'12px 13px',marginTop:'8px',boxShadow:'none'}}>
-              <summary style={{cursor:'pointer',fontWeight:'900',fontSize:'.84rem'}}>＋ Crear reto manual para esta partida</summary>
-              <form onSubmit={createChallenge} style={{marginTop:'10px'}}>
-                <label>Título<input value={challengeForm.title} onChange={e=>setChallengeForm({...challengeForm,title:e.target.value})} placeholder="La misión imposible"/></label>
-                <label>Prueba<textarea rows="3" value={challengeForm.description} onChange={e=>setChallengeForm({...challengeForm,description:e.target.value})} placeholder="¿Qué tienen que conseguir?"/></label>
-                <div className="cols">
-                  <label>⭐ Ranking<input type="number" min="0" step="1" value={challengeForm.points} onChange={e=>setChallengeForm({...challengeForm,points:e.target.value})}/></label>
-                  <label>🪙 Monedas<input type="number" min="0" step="5" value={challengeForm.coins} onChange={e=>setChallengeForm({...challengeForm,coins:e.target.value})}/></label>
+              <summary style={{cursor:'pointer',fontWeight:'950',fontSize:'.86rem'}}>➕ Crear reto o premio</summary>
+              <form onSubmit={createManualContentV12B} style={{marginTop:'12px'}}>
+                <p className="eyebrow" style={{margin:'0 0 6px',fontSize:'.66rem',letterSpacing:'.08em'}}>¿QUÉ QUIERES CREAR?</p>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(3,minmax(0,1fr))',gap:'5px'}}>
+                  {[['competition','⭐ Competición'],['dynamic','🪙 Dinámica'],['award','🏆 Premio']].map(([value,label])=>
+                    <button type="button" key={value} className={manualCreatorFamily===value?'primary':'secondary'}
+                      onClick={()=>{
+                        setManualCreatorFamily(value);
+                        setManualCreatorEmoji(value==='competition'?'⭐':value==='dynamic'?'🪙':'🏆');
+                      }}
+                      style={{padding:'8px 4px',fontSize:'.7rem'}}>{label}</button>)}
                 </div>
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'8px'}}>
-                  <p className="eyebrow" style={{margin:0,fontSize:'.67rem',letterSpacing:'.08em'}}>DESTINATARIOS</p>
-                  <button type="button" className="secondary" onClick={()=>setChallengeForm(form=>({...form,recipient_ids:form.recipient_ids.length===brinkkers.length?[]:brinkkers.map(q=>q.user_id)}))}>
-                    {challengeForm.recipient_ids.length===brinkkers.length?'Quitar todos':'Todos'}
+
+                {manualCreatorFamily!=='award'&&<>
+                  <p className="eyebrow" style={{margin:'12px 0 6px',fontSize:'.66rem',letterSpacing:'.08em'}}>FORMATO</p>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'5px'}}>
+                    {[['individual','👤 Individual'],['team','👥 Equipo']].map(([value,label])=>
+                      <button type="button" key={value} className={manualCreatorFormat===value?'primary':'secondary'}
+                        onClick={()=>setManualCreatorFormat(value)} style={{padding:'8px 5px',fontSize:'.72rem'}}>{label}</button>)}
+                  </div>
+                </>}
+
+                <div style={{display:'grid',gridTemplateColumns:'70px minmax(0,1fr)',gap:'7px',marginTop:'12px'}}>
+                  <label>Emoji
+                    <input value={manualCreatorEmoji} maxLength={8} onChange={e=>setManualCreatorEmoji(e.target.value)} style={{textAlign:'center'}}/>
+                  </label>
+                  <label>Título
+                    <input value={challengeForm.title} onChange={e=>setChallengeForm({...challengeForm,title:e.target.value})} placeholder={manualCreatorFamily==='award'?'Premio de la etapa':'La misión imposible'}/>
+                  </label>
+                </div>
+                <label>Descripción
+                  <textarea rows="3" value={challengeForm.description} onChange={e=>setChallengeForm({...challengeForm,description:e.target.value})}
+                    placeholder={manualCreatorFamily==='award'?'¿Qué se premia y cómo se consigue?':'¿Qué tienen que conseguir?'}/>
+                </label>
+
+                {manualCreatorFamily==='dynamic'
+                  ?<label>🪙 Recompensa
+                    <input type="number" min="0" step="5" value={challengeForm.coins} onChange={e=>setChallengeForm({...challengeForm,coins:e.target.value})}/>
+                  </label>
+                  :<label>⭐ Puntos
+                    <input type="number" min="0" step="1" value={challengeForm.points} onChange={e=>setChallengeForm({...challengeForm,points:e.target.value})}/>
+                  </label>}
+
+                {manualCreatorFamily==='award'?<>
+                  <p className="eyebrow" style={{margin:'11px 0 6px',fontSize:'.66rem',letterSpacing:'.08em'}}>CÓMO SE RESUELVE</p>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'5px'}}>
+                    <button type="button" className={manualCreatorResolution==='vote'?'primary':'secondary'} onClick={()=>setManualCreatorResolution('vote')} style={{padding:'8px 5px',fontSize:'.71rem'}}>🗳️ Votación</button>
+                    <button type="button" className={manualCreatorResolution==='approval'?'primary':'secondary'} onClick={()=>setManualCreatorResolution('approval')} style={{padding:'8px 5px',fontSize:'.71rem'}}>✅ Solicitud + Admin</button>
+                  </div>
+                </>:<>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'8px',marginTop:'11px'}}>
+                    <p className="eyebrow" style={{margin:0,fontSize:'.66rem',letterSpacing:'.08em'}}>DESTINATARIOS</p>
+                    <button type="button" className="secondary" onClick={()=>setChallengeForm(form=>({...form,recipient_ids:form.recipient_ids.length===brinkkers.length?[]:brinkkers.map(q=>q.user_id)}))}>
+                      {challengeForm.recipient_ids.length===brinkkers.length?'Quitar todos':'Todos'}
+                    </button>
+                  </div>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'6px',margin:'8px 0 12px'}}>
+                    {brinkkers.map(q=><button type="button" key={q.user_id} onClick={()=>toggleRecipient(q.user_id)} style={{
+                      border:challengeForm.recipient_ids.includes(q.user_id)?'2px solid #2f7563':'1px solid #d8d3c6',
+                      borderRadius:'11px',padding:'8px',background:challengeForm.recipient_ids.includes(q.user_id)?'#eef6f2':'white',
+                      display:'flex',alignItems:'center',gap:'6px',fontWeight:'800',fontSize:'.78rem',color:'inherit'
+                    }}><span>{q.avatar_emoji||'🧭'}</span>{q.nickname}</button>)}
+                  </div>
+                </>}
+
+                <p className="eyebrow" style={{margin:'11px 0 6px',fontSize:'.66rem',letterSpacing:'.08em'}}>GUARDAR</p>
+                <div style={{display:'grid',gap:'6px'}}>
+                  <button type="button" className={manualCreatorDestination==='game'?'primary':'secondary'} onClick={()=>setManualCreatorDestination('game')} style={{justifyContent:'flex-start',textAlign:'left',padding:'9px 10px'}}>
+                    🎒 Solo para esta partida
+                  </button>
+                  <button type="button" className={manualCreatorDestination==='library'?'primary':'secondary'} onClick={()=>setManualCreatorDestination('library')} style={{justifyContent:'flex-start',textAlign:'left',padding:'9px 10px'}}>
+                    📚 Guardar en mi Biblioteca y usar ahora
                   </button>
                 </div>
-                <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'6px',margin:'9px 0 12px'}}>
-                  {brinkkers.map(q=><button type="button" key={q.user_id} onClick={()=>toggleRecipient(q.user_id)} style={{
-                    border:challengeForm.recipient_ids.includes(q.user_id)?'2px solid #2f7563':'1px solid #d8d3c6',
-                    borderRadius:'11px',padding:'8px',background:challengeForm.recipient_ids.includes(q.user_id)?'#eef6f2':'white',
-                    display:'flex',alignItems:'center',gap:'6px',fontWeight:'800',fontSize:'.78rem',color:'inherit'
-                  }}><span>{q.avatar_emoji||'🧭'}</span>{q.nickname}</button>)}
-                </div>
-                <button className="primary wide" disabled={challengeBusy}><Send size={17}/>{challengeBusy?'Enviando…':'Enviar reto'}</button>
+                <small style={{display:'block',color:'var(--muted)',marginTop:'6px',lineHeight:1.35}}>
+                  Guardarlo en Biblioteca permite reutilizarlo y desactivarlo en futuros repartos de esta aventura.
+                </small>
+
+                {manualCreatorMessage&&<p className="msg" style={{marginTop:'9px'}}>{manualCreatorMessage}</p>}
+                <button className="primary wide" disabled={manualCreatorBusy} style={{marginTop:'10px'}}>
+                  <Send size={17}/>{manualCreatorBusy?'Creando…':manualCreatorFamily==='award'?'Crear premio':'Crear y enviar'}
+                </button>
               </form>
             </details>
 
