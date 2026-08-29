@@ -3087,32 +3087,37 @@ function Game({membership,onBack,session}){
           </section>
         })()}
 
-      </>:<section style={{display:'grid',gap:'8px',marginTop:'14px'}}>
+      </>:<section style={{
+        display:'grid',
+        gridTemplateColumns:'repeat(2,minmax(0,1fr))',
+        gap:'7px',
+        marginTop:'10px'
+      }}>
         {adminSections.map(section=>
           <button className="card" key={section.id} onClick={()=>openPage(section.id)} style={{
             width:'100%',
-            padding:'13px 14px',
-            display:'grid',
-            gridTemplateColumns:'minmax(0,1fr) auto',
+            minWidth:0,
+            padding:'11px 10px',
+            display:'flex',
             alignItems:'center',
-            gap:'10px',
+            justifyContent:'space-between',
+            gap:'6px',
             textAlign:'left',
             color:'inherit',
             border:'1px solid rgba(23,63,53,.09)',
-            boxShadow:'none'
+            boxShadow:'none',
+            minHeight:'54px'
           }}>
-            <span style={{minWidth:0}}>
-              <span style={{display:'flex',alignItems:'center',gap:'7px',flexWrap:'wrap'}}>
-                <strong style={{display:'block',fontSize:'.95rem'}}>{section.label}</strong>
-                {section.id==='adminChallenges'&&adminActionCounts.challenges>0&&<span style={{minWidth:'17px',height:'17px',padding:'0 4px',borderRadius:'999px',background:'#e05b4f',color:'white',fontSize:'.58rem',fontWeight:'950',display:'grid',placeItems:'center'}}>{adminActionCounts.challenges>9?'9+':adminActionCounts.challenges}</span>}
-                {section.id==='adminAwards'&&adminActionCounts.awards>0&&<span style={{minWidth:'17px',height:'17px',padding:'0 4px',borderRadius:'999px',background:'#e05b4f',color:'white',fontSize:'.58rem',fontWeight:'950',display:'grid',placeItems:'center'}}>{adminActionCounts.awards>9?'9+':adminActionCounts.awards}</span>}
-                {section.id==='adminAdvantages'&&adminActionCounts.advantages>0&&<span style={{minWidth:'17px',height:'17px',padding:'0 4px',borderRadius:'999px',background:'#e05b4f',color:'white',fontSize:'.58rem',fontWeight:'950',display:'grid',placeItems:'center'}}>{adminActionCounts.advantages>9?'9+':adminActionCounts.advantages}</span>}
-              </span>
-              <small style={{display:'block',color:'var(--muted)',marginTop:'2px'}}>
-                {section.detail}
-              </small>
+            <span style={{minWidth:0,display:'flex',alignItems:'center',gap:'5px'}}>
+              <strong style={{
+                display:'block',fontSize:'.78rem',lineHeight:1.18,
+                overflow:'hidden',textOverflow:'ellipsis'
+              }}>{section.label}</strong>
+              {section.id==='adminChallenges'&&adminActionCounts.challenges>0&&<span style={{minWidth:'17px',height:'17px',padding:'0 4px',borderRadius:'999px',background:'#e05b4f',color:'white',fontSize:'.56rem',fontWeight:'950',display:'grid',placeItems:'center',flex:'0 0 auto'}}>{adminActionCounts.challenges>9?'9+':adminActionCounts.challenges}</span>}
+              {section.id==='adminAwards'&&adminActionCounts.awards>0&&<span style={{minWidth:'17px',height:'17px',padding:'0 4px',borderRadius:'999px',background:'#e05b4f',color:'white',fontSize:'.56rem',fontWeight:'950',display:'grid',placeItems:'center',flex:'0 0 auto'}}>{adminActionCounts.awards>9?'9+':adminActionCounts.awards}</span>}
+              {section.id==='adminAdvantages'&&adminActionCounts.advantages>0&&<span style={{minWidth:'17px',height:'17px',padding:'0 4px',borderRadius:'999px',background:'#e05b4f',color:'white',fontSize:'.56rem',fontWeight:'950',display:'grid',placeItems:'center',flex:'0 0 auto'}}>{adminActionCounts.advantages>9?'9+':adminActionCounts.advantages}</span>}
             </span>
-            <span style={{fontSize:'1.04rem',color:'var(--muted)',lineHeight:1}}>›</span>
+            <span style={{fontSize:'.9rem',color:'var(--muted)',lineHeight:1,flex:'0 0 auto'}}>›</span>
           </button>
         )}
       </section>}
