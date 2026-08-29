@@ -436,8 +436,7 @@ function Game({membership,onBack,session}){
   const[challengeBusy,setChallengeBusy]=useState(false);
   const[challengeMessage,setChallengeMessage]=useState('');
   const[discoveredMission,setDiscoveredMission]=useState(null);
-  const[discoveredByUserId,setDiscoveredByUserId]=useState('');
-  const[discoveredGuess,setDiscoveredGuess]=useState('');
+  const[discoveredByUserIds,setDiscoveredByUserIds]=useState([]);
   const[discoveredMissionBusy,setDiscoveredMissionBusy]=useState(false);
   const[challengeForm,setChallengeForm]=useState({
     title:'',
@@ -909,9 +908,7 @@ function Game({membership,onBack,session}){
         is_secret_dynamic:secretDynamicIds.has(item.group_id),
         ...(discovery?{
           group_status:'discovered',
-          discovered_by_user_id:discovery.discovered_by_user_id,
-          discovered_by_nickname:discovery.discovered_by_nickname,
-          discovery_guess:discovery.discovery_guess,
+          discovered_by_nicknames:discovery.discovered_by_nicknames,
           discoverer_reward_coins:discovery.discoverer_reward_coins
         }:{})
       };
@@ -935,33 +932,31 @@ function Game({membership,onBack,session}){
 
   function openDiscoveredMission(item){
     setDiscoveredMission(item);
-    setDiscoveredByUserId('');
-    setDiscoveredGuess('');
+    setDiscoveredByUserIds([]);
     setChallengeMessage('');
   }
 
+  function toggleDiscoverer(userId){
+    setDiscoveredByUserIds(ids=>ids.includes(userId)?ids.filter(id=>id!==userId):[...ids,userId]);
+  }
+
   async function confirmDiscoveredMission(){
-    if(!discoveredMission||!discoveredByUserId){
-      setChallengeMessage('Selecciona quién os ha descubierto.');
-      return;
-    }
-    if(discoveredGuess.trim().length<4){
-      setChallengeMessage('Escribe brevemente qué creía que estabais intentando conseguir.');
+    if(!discoveredMission||!discoveredByUserIds.length){
+      setChallengeMessage('Selecciona al menos un Brinkker que os haya descubierto.');
       return;
     }
     setDiscoveredMissionBusy(true);
-    const{data,error}=await supabase.rpc('mark_master_mission_discovered_v20',{
+    const{data,error}=await supabase.rpc('mark_master_mission_discovered_v20c',{
       p_assignment_id:discoveredMission.group_id,
-      p_discoverer_user_id:discoveredByUserId,
-      p_guess:discoveredGuess.trim()
+      p_discoverer_user_ids:discoveredByUserIds
     });
     if(error){
       setChallengeMessage(error.message);
     }else{
-      setChallengeMessage(`🏳️ Misión descubierta · ${data?.discoverer_nickname||'Brinkker'} gana +${data?.reward_coins||5} 🪙`);
+      const n=Number(data?.discoverers_count||discoveredByUserIds.length);
+      setChallengeMessage(`🏳️ Misión descubierta · ${n} ${n===1?'Brinkker gana':'Brinkkers ganan'} +${data?.reward_coins_each||5} 🪙`);
       setDiscoveredMission(null);
-      setDiscoveredByUserId('');
-      setDiscoveredGuess('');
+      setDiscoveredByUserIds([]);
       await loadMySpecialChallenges();
       await loadNotificationCounts();
       await loadAuction();
@@ -3540,9 +3535,8 @@ function Game({membership,onBack,session}){
               <article key={item.group_id} style={{padding:'8px 10px',borderRadius:'11px',border:'1px solid rgba(23,63,53,.07)',background:'#fffdf7'}}>
                 <strong style={{display:'block',fontSize:'.77rem'}}>🏳️ {item.title}</strong>
                 <small style={{display:'block',color:'var(--muted)',marginTop:'2px'}}>
-                  Descubierta por {item.discovered_by_nickname||'otro Brinkker'} · +{item.discoverer_reward_coins||5} 🪙
+                  Descubierta por {item.discovered_by_nicknames||'otro Brinkker'} · +{item.discoverer_reward_coins||5} 🪙 cada uno
                 </small>
-                {item.discovery_guess&&<small style={{display:'block',color:'var(--muted)',marginTop:'2px'}}>“{item.discovery_guess}”</small>}
               </article>
             )}
           </div>
@@ -3640,18 +3634,22 @@ function Game({membership,onBack,session}){
           <p className="eyebrow" style={{marginBottom:'3px'}}>🏳️ MISIÓN DESCUBIERTA</p>
           <h2 style={{margin:'0 0 6px',fontSize:'1rem'}}>¿Os han pillado?</h2>
           <p style={{color:'var(--muted)',fontSize:'.8rem',lineHeight:1.4,marginTop:0}}>
-            Regístralo solo si el Brinkker ha explicado qué cree que estabais intentando conseguir. No necesita acertar el nombre exacto de la misión.
+            Marca a todos los Brinkkers que os hayan pillado. La misión se pierde y cada descubridor recibe su recompensa.
           </p>
-          <label>¿Quién os ha descubierto?
-            <select value={discoveredByUserId} onChange={e=>setDiscoveredByUserId(e.target.value)}>
-              <option value="">Selecciona Brinkker</option>
-              {brinkkers.filter(q=>q.user_id!==session?.user?.id).map(q=><option key={q.user_id} value={q.user_id}>{q.nickname}</option>)}
-            </select>
-          </label>
-          <label style={{marginTop:'9px'}}>¿Qué dijo que estabais intentando hacer?
-            <textarea rows="3" value={discoveredGuess} onChange={e=>setDiscoveredGuess(e.target.value)}
-              placeholder="Ej.: Creo que intentáis conseguir que diga una palabra concreta."/>
-          </label>
+          <p className="eyebrow" style={{margin:'8px 0 5px'}}>¿QUIÉN OS HA DESCUBIERTO?</p>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'6px'}}>
+            {brinkkers
+              .filter(q=>q.user_id!==session?.user?.id)
+              .map(q=>{
+                const selected=discoveredByUserIds.includes(q.user_id);
+                return <button key={q.user_id} type="button"
+                  className={selected?'primary':'secondary'}
+                  onClick={()=>toggleDiscoverer(q.user_id)}
+                  style={{padding:'9px 7px',fontSize:'.76rem'}}>
+                  {selected?'✓ ':''}{q.nickname}
+                </button>;
+              })}
+          </div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'7px',marginTop:'12px'}}>
             <button type="button" className="secondary" disabled={discoveredMissionBusy} onClick={()=>setDiscoveredMission(null)}>Cancelar</button>
             <button type="button" className="primary" disabled={discoveredMissionBusy} onClick={confirmDiscoveredMission}>
