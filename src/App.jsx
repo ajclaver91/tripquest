@@ -439,6 +439,7 @@ function Game({membership,onBack,session}){
   const[discoveredByUserIds,setDiscoveredByUserIds]=useState([]);
   const[discoveredMissionBusy,setDiscoveredMissionBusy]=useState(false);
   const[discoveredMissionMessage,setDiscoveredMissionMessage]=useState('');
+  const[showDiscoveredMissions,setShowDiscoveredMissions]=useState(false);
   const[challengeForm,setChallengeForm]=useState({
     title:'',
     description:'',
@@ -3528,22 +3529,43 @@ function Game({membership,onBack,session}){
 
       {!specialLoading&&specialChallenges.some(item=>item.group_status==='discovered')&&
         <section style={{marginTop:'12px'}}>
-          <div className="card" style={{padding:'10px 12px',boxShadow:'none',border:'1px solid rgba(23,63,53,.08)'}}>
-            <strong style={{display:'block',fontSize:'.84rem'}}>🕵️ Misiones descubiertas</strong>
-            <small style={{display:'block',color:'var(--muted)',marginTop:'2px'}}>
-              {specialChallenges.filter(item=>item.group_status==='discovered').length} cazadas por otros Brinkkers
-            </small>
-          </div>
-          <div style={{display:'grid',gap:'5px',marginTop:'6px'}}>
-            {specialChallenges.filter(item=>item.group_status==='discovered').map(item=>
-              <article key={item.group_id} style={{padding:'8px 10px',borderRadius:'11px',border:'1px solid rgba(23,63,53,.07)',background:'#fffdf7'}}>
-                <strong style={{display:'block',fontSize:'.77rem'}}>🏳️ {item.title}</strong>
-                <small style={{display:'block',color:'var(--muted)',marginTop:'2px'}}>
-                  Descubierta por {item.discovered_by_nicknames||'otro Brinkker'} · +{item.discoverer_reward_coins||5} 🪙 cada uno
-                </small>
-              </article>
-            )}
-          </div>
+          <button type="button"
+            onClick={()=>setShowDiscoveredMissions(!showDiscoveredMissions)}
+            className="card"
+            style={{
+              width:'100%',
+              padding:'10px 12px',
+              border:'1px solid rgba(23,63,53,.08)',
+              boxShadow:'none',
+              display:'flex',
+              alignItems:'center',
+              justifyContent:'space-between',
+              gap:'10px',
+              color:'inherit',
+              textAlign:'left'
+            }}>
+            <span>
+              <strong style={{display:'block',fontSize:'.84rem'}}>🕵️ Misiones descubiertas</strong>
+              <small style={{display:'block',color:'var(--muted)',marginTop:'1px'}}>
+                {specialChallenges.filter(item=>item.group_status==='discovered').length} cazadas por otros Brinkkers
+              </small>
+            </span>
+            <span style={{fontWeight:'950',color:'var(--muted)',fontSize:'1rem'}}>
+              {showDiscoveredMissions?'⌃':'›'}
+            </span>
+          </button>
+
+          {showDiscoveredMissions&&
+            <div style={{display:'grid',gap:'5px',marginTop:'6px'}}>
+              {specialChallenges.filter(item=>item.group_status==='discovered').map(item=>
+                <article key={item.group_id} style={{padding:'8px 10px',borderRadius:'11px',border:'1px solid rgba(23,63,53,.07)',background:'#fffdf7'}}>
+                  <strong style={{display:'block',fontSize:'.77rem'}}>🏳️ {item.title}</strong>
+                  <small style={{display:'block',color:'var(--muted)',marginTop:'2px'}}>
+                    Descubierta por {item.discovered_by_nicknames||'otro Brinkker'} · +{item.discoverer_reward_coins||5} 🪙 cada uno
+                  </small>
+                </article>
+              )}
+            </div>}
         </section>}
 
       {!specialLoading&&specialChallenges.some(item=>item.group_status==='approved')&&
