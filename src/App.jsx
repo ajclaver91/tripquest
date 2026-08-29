@@ -435,6 +435,10 @@ function Game({membership,onBack,session}){
   const[libraryEnabledFilter,setLibraryEnabledFilter]=useState('all');
   const[challengeBusy,setChallengeBusy]=useState(false);
   const[challengeMessage,setChallengeMessage]=useState('');
+  const[discoveredMission,setDiscoveredMission]=useState(null);
+  const[discoveredByUserId,setDiscoveredByUserId]=useState('');
+  const[discoveredGuess,setDiscoveredGuess]=useState('');
+  const[discoveredMissionBusy,setDiscoveredMissionBusy]=useState(false);
   const[challengeForm,setChallengeForm]=useState({
     title:'',
     description:'',
@@ -884,16 +888,31 @@ function Game({membership,onBack,session}){
 
   async function loadMySpecialChallenges(){
     setSpecialLoading(true);
-    const [legacyResult,masterResult]=await Promise.all([
+    const [legacyResult,masterResult,discoveryResult]=await Promise.all([
       supabase.rpc('list_my_tripquest_envelopes_v4',{p_game_id:g.id}),
-      supabase.rpc('list_my_master_challenges_v10',{p_game_id:g.id})
+      supabase.rpc('list_my_master_challenges_v10',{p_game_id:g.id}),
+      supabase.rpc('list_my_mission_discoveries_v20',{p_game_id:g.id})
     ]);
 
     if(legacyResult.error)console.error('Error cargando retos antiguos:',legacyResult.error);
     if(masterResult.error)console.error('Error cargando Biblioteca Maestra:',masterResult.error);
 
     const legacy=(legacyResult.data||[]).map(item=>({...item,source_type:'legacy'}));
-    const master=(masterResult.data||[]).map(item=>({...item,source_type:'master'}));
+    const discoveries=new globalThis.Map((discoveryResult.data||[]).map(row=>[row.assignment_id,row]));
+    const master=(masterResult.data||[]).map(item=>{
+      const discovery=discoveries.get(item.group_id);
+      return {
+        ...item,
+        source_type:'master',
+        ...(discovery?{
+          group_status:'discovered',
+          discovered_by_user_id:discovery.discovered_by_user_id,
+          discovered_by_nickname:discovery.discovered_by_nickname,
+          discovery_guess:discovery.discovery_guess,
+          discoverer_reward_coins:discovery.discoverer_reward_coins
+        }:{})
+      };
+    });
     setSpecialChallenges([...master,...legacy]);
     setSpecialLoading(false);
   }
@@ -909,6 +928,42 @@ function Game({membership,onBack,session}){
       await loadMySpecialChallenges();
       await loadNotificationCounts();
     }
+  }
+
+  function openDiscoveredMission(item){
+    setDiscoveredMission(item);
+    setDiscoveredByUserId('');
+    setDiscoveredGuess('');
+    setChallengeMessage('');
+  }
+
+  async function confirmDiscoveredMission(){
+    if(!discoveredMission||!discoveredByUserId){
+      setChallengeMessage('Selecciona quién os ha descubierto.');
+      return;
+    }
+    if(discoveredGuess.trim().length<4){
+      setChallengeMessage('Escribe brevemente qué creía que estabais intentando conseguir.');
+      return;
+    }
+    setDiscoveredMissionBusy(true);
+    const{data,error}=await supabase.rpc('mark_master_mission_discovered_v20',{
+      p_assignment_id:discoveredMission.group_id,
+      p_discoverer_user_id:discoveredByUserId,
+      p_guess:discoveredGuess.trim()
+    });
+    if(error){
+      setChallengeMessage(error.message);
+    }else{
+      setChallengeMessage(`🏳️ Misión descubierta · ${data?.discoverer_nickname||'Brinkker'} gana +${data?.reward_coins||5} 🪙`);
+      setDiscoveredMission(null);
+      setDiscoveredByUserId('');
+      setDiscoveredGuess('');
+      await loadMySpecialChallenges();
+      await loadNotificationCounts();
+      await loadAuction();
+    }
+    setDiscoveredMissionBusy(false);
   }
 
   function blankExpenseForm(){
@@ -3261,7 +3316,7 @@ function Game({membership,onBack,session}){
         }}>
           <h2 style={{margin:0,fontSize:'.94rem'}}>Retos pendientes</h2>
           <small style={{color:'var(--muted)',fontWeight:'850'}}>
-            {specialChallenges.filter(item=>item.group_status!=='approved').length}
+            {specialChallenges.filter(item=>!['approved','discovered'].includes(item.group_status)).length}
           </small>
         </div>
       </section>
@@ -3372,7 +3427,7 @@ function Game({membership,onBack,session}){
           </article>}
 
         {!specialLoading&&specialChallenges
-          .filter(item=>item.group_status!=='approved')
+          .filter(item=>!['approved','discovered'].includes(item.group_status))
           .sort((a,b)=>{
             const order={pending:0,rejected:1,submitted:2};
             return (order[a.group_status]??9)-(order[b.group_status]??9);
@@ -3451,16 +3506,44 @@ function Game({membership,onBack,session}){
                     onClick={()=>submitSpecial(item)}>
                     <Send size={14}/>Enviar a revisión
                   </button>}
+
+                {item.source_type==='master'&&item.secret&&Number(item.coins||0)>0&&item.group_status==='pending'&&
+                  <button type="button" className="secondary wide"
+                    style={{marginTop:'6px',padding:'8px',fontSize:'.77rem'}}
+                    onClick={()=>openDiscoveredMission(item)}>
+                    🏳️ Nos han descubierto
+                  </button>}
               </div>
             </details>;
           })}
 
         {!specialLoading&&
-          !specialChallenges.some(item=>item.group_status!=='approved')&&
+          !specialChallenges.some(item=>!['approved','discovered'].includes(item.group_status))&&
           <article className="card" style={{padding:'11px 12px'}}>
             ✨ No tienes retos pendientes.
           </article>}
       </section>
+
+      {!specialLoading&&specialChallenges.some(item=>item.group_status==='discovered')&&
+        <section style={{marginTop:'12px'}}>
+          <div className="card" style={{padding:'10px 12px',boxShadow:'none',border:'1px solid rgba(23,63,53,.08)'}}>
+            <strong style={{display:'block',fontSize:'.84rem'}}>🕵️ Misiones descubiertas</strong>
+            <small style={{display:'block',color:'var(--muted)',marginTop:'2px'}}>
+              {specialChallenges.filter(item=>item.group_status==='discovered').length} cazadas por otros Brinkkers
+            </small>
+          </div>
+          <div style={{display:'grid',gap:'5px',marginTop:'6px'}}>
+            {specialChallenges.filter(item=>item.group_status==='discovered').map(item=>
+              <article key={item.group_id} style={{padding:'8px 10px',borderRadius:'11px',border:'1px solid rgba(23,63,53,.07)',background:'#fffdf7'}}>
+                <strong style={{display:'block',fontSize:'.77rem'}}>🏳️ {item.title}</strong>
+                <small style={{display:'block',color:'var(--muted)',marginTop:'2px'}}>
+                  Descubierta por {item.discovered_by_nickname||'otro Brinkker'} · +{item.discoverer_reward_coins||5} 🪙
+                </small>
+                {item.discovery_guess&&<small style={{display:'block',color:'var(--muted)',marginTop:'2px'}}>“{item.discovery_guess}”</small>}
+              </article>
+            )}
+          </div>
+        </section>}
 
       {!specialLoading&&specialChallenges.some(item=>item.group_status==='approved')&&
         <section style={{marginTop:'12px'}}>
@@ -3549,6 +3632,31 @@ function Game({membership,onBack,session}){
                 })}
             </div>}
         </section>}
+      {discoveredMission&&<div className="backdrop" style={{zIndex:60}} onClick={()=>!discoveredMissionBusy&&setDiscoveredMission(null)}>
+        <section className="card modal" onClick={e=>e.stopPropagation()} style={{padding:'16px',maxHeight:'82vh',overflowY:'auto'}}>
+          <p className="eyebrow" style={{marginBottom:'3px'}}>🏳️ MISIÓN DESCUBIERTA</p>
+          <h2 style={{margin:'0 0 6px',fontSize:'1rem'}}>¿Os han pillado?</h2>
+          <p style={{color:'var(--muted)',fontSize:'.8rem',lineHeight:1.4,marginTop:0}}>
+            Regístralo solo si el Brinkker ha explicado qué cree que estabais intentando conseguir. No necesita acertar el nombre exacto de la misión.
+          </p>
+          <label>¿Quién os ha descubierto?
+            <select value={discoveredByUserId} onChange={e=>setDiscoveredByUserId(e.target.value)}>
+              <option value="">Selecciona Brinkker</option>
+              {brinkkers.filter(q=>q.user_id!==session?.user?.id).map(q=><option key={q.user_id} value={q.user_id}>{q.nickname}</option>)}
+            </select>
+          </label>
+          <label style={{marginTop:'9px'}}>¿Qué dijo que estabais intentando hacer?
+            <textarea rows="3" value={discoveredGuess} onChange={e=>setDiscoveredGuess(e.target.value)}
+              placeholder="Ej.: Creo que intentáis conseguir que diga una palabra concreta."/>
+          </label>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'7px',marginTop:'12px'}}>
+            <button type="button" className="secondary" disabled={discoveredMissionBusy} onClick={()=>setDiscoveredMission(null)}>Cancelar</button>
+            <button type="button" className="primary" disabled={discoveredMissionBusy} onClick={confirmDiscoveredMission}>
+              {discoveredMissionBusy?'Guardando…':'🏳️ Confirmar'}
+            </button>
+          </div>
+        </section>
+      </div>}
     </>:page==='library'&&mode==='admin'?<>
       <section className="card" style={{padding:'15px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
         <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>📚 BIBLIOTECA</p>
