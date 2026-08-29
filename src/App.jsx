@@ -420,6 +420,7 @@ function Game({membership,onBack,session}){
   const[manualCreatorDestination,setManualCreatorDestination]=useState('game');
   const[manualCreatorEmoji,setManualCreatorEmoji]=useState('🎯');
   const[manualCreatorResolution,setManualCreatorResolution]=useState('vote');
+  const[manualCreatorTag,setManualCreatorTag]=useState('social');
   const[manualCreatorBusy,setManualCreatorBusy]=useState(false);
   const[manualCreatorMessage,setManualCreatorMessage]=useState('');
   const[libraryEditorOpen,setLibraryEditorOpen]=useState(false);
@@ -2153,20 +2154,28 @@ function Game({membership,onBack,session}){
     if(!owner||manualCreatorBusy)return;
     const title=challengeForm.title.trim();
     const description=challengeForm.description.trim();
+
     if(!title||!description){
       setManualCreatorMessage('Añade título y descripción.');
+      return;
+    }
+    if(!manualCreatorTag){
+      setManualCreatorMessage('Selecciona una etiqueta.');
       return;
     }
     if(manualCreatorFamily!=='award'&&!challengeForm.recipient_ids.length){
       setManualCreatorMessage('Selecciona al menos un destinatario.');
       return;
     }
+
     setManualCreatorBusy(true);
     setManualCreatorMessage('');
+
     const rewardAmount=manualCreatorFamily==='dynamic'
       ?Math.max(0,Number(challengeForm.coins)||0)
       :Math.max(0,Number(challengeForm.points)||0);
-    const{data,error}=await supabase.rpc('create_manual_content_v12b',{
+
+    const{data,error}=await supabase.rpc('create_manual_content_v18',{
       p_game_id:g.id,
       p_family:manualCreatorFamily,
       p_format:manualCreatorFormat,
@@ -2174,27 +2183,28 @@ function Game({membership,onBack,session}){
       p_description:description,
       p_emoji:manualCreatorEmoji||'🎯',
       p_reward_amount:rewardAmount,
+      p_category:manualCreatorTag,
       p_recipient_ids:manualCreatorFamily==='award'?[]:challengeForm.recipient_ids,
       p_save_to_library:manualCreatorDestination==='library',
       p_resolution_method:manualCreatorFamily==='award'?manualCreatorResolution:null
     });
+
     if(error){
       console.error(error);
       setManualCreatorMessage(error.message||'No se pudo crear.');
     }else{
       setManualCreatorMessage(
-        manualCreatorFamily==='award'
-          ?'🏆 Premio creado.'
-          :manualCreatorDestination==='library'
-            ?'📚 Guardado en Biblioteca y enviado.'
-            :'🎯 Reto enviado para esta partida.'
+        manualCreatorDestination==='library'
+          ?'📚 Guardado en Biblioteca y enviado.'
+          :'🎯 Reto enviado para esta partida.'
       );
       setChallengeForm({title:'',description:'',points:10,coins:10,recipient_ids:[]});
+      setManualCreatorTag('social');
       await loadAdminChallenges();
       await loadAdminChallengeActivity();
-      await loadStageAwards();
       await loadMasterLibrary();
       await loadNotificationCounts();
+      await loadAdminActionCounts();
     }
     setManualCreatorBusy(false);
   }
@@ -3828,6 +3838,14 @@ function Game({membership,onBack,session}){
                   <textarea rows="3" value={challengeForm.description} onChange={e=>setChallengeForm({...challengeForm,description:e.target.value})}
                     placeholder={manualCreatorFamily==='award'?'¿Qué se premia y cómo se consigue?':'¿Qué tienen que conseguir?'}/>
                 </label>
+
+                <p className="eyebrow" style={{margin:'10px 0 6px',fontSize:'.66rem',letterSpacing:'.08em'}}>ETIQUETA · OBLIGATORIA</p>
+                <div style={{display:'flex',flexWrap:'wrap',gap:'5px',marginBottom:'9px'}}>
+                  {LIBRARY_TAGS.map(([code,emoji,label])=><button type="button" key={code}
+                    className={manualCreatorTag===code?'primary':'secondary'}
+                    onClick={()=>setManualCreatorTag(code)}
+                    style={{padding:'7px 8px',fontSize:'.69rem'}}>{emoji} {label}</button>)}
+                </div>
 
                 {manualCreatorFamily==='dynamic'
                   ?<label>🪙 Recompensa
