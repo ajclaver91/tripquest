@@ -949,7 +949,7 @@ function Game({membership,onBack,session}){
     }
     setDiscoveredMissionMessage('');
     setDiscoveredMissionBusy(true);
-    const{data,error}=await supabase.rpc('mark_master_mission_discovered_v20c',{
+    const{data,error}=await supabase.rpc('mark_master_mission_discovered_v20e',{
       p_assignment_id:discoveredMission.group_id,
       p_discoverer_user_ids:discoveredByUserIds
     });
