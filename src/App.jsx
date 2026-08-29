@@ -438,6 +438,7 @@ function Game({membership,onBack,session}){
   const[discoveredMission,setDiscoveredMission]=useState(null);
   const[discoveredByUserIds,setDiscoveredByUserIds]=useState([]);
   const[discoveredMissionBusy,setDiscoveredMissionBusy]=useState(false);
+  const[discoveredMissionMessage,setDiscoveredMissionMessage]=useState('');
   const[challengeForm,setChallengeForm]=useState({
     title:'',
     description:'',
@@ -873,7 +874,7 @@ function Game({membership,onBack,session}){
       p_game_id:g.id,p_family:family,p_mode:mode
     });
     if(error){
-      setChallengeMessage(error.message);
+      setDiscoveredMissionMessage(error.message);
     }else{
       const assignments=Number(data?.assignments_created||0);
       const players=Number(data?.players_assigned||0);
@@ -933,6 +934,7 @@ function Game({membership,onBack,session}){
   function openDiscoveredMission(item){
     setDiscoveredMission(item);
     setDiscoveredByUserIds([]);
+    setDiscoveredMissionMessage('');
     setChallengeMessage('');
   }
 
@@ -942,21 +944,23 @@ function Game({membership,onBack,session}){
 
   async function confirmDiscoveredMission(){
     if(!discoveredMission||!discoveredByUserIds.length){
-      setChallengeMessage('Selecciona al menos un Brinkker que os haya descubierto.');
+      setDiscoveredMissionMessage('Selecciona al menos un Brinkker que os haya descubierto.');
       return;
     }
+    setDiscoveredMissionMessage('');
     setDiscoveredMissionBusy(true);
     const{data,error}=await supabase.rpc('mark_master_mission_discovered_v20c',{
       p_assignment_id:discoveredMission.group_id,
       p_discoverer_user_ids:discoveredByUserIds
     });
     if(error){
-      setChallengeMessage(error.message);
+      setDiscoveredMissionMessage(error.message);
     }else{
       const n=Number(data?.discoverers_count||discoveredByUserIds.length);
       setChallengeMessage(`🏳️ Misión descubierta · ${n} ${n===1?'Brinkker gana':'Brinkkers ganan'} +${data?.reward_coins_each||5} 🪙`);
       setDiscoveredMission(null);
       setDiscoveredByUserIds([]);
+      setDiscoveredMissionMessage('');
       await loadMySpecialChallenges();
       await loadNotificationCounts();
       await loadAuction();
@@ -3650,6 +3654,7 @@ function Game({membership,onBack,session}){
                 </button>;
               })}
           </div>
+          {discoveredMissionMessage&&<p className="msg" style={{margin:'10px 0 0'}}>{discoveredMissionMessage}</p>}
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'7px',marginTop:'12px'}}>
             <button type="button" className="secondary" disabled={discoveredMissionBusy} onClick={()=>setDiscoveredMission(null)}>Cancelar</button>
             <button type="button" className="primary" disabled={discoveredMissionBusy} onClick={confirmDiscoveredMission}>
