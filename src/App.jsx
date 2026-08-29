@@ -888,10 +888,11 @@ function Game({membership,onBack,session}){
 
   async function loadMySpecialChallenges(){
     setSpecialLoading(true);
-    const [legacyResult,masterResult,discoveryResult]=await Promise.all([
+    const [legacyResult,masterResult,discoveryResult,secretResult]=await Promise.all([
       supabase.rpc('list_my_tripquest_envelopes_v4',{p_game_id:g.id}),
       supabase.rpc('list_my_master_challenges_v10',{p_game_id:g.id}),
-      supabase.rpc('list_my_mission_discoveries_v20',{p_game_id:g.id})
+      supabase.rpc('list_my_mission_discoveries_v20',{p_game_id:g.id}),
+      supabase.rpc('list_my_secret_dynamic_ids_v20b',{p_game_id:g.id})
     ]);
 
     if(legacyResult.error)console.error('Error cargando retos antiguos:',legacyResult.error);
@@ -899,11 +900,13 @@ function Game({membership,onBack,session}){
 
     const legacy=(legacyResult.data||[]).map(item=>({...item,source_type:'legacy'}));
     const discoveries=new globalThis.Map((discoveryResult.data||[]).map(row=>[row.assignment_id,row]));
+    const secretDynamicIds=new globalThis.Set((secretResult.data||[]).map(row=>row.assignment_id));
     const master=(masterResult.data||[]).map(item=>{
       const discovery=discoveries.get(item.group_id);
       return {
         ...item,
         source_type:'master',
+        is_secret_dynamic:secretDynamicIds.has(item.group_id),
         ...(discovery?{
           group_status:'discovered',
           discovered_by_user_id:discovery.discovered_by_user_id,
@@ -3507,7 +3510,7 @@ function Game({membership,onBack,session}){
                     <Send size={14}/>Enviar a revisión
                   </button>}
 
-                {item.source_type==='master'&&item.secret&&Number(item.coins||0)>0&&item.group_status==='pending'&&
+                {item.source_type==='master'&&item.is_secret_dynamic===true&&item.group_status==='pending'&&
                   <button type="button" className="secondary wide"
                     style={{marginTop:'6px',padding:'8px',fontSize:'.77rem'}}
                     onClick={()=>openDiscoveredMission(item)}>
