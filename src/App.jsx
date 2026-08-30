@@ -4043,11 +4043,26 @@ function Game({membership,onBack,session}){
         <p className="eyebrow" style={{margin:'0 0 2px',fontSize:'.66rem',letterSpacing:'.08em'}}>🗺️ FREE TOUR</p>
         {!freeTour||freeTour.status==='finished'?<>
           <small style={{color:'var(--muted)'}}>Abre una votación y convertid a un Brinkker en guía del lugar.</small>
-          <div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) 82px',gap:'6px',marginTop:'8px'}}>
+          <div style={{marginTop:'8px'}}>
+            <small style={{display:'block',fontWeight:'900',marginBottom:'4px'}}>📍 Lugar</small>
             <input value={freeTourPlace} onChange={e=>setFreeTourPlace(e.target.value)} placeholder="Pontevedra, Ribadeo…"/>
-            <input type="number" min="15" max="180" value={freeTourDuration} onChange={e=>setFreeTourDuration(e.target.value)} aria-label="Duración"/>
           </div>
-          <button type="button" className="primary wide" disabled={freeTourBusy} onClick={startFreeTour} style={{marginTop:'7px',padding:'8px'}}>
+          <div style={{marginTop:'9px'}}>
+            <small style={{display:'block',fontWeight:'900',marginBottom:'5px'}}>⏱️ Duración aproximada del Free Tour</small>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,minmax(0,1fr))',gap:'5px'}}>
+              {['30','45','60','90'].map(min=><button key={min} type="button"
+                className={freeTourDuration===min?'primary':'secondary'}
+                onClick={()=>setFreeTourDuration(min)}
+                style={{padding:'7px 3px',fontSize:'.7rem'}}>{min} min</button>)}
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:'6px',marginTop:'6px'}}>
+              <small style={{color:'var(--muted)',whiteSpace:'nowrap'}}>Otra:</small>
+              <input type="number" min="15" max="180" value={freeTourDuration}
+                onChange={e=>setFreeTourDuration(e.target.value)} aria-label="Duración del Free Tour en minutos"/>
+              <small style={{color:'var(--muted)'}}>min</small>
+            </div>
+          </div>
+          <button type="button" className="primary wide" disabled={freeTourBusy} onClick={startFreeTour} style={{marginTop:'9px',padding:'8px'}}>
             🗺️ Iniciar Free Tour
           </button>
         </>:<>
