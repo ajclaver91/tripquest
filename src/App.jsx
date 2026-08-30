@@ -440,6 +440,14 @@ function Game({membership,onBack,session}){
   const[discoveredMissionBusy,setDiscoveredMissionBusy]=useState(false);
   const[discoveredMissionMessage,setDiscoveredMissionMessage]=useState('');
   const[showDiscoveredMissions,setShowDiscoveredMissions]=useState(false);
+  const[freeTour,setFreeTour]=useState(null);
+  const[freeTourMissions,setFreeTourMissions]=useState([]);
+  const[freeTourCatches,setFreeTourCatches]=useState([]);
+  const[freeTourVote,setFreeTourVote]=useState('');
+  const[freeTourPlace,setFreeTourPlace]=useState('');
+  const[freeTourDuration,setFreeTourDuration]=useState('45');
+  const[freeTourBusy,setFreeTourBusy]=useState(false);
+  const[freeTourMessage,setFreeTourMessage]=useState('');
   const[challengeForm,setChallengeForm]=useState({
     title:'',
     description:'',
@@ -575,6 +583,7 @@ function Game({membership,onBack,session}){
     loadRanking();
     loadTripMemories();
     loadNotificationCounts();
+    loadFreeTour();
     if(owner)loadAdminActionCounts();
   },[g.id]);
 
@@ -589,6 +598,85 @@ function Game({membership,onBack,session}){
 
     return()=>clearInterval(interval);
   },[auction?.auction_id,auction?.status,g.id]);
+
+  async function loadFreeTour(){
+    const{data,error}=await supabase.rpc('get_current_free_tour_v22',{p_game_id:g.id});
+    if(error){
+      console.error('Error cargando Free Tour:',error);
+      return;
+    }
+    setFreeTour(data?.tour||null);
+    setFreeTourMissions(data?.missions||[]);
+    setFreeTourCatches(data?.catches||[]);
+    setFreeTourVote(data?.my_vote_user_id||'');
+  }
+
+  async function startFreeTour(){
+    if(!freeTourPlace.trim())return setFreeTourMessage('Escribe el lugar del Free Tour');
+    setFreeTourBusy(true);setFreeTourMessage('');
+    const{error}=await supabase.rpc('start_free_tour_v22',{
+      p_game_id:g.id,
+      p_place:freeTourPlace.trim(),
+      p_duration_minutes:Number(freeTourDuration||45)
+    });
+    setFreeTourMessage(error?error.message:'🗺️ Free Tour abierto: ¡a votar guía!');
+    if(!error){setFreeTourPlace('');await loadFreeTour();}
+    setFreeTourBusy(false);
+  }
+
+  async function voteFreeTourGuide(userId){
+    setFreeTourBusy(true);setFreeTourMessage('');
+    const{error}=await supabase.rpc('vote_free_tour_guide_v22',{
+      p_game_id:g.id,p_nominee_user_id:userId
+    });
+    setFreeTourMessage(error?error.message:'🗳️ Voto guardado');
+    if(!error)await loadFreeTour();
+    setFreeTourBusy(false);
+  }
+
+  async function closeFreeTourVoting(){
+    setFreeTourBusy(true);setFreeTourMessage('');
+    const{data,error}=await supabase.rpc('close_free_tour_voting_v22',{p_game_id:g.id});
+    setFreeTourMessage(error?error.message:`🎤 ${data?.guide_nickname||'Guía elegido'} ya tiene el mando`);
+    if(!error)await loadFreeTour();
+    setFreeTourBusy(false);
+  }
+
+  async function reportFreeTourCatch(){
+    setFreeTourBusy(true);setFreeTourMessage('');
+    const{error}=await supabase.rpc('report_free_tour_catch_v22',{p_game_id:g.id});
+    setFreeTourMessage(error?error.message:'🕵️ Aviso enviado al guía');
+    if(!error)await loadFreeTour();
+    setFreeTourBusy(false);
+  }
+
+  async function reviewFreeTourCatch(catchId,approve,missionId=null){
+    setFreeTourBusy(true);setFreeTourMessage('');
+    const{error}=await supabase.rpc('review_free_tour_catch_v22',{
+      p_catch_id:catchId,p_approve:approve,p_mission_id:missionId
+    });
+    setFreeTourMessage(error?error.message:(approve?'🕵️ Cazada confirmada · +5 🪙':'Aviso descartado'));
+    if(!error){await loadFreeTour();await loadAuction();}
+    setFreeTourBusy(false);
+  }
+
+  async function toggleFreeTourMission(missionId,completed){
+    setFreeTourBusy(true);setFreeTourMessage('');
+    const{error}=await supabase.rpc('set_free_tour_mission_completed_v22',{
+      p_mission_id:missionId,p_completed:completed
+    });
+    setFreeTourMessage(error?error.message:(completed?'✅ Misión marcada como conseguida':'Misión reabierta'));
+    if(!error)await loadFreeTour();
+    setFreeTourBusy(false);
+  }
+
+  async function finishFreeTour(){
+    setFreeTourBusy(true);setFreeTourMessage('');
+    const{data,error}=await supabase.rpc('finish_free_tour_v22',{p_game_id:g.id});
+    setFreeTourMessage(error?error.message:`🏁 Free Tour cerrado · ${Number(data?.guide_reward||0)} 🪙 para el guía`);
+    if(!error){await loadFreeTour();await loadAuction();}
+    setFreeTourBusy(false);
+  }
 
   async function loadAdminActionCounts(){
     if(!owner)return;
@@ -2330,6 +2418,7 @@ function Game({membership,onBack,session}){
     if(nextPage==='challenges'){
       loadMySpecialChallenges();
       loadStageAwards();
+      loadFreeTour();
       markSectionRead('challenges');
     }
     if(nextPage==='advantages'){
@@ -2350,6 +2439,7 @@ function Game({membership,onBack,session}){
     }
     if(nextPage==='adminChallenges'){
       loadBrinkkers();
+      loadFreeTour();
       loadAdminChallenges();
       loadAdminChallengeActivity();
       setAdminChallengeTab(adminActionCounts.challenges>0?'review':'active');
@@ -3418,6 +3508,87 @@ function Game({membership,onBack,session}){
       </section>
 
 
+      {freeTour&&freeTour.status!=='finished'&&<section className="card" style={{marginTop:'10px',padding:'12px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
+        <div style={{display:'flex',justifyContent:'space-between',gap:'8px',alignItems:'flex-start'}}>
+          <div>
+            <p className="eyebrow" style={{margin:'0 0 2px',fontSize:'.64rem',letterSpacing:'.08em'}}>🗺️ FREE TOUR</p>
+            <strong style={{display:'block',fontSize:'.92rem'}}>{freeTour.place}</strong>
+            <small style={{color:'var(--muted)'}}>≈ {freeTour.duration_minutes} min</small>
+          </div>
+          <span style={{fontSize:'.68rem',fontWeight:'900',padding:'4px 7px',borderRadius:'999px',background:'#f3efe3'}}>
+            {freeTour.status==='voting'?'🗳️ Elegir guía':'🎤 En marcha'}
+          </span>
+        </div>
+
+        {freeTour.status==='voting'&&<>
+          <p style={{fontSize:'.78rem',color:'var(--muted)',margin:'10px 0 7px'}}>¿Quién debería convertirse en guía?</p>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'5px'}}>
+            {brinkkers.map(q=><button key={q.user_id} type="button"
+              className={freeTourVote===q.user_id?'primary':'secondary'}
+              disabled={freeTourBusy}
+              onClick={()=>voteFreeTourGuide(q.user_id)}
+              style={{padding:'7px 5px',fontSize:'.72rem'}}>{q.nickname}</button>)}
+          </div>
+          {freeTour.vote_count>0&&<small style={{display:'block',marginTop:'7px',color:'var(--muted)'}}>🗳️ {freeTour.vote_count} votos emitidos</small>}
+        </>}
+
+        {freeTour.status==='running'&&<>
+          <div style={{marginTop:'9px',padding:'8px 9px',borderRadius:'10px',background:'#f6f4ee'}}>
+            <small style={{display:'block',color:'var(--muted)'}}>GUÍA OFICIAL</small>
+            <strong>🎤 {freeTour.guide_nickname}</strong>
+          </div>
+
+          {freeTour.is_guide&&<>
+            <details style={{marginTop:'8px'}}>
+              <summary style={{cursor:'pointer',fontWeight:'900',fontSize:'.8rem'}}>🤖 Prompt para ChatGPT</summary>
+              <div style={{marginTop:'6px',padding:'9px',borderRadius:'10px',background:'#f6f4ee'}}>
+                <p style={{fontSize:'.75rem',lineHeight:1.4,whiteSpace:'pre-wrap',margin:0}}>{freeTour.guide_prompt}</p>
+                <button type="button" className="secondary wide" style={{marginTop:'7px',padding:'7px',fontSize:'.72rem'}}
+                  onClick={()=>navigator.clipboard?.writeText(freeTour.guide_prompt)}>Copiar prompt</button>
+              </div>
+            </details>
+            <div style={{marginTop:'9px'}}>
+              <strong style={{fontSize:'.8rem'}}>🤫 Tus misiones secretas</strong>
+              <div style={{display:'grid',gap:'5px',marginTop:'5px'}}>
+                {freeTourMissions.map((m,idx)=><button type="button" key={m.id}
+                  className={m.completed?'primary':'secondary'}
+                  disabled={freeTourBusy||m.caught}
+                  onClick={()=>toggleFreeTourMission(m.id,!m.completed)}
+                  style={{padding:'8px',textAlign:'left',justifyContent:'space-between',fontSize:'.73rem'}}>
+                  <span>{idx+1}. {m.description}</span>
+                  <span>{m.caught?'🕵️ Cazada':m.completed?'✅':'○'}</span>
+                </button>)}
+              </div>
+            </div>
+            {freeTourCatches.filter(c=>c.status==='pending').length>0&&<div style={{marginTop:'10px'}}>
+              <strong style={{fontSize:'.8rem'}}>🕵️ ¿Te han pillado?</strong>
+              {freeTourCatches.filter(c=>c.status==='pending').map(c=><div key={c.id} style={{padding:'7px 0',borderBottom:'1px solid rgba(23,63,53,.06)'}}>
+                <small><strong>{c.discoverer_nickname}</strong> dice que te ha cazado.</small>
+                <div style={{display:'flex',gap:'4px',flexWrap:'wrap',marginTop:'5px'}}>
+                  {freeTourMissions.map((m,idx)=><button type="button" className="secondary" disabled={freeTourBusy||m.caught}
+                    key={m.id} onClick={()=>reviewFreeTourCatch(c.id,true,m.id)}
+                    style={{padding:'5px 7px',fontSize:'.66rem'}}>Sí · misión {idx+1}</button>)}
+                  <button type="button" className="secondary" disabled={freeTourBusy}
+                    onClick={()=>reviewFreeTourCatch(c.id,false,null)}
+                    style={{padding:'5px 7px',fontSize:'.66rem'}}>No</button>
+                </div>
+              </div>)}
+            </div>}
+          </>}
+
+          {!freeTour.is_guide&&<>
+            <p style={{fontSize:'.76rem',color:'var(--muted)',lineHeight:1.4,margin:'9px 0 7px'}}>
+              El guía tiene misiones secretas. Si crees que has detectado una, cázalo.
+            </p>
+            <button type="button" className="secondary wide" disabled={freeTourBusy||freeTour.my_catch_status==='pending'}
+              onClick={reportFreeTourCatch} style={{padding:'8px',fontSize:'.75rem'}}>
+              🕵️ {freeTour.my_catch_status==='pending'?'Esperando al guía':'He pillado al guía'}
+            </button>
+          </>}
+        </>}
+        {freeTourMessage&&<p className="msg" style={{marginTop:'7px'}}>{freeTourMessage}</p>}
+      </section>}
+
       <div style={{marginTop:'14px',paddingTop:'10px',borderTop:'2px solid rgba(23,63,53,.08)'}}>
         <p className="eyebrow" style={{margin:'0 0 2px',fontSize:'.64rem',letterSpacing:'.08em'}}>🎯 RETOS</p>
         <small style={{color:'var(--muted)',fontWeight:'800'}}>Misiones repartidas · individuales o en equipo</small>
@@ -3866,6 +4037,36 @@ function Game({membership,onBack,session}){
           Revisa solicitudes, controla los retos repartidos y consulta lo que ya se ha completado.
           La configuración del contenido está en 📚 Biblioteca.
         </p>
+      </section>
+
+      <section className="card" style={{padding:'12px 13px',marginTop:'10px',boxShadow:'none'}}>
+        <p className="eyebrow" style={{margin:'0 0 2px',fontSize:'.66rem',letterSpacing:'.08em'}}>🗺️ FREE TOUR</p>
+        {!freeTour||freeTour.status==='finished'?<>
+          <small style={{color:'var(--muted)'}}>Abre una votación y convertid a un Brinkker en guía del lugar.</small>
+          <div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) 82px',gap:'6px',marginTop:'8px'}}>
+            <input value={freeTourPlace} onChange={e=>setFreeTourPlace(e.target.value)} placeholder="Pontevedra, Ribadeo…"/>
+            <input type="number" min="15" max="180" value={freeTourDuration} onChange={e=>setFreeTourDuration(e.target.value)} aria-label="Duración"/>
+          </div>
+          <button type="button" className="primary wide" disabled={freeTourBusy} onClick={startFreeTour} style={{marginTop:'7px',padding:'8px'}}>
+            🗺️ Iniciar Free Tour
+          </button>
+        </>:<>
+          <div style={{display:'flex',justifyContent:'space-between',gap:'8px',alignItems:'center'}}>
+            <div><strong style={{fontSize:'.86rem'}}>{freeTour.place}</strong><small style={{display:'block',color:'var(--muted)'}}>≈ {freeTour.duration_minutes} min</small></div>
+            <span style={{fontSize:'.68rem',fontWeight:'900'}}>{freeTour.status==='voting'?'🗳️ Votación':'🎤 En marcha'}</span>
+          </div>
+          {freeTour.status==='voting'&&<button type="button" className="primary wide" disabled={freeTourBusy||!freeTour.vote_count}
+            onClick={closeFreeTourVoting} style={{marginTop:'8px',padding:'8px'}}>
+            🎤 Cerrar votación · {freeTour.vote_count||0} votos
+          </button>}
+          {freeTour.status==='running'&&<>
+            <p style={{fontSize:'.75rem',margin:'8px 0 0'}}>Guía: <strong>{freeTour.guide_nickname}</strong></p>
+            <button type="button" className="secondary wide" disabled={freeTourBusy} onClick={finishFreeTour} style={{marginTop:'7px',padding:'8px'}}>
+              🏁 Finalizar Free Tour
+            </button>
+          </>}
+        </>}
+        {freeTourMessage&&<p className="msg" style={{marginTop:'7px'}}>{freeTourMessage}</p>}
       </section>
 
       {(()=>{
