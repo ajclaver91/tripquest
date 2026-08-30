@@ -435,19 +435,6 @@ function Game({membership,onBack,session}){
   const[libraryEnabledFilter,setLibraryEnabledFilter]=useState('all');
   const[challengeBusy,setChallengeBusy]=useState(false);
   const[challengeMessage,setChallengeMessage]=useState('');
-  const[discoveredMission,setDiscoveredMission]=useState(null);
-  const[discoveredByUserIds,setDiscoveredByUserIds]=useState([]);
-  const[discoveredMissionBusy,setDiscoveredMissionBusy]=useState(false);
-  const[discoveredMissionMessage,setDiscoveredMissionMessage]=useState('');
-  const[showDiscoveredMissions,setShowDiscoveredMissions]=useState(false);
-  const[freeTour,setFreeTour]=useState(null);
-  const[freeTourMissions,setFreeTourMissions]=useState([]);
-  const[freeTourCatches,setFreeTourCatches]=useState([]);
-  const[freeTourVote,setFreeTourVote]=useState('');
-  const[freeTourPlace,setFreeTourPlace]=useState('');
-  const[freeTourDuration,setFreeTourDuration]=useState('45');
-  const[freeTourBusy,setFreeTourBusy]=useState(false);
-  const[freeTourMessage,setFreeTourMessage]=useState('');
   const[challengeForm,setChallengeForm]=useState({
     title:'',
     description:'',
@@ -583,7 +570,6 @@ function Game({membership,onBack,session}){
     loadRanking();
     loadTripMemories();
     loadNotificationCounts();
-    loadFreeTour();
     if(owner)loadAdminActionCounts();
   },[g.id]);
 
@@ -598,85 +584,6 @@ function Game({membership,onBack,session}){
 
     return()=>clearInterval(interval);
   },[auction?.auction_id,auction?.status,g.id]);
-
-  async function loadFreeTour(){
-    const{data,error}=await supabase.rpc('get_current_free_tour_v22',{p_game_id:g.id});
-    if(error){
-      console.error('Error cargando Free Tour:',error);
-      return;
-    }
-    setFreeTour(data?.tour||null);
-    setFreeTourMissions(data?.missions||[]);
-    setFreeTourCatches(data?.catches||[]);
-    setFreeTourVote(data?.my_vote_user_id||'');
-  }
-
-  async function startFreeTour(){
-    if(!freeTourPlace.trim())return setFreeTourMessage('Escribe el lugar del Free Tour');
-    setFreeTourBusy(true);setFreeTourMessage('');
-    const{error}=await supabase.rpc('start_free_tour_v22',{
-      p_game_id:g.id,
-      p_place:freeTourPlace.trim(),
-      p_duration_minutes:Number(freeTourDuration||45)
-    });
-    setFreeTourMessage(error?error.message:'🗺️ Free Tour abierto: ¡a votar guía!');
-    if(!error){setFreeTourPlace('');await loadFreeTour();}
-    setFreeTourBusy(false);
-  }
-
-  async function voteFreeTourGuide(userId){
-    setFreeTourBusy(true);setFreeTourMessage('');
-    const{error}=await supabase.rpc('vote_free_tour_guide_v22',{
-      p_game_id:g.id,p_nominee_user_id:userId
-    });
-    setFreeTourMessage(error?error.message:'🗳️ Voto guardado');
-    if(!error)await loadFreeTour();
-    setFreeTourBusy(false);
-  }
-
-  async function closeFreeTourVoting(){
-    setFreeTourBusy(true);setFreeTourMessage('');
-    const{data,error}=await supabase.rpc('close_free_tour_voting_v22',{p_game_id:g.id});
-    setFreeTourMessage(error?error.message:`🎤 ${data?.guide_nickname||'Guía elegido'} ya tiene el mando`);
-    if(!error)await loadFreeTour();
-    setFreeTourBusy(false);
-  }
-
-  async function reportFreeTourCatch(){
-    setFreeTourBusy(true);setFreeTourMessage('');
-    const{error}=await supabase.rpc('report_free_tour_catch_v22',{p_game_id:g.id});
-    setFreeTourMessage(error?error.message:'🕵️ Aviso enviado al guía');
-    if(!error)await loadFreeTour();
-    setFreeTourBusy(false);
-  }
-
-  async function reviewFreeTourCatch(catchId,approve,missionId=null){
-    setFreeTourBusy(true);setFreeTourMessage('');
-    const{error}=await supabase.rpc('review_free_tour_catch_v22',{
-      p_catch_id:catchId,p_approve:approve,p_mission_id:missionId
-    });
-    setFreeTourMessage(error?error.message:(approve?'🕵️ Cazada confirmada · +5 🪙':'Aviso descartado'));
-    if(!error){await loadFreeTour();await loadAuction();}
-    setFreeTourBusy(false);
-  }
-
-  async function toggleFreeTourMission(missionId,completed){
-    setFreeTourBusy(true);setFreeTourMessage('');
-    const{error}=await supabase.rpc('set_free_tour_mission_completed_v22',{
-      p_mission_id:missionId,p_completed:completed
-    });
-    setFreeTourMessage(error?error.message:(completed?'✅ Misión marcada como conseguida':'Misión reabierta'));
-    if(!error)await loadFreeTour();
-    setFreeTourBusy(false);
-  }
-
-  async function finishFreeTour(){
-    setFreeTourBusy(true);setFreeTourMessage('');
-    const{data,error}=await supabase.rpc('finish_free_tour_v22',{p_game_id:g.id});
-    setFreeTourMessage(error?error.message:`🏁 Free Tour cerrado · ${Number(data?.guide_reward||0)} 🪙 para el guía`);
-    if(!error){await loadFreeTour();await loadAuction();}
-    setFreeTourBusy(false);
-  }
 
   async function loadAdminActionCounts(){
     if(!owner)return;
@@ -963,7 +870,7 @@ function Game({membership,onBack,session}){
       p_game_id:g.id,p_family:family,p_mode:mode
     });
     if(error){
-      setDiscoveredMissionMessage(error.message);
+      setChallengeMessage(error.message);
     }else{
       const assignments=Number(data?.assignments_created||0);
       const players=Number(data?.players_assigned||0);
@@ -977,32 +884,16 @@ function Game({membership,onBack,session}){
 
   async function loadMySpecialChallenges(){
     setSpecialLoading(true);
-    const [legacyResult,masterResult,discoveryResult,secretResult]=await Promise.all([
+    const [legacyResult,masterResult]=await Promise.all([
       supabase.rpc('list_my_tripquest_envelopes_v4',{p_game_id:g.id}),
-      supabase.rpc('list_my_master_challenges_v10',{p_game_id:g.id}),
-      supabase.rpc('list_my_mission_discoveries_v20',{p_game_id:g.id}),
-      supabase.rpc('list_my_secret_dynamic_ids_v20b',{p_game_id:g.id})
+      supabase.rpc('list_my_master_challenges_v10',{p_game_id:g.id})
     ]);
 
     if(legacyResult.error)console.error('Error cargando retos antiguos:',legacyResult.error);
     if(masterResult.error)console.error('Error cargando Biblioteca Maestra:',masterResult.error);
 
     const legacy=(legacyResult.data||[]).map(item=>({...item,source_type:'legacy'}));
-    const discoveries=new globalThis.Map((discoveryResult.data||[]).map(row=>[row.assignment_id,row]));
-    const secretDynamicIds=new globalThis.Set((secretResult.data||[]).map(row=>row.assignment_id));
-    const master=(masterResult.data||[]).map(item=>{
-      const discovery=discoveries.get(item.group_id);
-      return {
-        ...item,
-        source_type:'master',
-        is_secret_dynamic:secretDynamicIds.has(item.group_id),
-        ...(discovery?{
-          group_status:'discovered',
-          discovered_by_nicknames:discovery.discovered_by_nicknames,
-          discoverer_reward_coins:discovery.discoverer_reward_coins
-        }:{})
-      };
-    });
+    const master=(masterResult.data||[]).map(item=>({...item,source_type:'master'}));
     setSpecialChallenges([...master,...legacy]);
     setSpecialLoading(false);
   }
@@ -1018,43 +909,6 @@ function Game({membership,onBack,session}){
       await loadMySpecialChallenges();
       await loadNotificationCounts();
     }
-  }
-
-  function openDiscoveredMission(item){
-    setDiscoveredMission(item);
-    setDiscoveredByUserIds([]);
-    setDiscoveredMissionMessage('');
-    setChallengeMessage('');
-  }
-
-  function toggleDiscoverer(userId){
-    setDiscoveredByUserIds(ids=>ids.includes(userId)?ids.filter(id=>id!==userId):[...ids,userId]);
-  }
-
-  async function confirmDiscoveredMission(){
-    if(!discoveredMission||!discoveredByUserIds.length){
-      setDiscoveredMissionMessage('Selecciona al menos un Brinkker que os haya descubierto.');
-      return;
-    }
-    setDiscoveredMissionMessage('');
-    setDiscoveredMissionBusy(true);
-    const{data,error}=await supabase.rpc('mark_master_mission_discovered_v20e',{
-      p_assignment_id:discoveredMission.group_id,
-      p_discoverer_user_ids:discoveredByUserIds
-    });
-    if(error){
-      setDiscoveredMissionMessage(error.message);
-    }else{
-      const n=Number(data?.discoverers_count||discoveredByUserIds.length);
-      setChallengeMessage(`🏳️ Misión descubierta · ${n} ${n===1?'Brinkker gana':'Brinkkers ganan'} +${data?.reward_coins_each||5} 🪙`);
-      setDiscoveredMission(null);
-      setDiscoveredByUserIds([]);
-      setDiscoveredMissionMessage('');
-      await loadMySpecialChallenges();
-      await loadNotificationCounts();
-      await loadAuction();
-    }
-    setDiscoveredMissionBusy(false);
   }
 
   function blankExpenseForm(){
@@ -1446,13 +1300,14 @@ function Game({membership,onBack,session}){
       accommodation_name:'',
       booking_url:'',
       booked_by_user_id:'',
-      accommodation_price:''
+      accommodation_price:'',
+      activities:[]
     };
   }
 
   async function loadStages(){
     setStagesLoading(true);
-    const{data,error}=await supabase.rpc('list_brinkkando_stages',{p_game_id:g.id});
+    const{data,error}=await supabase.rpc('list_brinkkando_stages_v23',{p_game_id:g.id});
     if(error){
       console.error('Error cargando Plan:',error);
       setStages([]);
@@ -1480,9 +1335,26 @@ function Game({membership,onBack,session}){
       accommodation_name:stage.accommodation_name||'',
       booking_url:stage.booking_url||'',
       booked_by_user_id:stage.booked_by_user_id||'',
-      accommodation_price:stage.accommodation_price??''
+      accommodation_price:stage.accommodation_price??'',
+      activities:Array.isArray(stage.activities)?stage.activities:[]
     });
     window.scrollTo({top:0,behavior:'smooth'});
+  }
+
+  function addPlanActivity(){
+    setStageForm({...stageForm,activities:[...(stageForm.activities||[]),{
+      id:`tmp-${Date.now()}`,type:'activity',time_text:'',title:'',details:'',url:''
+    }]});
+  }
+
+  function updatePlanActivity(index,patch){
+    const next=[...(stageForm.activities||[])];
+    next[index]={...next[index],...patch};
+    setStageForm({...stageForm,activities:next});
+  }
+
+  function removePlanActivity(index){
+    setStageForm({...stageForm,activities:(stageForm.activities||[]).filter((_,i)=>i!==index)});
   }
 
   async function saveStage(e){
@@ -1494,7 +1366,7 @@ function Game({membership,onBack,session}){
     const elevation=stageForm.same_place||stageForm.elevation_m===''?null:Number(stageForm.elevation_m);
     const price=stageForm.accommodation_price===''?null:Number(stageForm.accommodation_price);
 
-    const{error}=await supabase.rpc('save_brinkkando_stage',{
+    const{error}=await supabase.rpc('save_brinkkando_stage_v23',{
       p_stage_id:editingStageId,
       p_game_id:g.id,
       p_stage_date:stageForm.stage_date||null,
@@ -1511,7 +1383,14 @@ function Game({membership,onBack,session}){
       p_accommodation_name:stageForm.same_accommodation?null:(stageForm.accommodation_name.trim()||null),
       p_booking_url:stageForm.same_accommodation?null:(stageForm.booking_url.trim()||null),
       p_booked_by_user_id:stageForm.same_accommodation?null:(stageForm.booked_by_user_id||null),
-      p_accommodation_price:Number.isFinite(price)?price:null
+      p_accommodation_price:Number.isFinite(price)?price:null,
+      p_activities:(stageForm.activities||[]).filter(a=>a.title?.trim()).map(a=>({
+        type:a.type||'activity',
+        time_text:a.time_text?.trim()||null,
+        title:a.title.trim(),
+        details:a.details?.trim()||null,
+        url:a.url?.trim()||null
+      }))
     });
 
     if(error){
@@ -2418,7 +2297,6 @@ function Game({membership,onBack,session}){
     if(nextPage==='challenges'){
       loadMySpecialChallenges();
       loadStageAwards();
-      loadFreeTour();
       markSectionRead('challenges');
     }
     if(nextPage==='advantages'){
@@ -2439,7 +2317,6 @@ function Game({membership,onBack,session}){
     }
     if(nextPage==='adminChallenges'){
       loadBrinkkers();
-      loadFreeTour();
       loadAdminChallenges();
       loadAdminChallengeActivity();
       setAdminChallengeTab(adminActionCounts.challenges>0?'review':'active');
@@ -3409,7 +3286,7 @@ function Game({membership,onBack,session}){
         }}>
           <h2 style={{margin:0,fontSize:'.94rem'}}>Retos pendientes</h2>
           <small style={{color:'var(--muted)',fontWeight:'850'}}>
-            {specialChallenges.filter(item=>!['approved','discovered'].includes(item.group_status)).length}
+            {specialChallenges.filter(item=>item.group_status!=='approved').length}
           </small>
         </div>
       </section>
@@ -3508,87 +3385,6 @@ function Game({membership,onBack,session}){
       </section>
 
 
-      {freeTour&&freeTour.status!=='finished'&&<section className="card" style={{marginTop:'10px',padding:'12px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
-        <div style={{display:'flex',justifyContent:'space-between',gap:'8px',alignItems:'flex-start'}}>
-          <div>
-            <p className="eyebrow" style={{margin:'0 0 2px',fontSize:'.64rem',letterSpacing:'.08em'}}>🗺️ FREE TOUR</p>
-            <strong style={{display:'block',fontSize:'.92rem'}}>{freeTour.place}</strong>
-            <small style={{color:'var(--muted)'}}>≈ {freeTour.duration_minutes} min</small>
-          </div>
-          <span style={{fontSize:'.68rem',fontWeight:'900',padding:'4px 7px',borderRadius:'999px',background:'#f3efe3'}}>
-            {freeTour.status==='voting'?'🗳️ Elegir guía':'🎤 En marcha'}
-          </span>
-        </div>
-
-        {freeTour.status==='voting'&&<>
-          <p style={{fontSize:'.78rem',color:'var(--muted)',margin:'10px 0 7px'}}>¿Quién debería convertirse en guía?</p>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'5px'}}>
-            {brinkkers.map(q=><button key={q.user_id} type="button"
-              className={freeTourVote===q.user_id?'primary':'secondary'}
-              disabled={freeTourBusy}
-              onClick={()=>voteFreeTourGuide(q.user_id)}
-              style={{padding:'7px 5px',fontSize:'.72rem'}}>{q.nickname}</button>)}
-          </div>
-          {freeTour.vote_count>0&&<small style={{display:'block',marginTop:'7px',color:'var(--muted)'}}>🗳️ {freeTour.vote_count} votos emitidos</small>}
-        </>}
-
-        {freeTour.status==='running'&&<>
-          <div style={{marginTop:'9px',padding:'8px 9px',borderRadius:'10px',background:'#f6f4ee'}}>
-            <small style={{display:'block',color:'var(--muted)'}}>GUÍA OFICIAL</small>
-            <strong>🎤 {freeTour.guide_nickname}</strong>
-          </div>
-
-          {freeTour.is_guide&&<>
-            <details style={{marginTop:'8px'}}>
-              <summary style={{cursor:'pointer',fontWeight:'900',fontSize:'.8rem'}}>🤖 Prompt para ChatGPT</summary>
-              <div style={{marginTop:'6px',padding:'9px',borderRadius:'10px',background:'#f6f4ee'}}>
-                <p style={{fontSize:'.75rem',lineHeight:1.4,whiteSpace:'pre-wrap',margin:0}}>{freeTour.guide_prompt}</p>
-                <button type="button" className="secondary wide" style={{marginTop:'7px',padding:'7px',fontSize:'.72rem'}}
-                  onClick={()=>navigator.clipboard?.writeText(freeTour.guide_prompt)}>Copiar prompt</button>
-              </div>
-            </details>
-            <div style={{marginTop:'9px'}}>
-              <strong style={{fontSize:'.8rem'}}>🤫 Tus misiones secretas</strong>
-              <div style={{display:'grid',gap:'5px',marginTop:'5px'}}>
-                {freeTourMissions.map((m,idx)=><button type="button" key={m.id}
-                  className={m.completed?'primary':'secondary'}
-                  disabled={freeTourBusy||m.caught}
-                  onClick={()=>toggleFreeTourMission(m.id,!m.completed)}
-                  style={{padding:'8px',textAlign:'left',justifyContent:'space-between',fontSize:'.73rem'}}>
-                  <span>{idx+1}. {m.description}</span>
-                  <span>{m.caught?'🕵️ Cazada':m.completed?'✅':'○'}</span>
-                </button>)}
-              </div>
-            </div>
-            {freeTourCatches.filter(c=>c.status==='pending').length>0&&<div style={{marginTop:'10px'}}>
-              <strong style={{fontSize:'.8rem'}}>🕵️ ¿Te han pillado?</strong>
-              {freeTourCatches.filter(c=>c.status==='pending').map(c=><div key={c.id} style={{padding:'7px 0',borderBottom:'1px solid rgba(23,63,53,.06)'}}>
-                <small><strong>{c.discoverer_nickname}</strong> dice que te ha cazado.</small>
-                <div style={{display:'flex',gap:'4px',flexWrap:'wrap',marginTop:'5px'}}>
-                  {freeTourMissions.map((m,idx)=><button type="button" className="secondary" disabled={freeTourBusy||m.caught}
-                    key={m.id} onClick={()=>reviewFreeTourCatch(c.id,true,m.id)}
-                    style={{padding:'5px 7px',fontSize:'.66rem'}}>Sí · misión {idx+1}</button>)}
-                  <button type="button" className="secondary" disabled={freeTourBusy}
-                    onClick={()=>reviewFreeTourCatch(c.id,false,null)}
-                    style={{padding:'5px 7px',fontSize:'.66rem'}}>No</button>
-                </div>
-              </div>)}
-            </div>}
-          </>}
-
-          {!freeTour.is_guide&&<>
-            <p style={{fontSize:'.76rem',color:'var(--muted)',lineHeight:1.4,margin:'9px 0 7px'}}>
-              El guía tiene misiones secretas. Si crees que has detectado una, cázalo.
-            </p>
-            <button type="button" className="secondary wide" disabled={freeTourBusy||freeTour.my_catch_status==='pending'}
-              onClick={reportFreeTourCatch} style={{padding:'8px',fontSize:'.75rem'}}>
-              🕵️ {freeTour.my_catch_status==='pending'?'Esperando al guía':'He pillado al guía'}
-            </button>
-          </>}
-        </>}
-        {freeTourMessage&&<p className="msg" style={{marginTop:'7px'}}>{freeTourMessage}</p>}
-      </section>}
-
       <div style={{marginTop:'14px',paddingTop:'10px',borderTop:'2px solid rgba(23,63,53,.08)'}}>
         <p className="eyebrow" style={{margin:'0 0 2px',fontSize:'.64rem',letterSpacing:'.08em'}}>🎯 RETOS</p>
         <small style={{color:'var(--muted)',fontWeight:'800'}}>Misiones repartidas · individuales o en equipo</small>
@@ -3601,7 +3397,7 @@ function Game({membership,onBack,session}){
           </article>}
 
         {!specialLoading&&specialChallenges
-          .filter(item=>!['approved','discovered'].includes(item.group_status))
+          .filter(item=>item.group_status!=='approved')
           .sort((a,b)=>{
             const order={pending:0,rejected:1,submitted:2};
             return (order[a.group_status]??9)-(order[b.group_status]??9);
@@ -3680,64 +3476,16 @@ function Game({membership,onBack,session}){
                     onClick={()=>submitSpecial(item)}>
                     <Send size={14}/>Enviar a revisión
                   </button>}
-
-                {item.source_type==='master'&&item.is_secret_dynamic===true&&item.group_status==='pending'&&
-                  <button type="button" className="secondary wide"
-                    style={{marginTop:'6px',padding:'8px',fontSize:'.77rem'}}
-                    onClick={()=>openDiscoveredMission(item)}>
-                    🏳️ Nos han descubierto
-                  </button>}
               </div>
             </details>;
           })}
 
         {!specialLoading&&
-          !specialChallenges.some(item=>!['approved','discovered'].includes(item.group_status))&&
+          !specialChallenges.some(item=>item.group_status!=='approved')&&
           <article className="card" style={{padding:'11px 12px'}}>
             ✨ No tienes retos pendientes.
           </article>}
       </section>
-
-      {!specialLoading&&specialChallenges.some(item=>item.group_status==='discovered')&&
-        <section style={{marginTop:'12px'}}>
-          <button type="button"
-            onClick={()=>setShowDiscoveredMissions(!showDiscoveredMissions)}
-            className="card"
-            style={{
-              width:'100%',
-              padding:'10px 12px',
-              border:'1px solid rgba(23,63,53,.08)',
-              boxShadow:'none',
-              display:'flex',
-              alignItems:'center',
-              justifyContent:'space-between',
-              gap:'10px',
-              color:'inherit',
-              textAlign:'left'
-            }}>
-            <span>
-              <strong style={{display:'block',fontSize:'.84rem'}}>🕵️ Misiones descubiertas</strong>
-              <small style={{display:'block',color:'var(--muted)',marginTop:'1px'}}>
-                {specialChallenges.filter(item=>item.group_status==='discovered').length} cazadas por otros Brinkkers
-              </small>
-            </span>
-            <span style={{fontWeight:'950',color:'var(--muted)',fontSize:'1rem'}}>
-              {showDiscoveredMissions?'⌃':'›'}
-            </span>
-          </button>
-
-          {showDiscoveredMissions&&
-            <div style={{display:'grid',gap:'5px',marginTop:'6px'}}>
-              {specialChallenges.filter(item=>item.group_status==='discovered').map(item=>
-                <article key={item.group_id} style={{padding:'8px 10px',borderRadius:'11px',border:'1px solid rgba(23,63,53,.07)',background:'#fffdf7'}}>
-                  <strong style={{display:'block',fontSize:'.77rem'}}>🏳️ {item.title}</strong>
-                  <small style={{display:'block',color:'var(--muted)',marginTop:'2px'}}>
-                    Descubierta por {item.discovered_by_nicknames||'otro Brinkker'} · +{item.discoverer_reward_coins||5} 🪙 cada uno
-                  </small>
-                </article>
-              )}
-            </div>}
-        </section>}
 
       {!specialLoading&&specialChallenges.some(item=>item.group_status==='approved')&&
         <section style={{marginTop:'12px'}}>
@@ -3826,36 +3574,6 @@ function Game({membership,onBack,session}){
                 })}
             </div>}
         </section>}
-      {discoveredMission&&<div className="backdrop" style={{zIndex:60}} onClick={()=>!discoveredMissionBusy&&setDiscoveredMission(null)}>
-        <section className="card modal" onClick={e=>e.stopPropagation()} style={{padding:'16px',maxHeight:'82vh',overflowY:'auto'}}>
-          <p className="eyebrow" style={{marginBottom:'3px'}}>🏳️ MISIÓN DESCUBIERTA</p>
-          <h2 style={{margin:'0 0 6px',fontSize:'1rem'}}>¿Os han pillado?</h2>
-          <p style={{color:'var(--muted)',fontSize:'.8rem',lineHeight:1.4,marginTop:0}}>
-            Marca a todos los Brinkkers que os hayan pillado. La misión se pierde y cada descubridor recibe su recompensa.
-          </p>
-          <p className="eyebrow" style={{margin:'8px 0 5px'}}>¿QUIÉN OS HA DESCUBIERTO?</p>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'6px'}}>
-            {brinkkers
-              .filter(q=>q.user_id!==session?.user?.id)
-              .map(q=>{
-                const selected=discoveredByUserIds.includes(q.user_id);
-                return <button key={q.user_id} type="button"
-                  className={selected?'primary':'secondary'}
-                  onClick={()=>toggleDiscoverer(q.user_id)}
-                  style={{padding:'9px 7px',fontSize:'.76rem'}}>
-                  {selected?'✓ ':''}{q.nickname}
-                </button>;
-              })}
-          </div>
-          {discoveredMissionMessage&&<p className="msg" style={{margin:'10px 0 0'}}>{discoveredMissionMessage}</p>}
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'7px',marginTop:'12px'}}>
-            <button type="button" className="secondary" disabled={discoveredMissionBusy} onClick={()=>setDiscoveredMission(null)}>Cancelar</button>
-            <button type="button" className="primary" disabled={discoveredMissionBusy} onClick={confirmDiscoveredMission}>
-              {discoveredMissionBusy?'Guardando…':'🏳️ Confirmar'}
-            </button>
-          </div>
-        </section>
-      </div>}
     </>:page==='library'&&mode==='admin'?<>
       <section className="card" style={{padding:'15px',border:'1px solid rgba(23,63,53,.09)',boxShadow:'none'}}>
         <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.67rem',letterSpacing:'.08em'}}>📚 BIBLIOTECA</p>
@@ -4037,51 +3755,6 @@ function Game({membership,onBack,session}){
           Revisa solicitudes, controla los retos repartidos y consulta lo que ya se ha completado.
           La configuración del contenido está en 📚 Biblioteca.
         </p>
-      </section>
-
-      <section className="card" style={{padding:'12px 13px',marginTop:'10px',boxShadow:'none'}}>
-        <p className="eyebrow" style={{margin:'0 0 2px',fontSize:'.66rem',letterSpacing:'.08em'}}>🗺️ FREE TOUR</p>
-        {!freeTour||freeTour.status==='finished'?<>
-          <small style={{color:'var(--muted)'}}>Abre una votación y convertid a un Brinkker en guía del lugar.</small>
-          <div style={{marginTop:'8px'}}>
-            <small style={{display:'block',fontWeight:'900',marginBottom:'4px'}}>📍 Lugar</small>
-            <input value={freeTourPlace} onChange={e=>setFreeTourPlace(e.target.value)} placeholder="Pontevedra, Ribadeo…"/>
-          </div>
-          <div style={{marginTop:'9px'}}>
-            <small style={{display:'block',fontWeight:'900',marginBottom:'5px'}}>⏱️ Duración aproximada del Free Tour</small>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(4,minmax(0,1fr))',gap:'5px'}}>
-              {['30','45','60','90'].map(min=><button key={min} type="button"
-                className={freeTourDuration===min?'primary':'secondary'}
-                onClick={()=>setFreeTourDuration(min)}
-                style={{padding:'7px 3px',fontSize:'.7rem'}}>{min} min</button>)}
-            </div>
-            <div style={{display:'flex',alignItems:'center',gap:'6px',marginTop:'6px'}}>
-              <small style={{color:'var(--muted)',whiteSpace:'nowrap'}}>Otra:</small>
-              <input type="number" min="15" max="180" value={freeTourDuration}
-                onChange={e=>setFreeTourDuration(e.target.value)} aria-label="Duración del Free Tour en minutos"/>
-              <small style={{color:'var(--muted)'}}>min</small>
-            </div>
-          </div>
-          <button type="button" className="primary wide" disabled={freeTourBusy} onClick={startFreeTour} style={{marginTop:'9px',padding:'8px'}}>
-            🗺️ Iniciar Free Tour
-          </button>
-        </>:<>
-          <div style={{display:'flex',justifyContent:'space-between',gap:'8px',alignItems:'center'}}>
-            <div><strong style={{fontSize:'.86rem'}}>{freeTour.place}</strong><small style={{display:'block',color:'var(--muted)'}}>≈ {freeTour.duration_minutes} min</small></div>
-            <span style={{fontSize:'.68rem',fontWeight:'900'}}>{freeTour.status==='voting'?'🗳️ Votación':'🎤 En marcha'}</span>
-          </div>
-          {freeTour.status==='voting'&&<button type="button" className="primary wide" disabled={freeTourBusy||!freeTour.vote_count}
-            onClick={closeFreeTourVoting} style={{marginTop:'8px',padding:'8px'}}>
-            🎤 Cerrar votación · {freeTour.vote_count||0} votos
-          </button>}
-          {freeTour.status==='running'&&<>
-            <p style={{fontSize:'.75rem',margin:'8px 0 0'}}>Guía: <strong>{freeTour.guide_nickname}</strong></p>
-            <button type="button" className="secondary wide" disabled={freeTourBusy} onClick={finishFreeTour} style={{marginTop:'7px',padding:'8px'}}>
-              🏁 Finalizar Free Tour
-            </button>
-          </>}
-        </>}
-        {freeTourMessage&&<p className="msg" style={{marginTop:'7px'}}>{freeTourMessage}</p>}
       </section>
 
       {(()=>{
@@ -5063,6 +4736,31 @@ function Game({membership,onBack,session}){
             placeholder="Visitas, comida, playa, festival, horarios, cosas a tener en cuenta…"/>
         </label>
 
+        <div style={{marginTop:'20px',display:'flex',justifyContent:'space-between',alignItems:'center',gap:'8px'}}>
+          <p className="eyebrow" style={{margin:0,fontSize:'.67rem',letterSpacing:'.08em'}}>PARADAS · ACTIVIDADES · RESERVAS</p>
+          <button type="button" className="secondary" onClick={addPlanActivity} style={{padding:'6px 9px',fontSize:'.72rem'}}>＋ Añadir</button>
+        </div>
+        <small style={{display:'block',color:'var(--muted)',margin:'5px 0 9px'}}>Añade solo lo que tenga sentido ese día. Sirve igual para una visita, restaurante, playa, festival, ferry o cualquier otro plan.</small>
+        {(stageForm.activities||[]).map((a,index)=><div key={a.id||index} style={{padding:'10px',border:'1px solid rgba(23,63,53,.09)',borderRadius:'12px',marginBottom:'8px'}}>
+          <div style={{display:'grid',gridTemplateColumns:'115px minmax(0,1fr)',gap:'6px'}}>
+            <select value={a.type||'activity'} onChange={e=>updatePlanActivity(index,{type:e.target.value})}>
+              <option value="activity">🎯 Actividad</option>
+              <option value="place">📍 Lugar</option>
+              <option value="food">🍴 Comida</option>
+              <option value="reservation">🎟️ Reserva</option>
+              <option value="transport">🚌 Transporte</option>
+              <option value="other">✨ Otro</option>
+            </select>
+            <input value={a.title||''} onChange={e=>updatePlanActivity(index,{title:e.target.value})} placeholder="Qué vais a hacer"/>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'90px minmax(0,1fr)',gap:'6px',marginTop:'6px'}}>
+            <input value={a.time_text||''} onChange={e=>updatePlanActivity(index,{time_text:e.target.value})} placeholder="Hora"/>
+            <input type="url" value={a.url||''} onChange={e=>updatePlanActivity(index,{url:e.target.value})} placeholder="Enlace opcional"/>
+          </div>
+          <textarea rows="2" value={a.details||''} onChange={e=>updatePlanActivity(index,{details:e.target.value})} placeholder="Nota opcional…" style={{marginTop:'6px'}}/>
+          <button type="button" className="secondary" onClick={()=>removePlanActivity(index)} style={{padding:'5px 8px',fontSize:'.68rem'}}>Quitar</button>
+        </div>)}
+
         <p className="eyebrow" style={{marginTop:'20px',fontSize:'.67rem',letterSpacing:'.08em'}}>ALOJAMIENTO</p>
         <label style={{display:'flex',alignItems:'center',gap:'10px',fontWeight:'850'}}>
           <input type="checkbox" checked={stageForm.same_accommodation}
@@ -5153,6 +4851,22 @@ function Game({membership,onBack,session}){
 
               {isExpanded&&<div style={{marginTop:'14px',paddingTop:'13px',borderTop:'1px solid #e3ded2'}}>
                 {stage.day_description&&<p style={{marginTop:0}}>{stage.day_description}</p>}
+
+                {Array.isArray(stage.activities)&&stage.activities.length>0&&<div style={{display:'grid',gap:'7px',margin:'11px 0'}}>
+                  {stage.activities.map((a,i)=>{
+                    const icons={activity:'🎯',place:'📍',food:'🍴',reservation:'🎟️',transport:'🚌',other:'✨'};
+                    return <div key={a.id||i} style={{padding:'9px 10px',borderRadius:'11px',background:'#f6f4ee'}}>
+                      <div style={{display:'flex',gap:'7px',alignItems:'flex-start'}}>
+                        <span>{icons[a.type]||'✨'}</span>
+                        <div style={{flex:1,minWidth:0}}>
+                          <strong style={{fontSize:'.82rem'}}>{a.time_text?`${a.time_text} · `:''}{a.title}</strong>
+                          {a.details&&<small style={{display:'block',color:'var(--muted)',marginTop:'2px'}}>{a.details}</small>}
+                          {a.url&&<a href={a.url} target="_blank" rel="noreferrer" style={{display:'inline-block',fontSize:'.7rem',fontWeight:'900',marginTop:'3px'}}>Abrir enlace ↗</a>}
+                        </div>
+                      </div>
+                    </div>
+                  })}
+                </div>}
 
                 {!stage.same_place&&stage.route_url&&<a className="primary wide" href={stage.route_url} target="_blank" rel="noreferrer"
                   style={{textDecoration:'none',marginTop:'10px'}}>
