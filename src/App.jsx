@@ -525,7 +525,6 @@ function Game({membership,onBack,session}){
     accommodation_name:'',
     booking_url:'',
     booked_by_user_id:'',
-    accommodation_price:''
   });
   const[settingsForm,setSettingsForm]=useState({
     name:membership.games?.name||'',
@@ -1300,7 +1299,6 @@ function Game({membership,onBack,session}){
       accommodation_name:'',
       booking_url:'',
       booked_by_user_id:'',
-      accommodation_price:'',
       activities:[]
     };
   }
@@ -1335,7 +1333,6 @@ function Game({membership,onBack,session}){
       accommodation_name:stage.accommodation_name||'',
       booking_url:stage.booking_url||'',
       booked_by_user_id:stage.booked_by_user_id||'',
-      accommodation_price:stage.accommodation_price??'',
       activities:Array.isArray(stage.activities)?stage.activities:[]
     });
     window.scrollTo({top:0,behavior:'smooth'});
@@ -1364,7 +1361,6 @@ function Game({membership,onBack,session}){
 
     const distance=stageForm.same_place||stageForm.distance_km===''?null:Number(stageForm.distance_km);
     const elevation=stageForm.same_place||stageForm.elevation_m===''?null:Number(stageForm.elevation_m);
-    const price=stageForm.accommodation_price===''?null:Number(stageForm.accommodation_price);
 
     const{error}=await supabase.rpc('save_brinkkando_stage_v23',{
       p_stage_id:editingStageId,
@@ -1383,7 +1379,7 @@ function Game({membership,onBack,session}){
       p_accommodation_name:stageForm.same_accommodation?null:(stageForm.accommodation_name.trim()||null),
       p_booking_url:stageForm.same_accommodation?null:(stageForm.booking_url.trim()||null),
       p_booked_by_user_id:stageForm.same_accommodation?null:(stageForm.booked_by_user_id||null),
-      p_accommodation_price:Number.isFinite(price)?price:null,
+      p_accommodation_price:null,
       p_activities:(stageForm.activities||[]).filter(a=>a.title?.trim()).map(a=>({
         type:a.type||'activity',
         time_text:a.time_text?.trim()||null,
@@ -4791,16 +4787,6 @@ function Game({membership,onBack,session}){
           </label>
         </>}
 
-        <label>Precio del alojamiento
-          <div style={{position:'relative'}}>
-            <input type="number" min="0" step="0.01" value={stageForm.accommodation_price}
-              onChange={e=>setStageForm({...stageForm,accommodation_price:e.target.value})}
-              placeholder="0.00"
-              style={{paddingRight:'42px'}}/>
-            <span style={{position:'absolute',right:'15px',top:'50%',transform:'translateY(-50%)',fontWeight:'900'}}>€</span>
-          </div>
-        </label>
-
         <div className="actions" style={{gap:'8px'}}>
           <button className="primary" disabled={stageBusy}>
             <Save size={17}/>{editingStageId?'Guardar cambios':'Crear jornada'}
@@ -4881,9 +4867,6 @@ function Game({membership,onBack,session}){
                     {stage.resolved_accommodation_name||'Mismo alojamiento que la noche anterior'}
                   </p>
                   {stage.booked_by_nickname&&<small style={{display:'block',marginTop:'5px'}}>👤 Reservado por {stage.booked_by_nickname}</small>}
-                  {stage.accommodation_price!=null&&<small style={{display:'block',marginTop:'4px',fontWeight:'900'}}>
-                    💶 {Number(stage.accommodation_price).toFixed(2)} €
-                  </small>}
                   {stage.resolved_booking_url&&<a className="secondary wide" href={stage.resolved_booking_url} target="_blank" rel="noreferrer"
                     style={{textDecoration:'none',marginTop:'9px'}}>
                     <Hotel size={17}/>Ver reserva<ExternalLink size={15}/>
