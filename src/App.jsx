@@ -377,12 +377,6 @@ class BrinkkandoErrorBoundary extends React.Component{
               style={{padding:'10px 3px',fontSize:'.9rem'}}>⭐ {score}</button>)}
           </div>
 
-          <label style={{marginTop:'12px'}}>Consejo para futuros Brinkkers <span style={{fontWeight:'500',color:'var(--muted)'}}>(opcional)</span>
-            <textarea rows="4" value={planRatingNote}
-              onChange={e=>setPlanRatingNote(e.target.value)}
-              placeholder="Qué te gustó, qué conviene saber, para quién lo recomendarías…"/>
-          </label>
-
           <div className="actions" style={{marginTop:'10px'}}>
             <button type="button" className="primary" disabled={planRatingBusy} onClick={savePlanRating}>Guardar valoración</button>
             <button type="button" className="secondary" disabled={planRatingBusy} onClick={()=>setPlanRatingTarget(null)}>Cancelar</button>
@@ -544,9 +538,11 @@ function Game({membership,onBack,session}){
   const[expandedStageId,setExpandedStageId]=useState(null);
   const[planRatingTarget,setPlanRatingTarget]=useState(null);
   const[planRatingScore,setPlanRatingScore]=useState(5);
-  const[planRatingNote,setPlanRatingNote]=useState('');
   const[planRatingBusy,setPlanRatingBusy]=useState(false);
   const[planRatingMessage,setPlanRatingMessage]=useState('');
+  const[pendingPlanRatings,setPendingPlanRatings]=useState([]);
+  const[pendingRatingsLoading,setPendingRatingsLoading]=useState(false);
+  const[ratingRewardMessage,setRatingRewardMessage]=useState('');
   const[stageForm,setStageForm]=useState({
     stage_date:'',
     same_place:false,
@@ -601,6 +597,7 @@ function Game({membership,onBack,session}){
     loadDailyChallenges();
     loadAuction();
     loadStageAwards();
+    loadPendingPlanRatings();
     loadStages();
     loadExpenses();
     loadRanking();
@@ -1323,29 +1320,95 @@ function Game({membership,onBack,session}){
   function openPlanRating(target){
     setPlanRatingTarget(target);
     setPlanRatingScore(Number(target.my_rating||5));
-    setPlanRatingNote(target.my_note||'');
     setPlanRatingMessage('');
+  }
+
+  async function loadPendingPlanRatings(){
+    setPendingRatingsLoading(true);
+    const{data,error}=await supabase.rpc('list_my_pending_plan_ratings_v24b',{p_game_id:g.id});
+    if(error){
+      console.error('Error cargando valoraciones pendientes:',error);
+      setPendingPlanRatings([]);
+    }else{
+      setPendingPlanRatings(data||[]);
+    }
+    setPendingRatingsLoading(false);
+  }
+
+  async function ratePlanTarget(target,score,{closeModal=false}={}){
+    if(!target||planRatingBusy)return;
+    setPlanRatingBusy(true);
+    setPlanRatingMessage('');
+    setRatingRewardMessage('');
+
+    const{data,error}=await supabase.rpc('save_plan_rating_v24b',{
+      p_game_id:g.id,
+      p_target_type:target.target_type,
+      p_target_key:target.target_key,
+      p_label:target.label,
+      p_rating:Number(score)
+    });
+
+    if(error){
+      setPlanRatingMessage(error.message);
+    }else{
+      const rewarded=Boolean(data?.rewarded);
+      if(rewarded)setRatingRewardMessage('+2 🪙 por valorar');
+      setPendingPlanRatings(current=>current.filter(item=>
+        !(item.target_type===target.target_type&&item.target_key===target.target_key)
+      ));
+      await loadStages();
+      await loadAuction();
+      if(closeModal)setPlanRatingTarget(null);
+      setTimeout(()=>setRatingRewardMessage(''),1700);
+    }
+
+    setPlanRatingBusy(false);
   }
 
   async function savePlanRating(){
     if(!planRatingTarget)return;
-    setPlanRatingBusy(true);
-    setPlanRatingMessage('');
-    const{error}=await supabase.rpc('save_plan_rating_v24',{
-      p_game_id:g.id,
-      p_target_type:planRatingTarget.target_type,
-      p_target_key:planRatingTarget.target_key,
-      p_label:planRatingTarget.label,
-      p_rating:Number(planRatingScore),
-      p_note:planRatingNote.trim()||null
-    });
-    if(error)setPlanRatingMessage(error.message);
-    else{
-      setPlanRatingMessage('⭐ Valoración guardada');
-      await loadStages();
-      setTimeout(()=>setPlanRatingTarget(null),450);
-    }
-    setPlanRatingBusy(false);
+    await ratePlanTarget(planRatingTarget,planRatingScore,{closeModal:true});
+  }
+
+  function parseDurationMinutes(value){
+    if(!value)return 0;
+    const text=String(value).toLowerCase().trim();
+    const h=text.match(/(\d+)\s*h/);
+    const m=text.match(/(\d+)\s*(?:min|m)\b/);
+    if(h||m)return (Number(h?.[1]||0)*60)+Number(m?.[1]||0);
+    const clock=text.match(/^(\d{1,2}):(\d{2})$/);
+    if(clock)return Number(clock[1])*60+Number(clock[2]);
+    const plain=Number(text);
+    return Number.isFinite(plain)?plain:0;
+  }
+
+  function formatDurationMinutes(total){
+    const safe=Math.max(0,Math.min(24*60,Number(total)||0));
+    const hours=Math.floor(safe/60);
+    const minutes=safe%60;
+    if(hours&&minutes)return `${hours} h ${minutes} min`;
+    if(hours)return `${hours} h`;
+    return `${minutes} min`;
+  }
+
+  function adjustDuration(delta){
+    const current=parseDurationMinutes(stageForm.duration_text);
+    setStageForm({...stageForm,duration_text:formatDurationMinutes(current+delta)});
+  }
+
+  function parseClockMinutes(value){
+    const match=String(value||'').match(/^(\d{1,2}):(\d{2})$/);
+    if(!match)return 12*60;
+    return (Number(match[1])%24)*60+Number(match[2]);
+  }
+
+  function adjustActivityTime(index,delta){
+    const item=(stageForm.activities||[])[index]||{};
+    const total=(parseClockMinutes(item.time_text)+delta+1440)%1440;
+    const hh=String(Math.floor(total/60)).padStart(2,'0');
+    const mm=String(total%60).padStart(2,'0');
+    updatePlanActivity(index,{time_text:`${hh}:${mm}`});
   }
 
   function blankStageForm(){
@@ -2358,6 +2421,7 @@ function Game({membership,onBack,session}){
     if(nextPage==='challenges'){
       loadMySpecialChallenges();
       loadStageAwards();
+      loadPendingPlanRatings();
       markSectionRead('challenges');
     }
     if(nextPage==='advantages'){
@@ -3351,6 +3415,53 @@ function Game({membership,onBack,session}){
           </small>
         </div>
       </section>
+      {(pendingRatingsLoading||pendingPlanRatings.length>0||ratingRewardMessage)&&<section className="card" style={{
+        marginTop:'9px',padding:'12px 13px',
+        border:'1px solid rgba(226,170,54,.24)',
+        background:'#fffaf0',boxShadow:'none'
+      }}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'8px'}}>
+          <div>
+            <p className="eyebrow" style={{margin:'0 0 2px',fontSize:'.64rem',letterSpacing:'.08em'}}>⭐ ¿QUÉ TAL ESTUVO AYER?</p>
+            <strong style={{fontSize:'.88rem'}}>
+              {pendingRatingsLoading?'Cargando…':
+                pendingPlanRatings.length?`${pendingPlanRatings.length} ${pendingPlanRatings.length===1?'valoración pendiente':'valoraciones pendientes'}`:'¡Todo valorado!'}
+            </strong>
+          </div>
+          {pendingPlanRatings.length>0&&<span style={{
+            padding:'5px 8px',borderRadius:'999px',background:'#fff1c7',
+            fontWeight:'950',fontSize:'.7rem',whiteSpace:'nowrap'
+          }}>+{pendingPlanRatings.length*2} 🪙</span>}
+        </div>
+
+        {!pendingRatingsLoading&&pendingPlanRatings[0]&&(()=>{
+          const item=pendingPlanRatings[0];
+          return <div style={{
+            marginTop:'9px',padding:'10px',
+            borderRadius:'12px',background:'white',
+            border:'1px solid rgba(23,63,53,.08)'
+          }}>
+            <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+              <span style={{fontSize:'1.15rem'}}>{item.emoji||'⭐'}</span>
+              <div style={{minWidth:0}}>
+                <strong style={{display:'block',fontSize:'.84rem',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.label}</strong>
+                <small style={{color:'var(--muted)',fontSize:'.68rem'}}>Toca una estrella · +2 🪙</small>
+              </div>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(5,minmax(0,1fr))',gap:'5px',marginTop:'9px'}}>
+              {[1,2,3,4,5].map(score=><button key={score} type="button" className="secondary"
+                disabled={planRatingBusy}
+                onClick={()=>ratePlanTarget(item,score)}
+                style={{padding:'9px 2px',fontSize:'.82rem'}}>
+                ⭐ {score}
+              </button>)}
+            </div>
+          </div>;
+        })()}
+
+        {ratingRewardMessage&&<small style={{display:'block',marginTop:'7px',fontWeight:'950',color:'#8a6500'}}>{ratingRewardMessage}</small>}
+      </section>}
+
       <section style={{marginTop:'9px'}}>
         <div className="card" style={{
           padding:'10px 11px',
@@ -4778,9 +4889,18 @@ function Game({membership,onBack,session}){
           </div>
 
           <label>Duración estimada
-            <input value={stageForm.duration_text}
-              onChange={e=>setStageForm({...stageForm,duration_text:e.target.value})}
-              placeholder="3 h 30 min"/>
+            <div style={{display:'grid',gridTemplateColumns:'44px minmax(0,1fr) 44px',gap:'7px',alignItems:'center'}}>
+              <button type="button" className="secondary" onClick={()=>adjustDuration(-15)}
+                style={{padding:'10px 0',fontSize:'1rem'}}>−</button>
+              <div style={{
+                minHeight:'42px',display:'grid',placeItems:'center',
+                border:'1px solid rgba(23,63,53,.15)',borderRadius:'10px',
+                fontWeight:'950',background:'white'
+              }}>{stageForm.duration_text||'0 min'}</div>
+              <button type="button" className="secondary" onClick={()=>adjustDuration(15)}
+                style={{padding:'10px 0',fontSize:'1rem'}}>＋</button>
+            </div>
+            <small style={{display:'block',color:'var(--muted)',marginTop:'4px'}}>Saltos de 15 min</small>
           </label>
 
           <label>Enlace de la ruta
@@ -4814,8 +4934,18 @@ function Game({membership,onBack,session}){
             </select>
             <input value={a.title||''} onChange={e=>updatePlanActivity(index,{title:e.target.value})} placeholder="Qué vais a hacer"/>
           </div>
-          <div style={{display:'grid',gridTemplateColumns:'90px minmax(0,1fr)',gap:'6px',marginTop:'6px'}}>
-            <input value={a.time_text||''} onChange={e=>updatePlanActivity(index,{time_text:e.target.value})} placeholder="Hora"/>
+          <div style={{display:'grid',gridTemplateColumns:'156px minmax(0,1fr)',gap:'6px',marginTop:'6px'}}>
+            <div style={{display:'grid',gridTemplateColumns:'38px minmax(0,1fr) 38px',gap:'4px'}}>
+              <button type="button" className="secondary" onClick={()=>adjustActivityTime(index,-15)}
+                style={{padding:'8px 0'}}>−</button>
+              <div style={{
+                minHeight:'38px',display:'grid',placeItems:'center',
+                border:'1px solid rgba(23,63,53,.15)',borderRadius:'9px',
+                fontWeight:'900',background:'white',fontSize:'.78rem'
+              }}>{a.time_text||'12:00'}</div>
+              <button type="button" className="secondary" onClick={()=>adjustActivityTime(index,15)}
+                style={{padding:'8px 0'}}>＋</button>
+            </div>
             <input type="url" value={a.url||''} onChange={e=>updatePlanActivity(index,{url:e.target.value})} placeholder="Enlace opcional"/>
           </div>
           <textarea rows="2" value={a.details||''} onChange={e=>updatePlanActivity(index,{details:e.target.value})} placeholder="Nota opcional…" style={{marginTop:'6px'}}/>
