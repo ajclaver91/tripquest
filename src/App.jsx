@@ -359,7 +359,39 @@ class BrinkkandoErrorBoundary extends React.Component{
             Recargar Brinkkando
           </button>
         </section>
-      </main>;
+        {planRatingTarget&&<div onClick={()=>!planRatingBusy&&setPlanRatingTarget(null)} style={{
+        position:'fixed',inset:0,zIndex:120,background:'rgba(15,28,24,.46)',
+        display:'flex',alignItems:'flex-end',justifyContent:'center',padding:'14px'
+      }}>
+        <section className="card" onClick={e=>e.stopPropagation()} style={{
+          width:'100%',maxWidth:'560px',padding:'17px',borderRadius:'20px 20px 14px 14px',
+          maxHeight:'82vh',overflowY:'auto'
+        }}>
+          <p className="eyebrow" style={{marginBottom:'3px',fontSize:'.66rem',letterSpacing:'.08em'}}>⭐ VALORAR</p>
+          <h3 style={{margin:'0 0 12px'}}>{planRatingTarget.label}</h3>
+
+          <div style={{display:'grid',gridTemplateColumns:'repeat(5,minmax(0,1fr))',gap:'6px'}}>
+            {[1,2,3,4,5].map(score=><button key={score} type="button"
+              className={Number(planRatingScore)===score?'primary':'secondary'}
+              onClick={()=>setPlanRatingScore(score)}
+              style={{padding:'10px 3px',fontSize:'.9rem'}}>⭐ {score}</button>)}
+          </div>
+
+          <label style={{marginTop:'12px'}}>Consejo para futuros Brinkkers <span style={{fontWeight:'500',color:'var(--muted)'}}>(opcional)</span>
+            <textarea rows="4" value={planRatingNote}
+              onChange={e=>setPlanRatingNote(e.target.value)}
+              placeholder="Qué te gustó, qué conviene saber, para quién lo recomendarías…"/>
+          </label>
+
+          <div className="actions" style={{marginTop:'10px'}}>
+            <button type="button" className="primary" disabled={planRatingBusy} onClick={savePlanRating}>Guardar valoración</button>
+            <button type="button" className="secondary" disabled={planRatingBusy} onClick={()=>setPlanRatingTarget(null)}>Cancelar</button>
+          </div>
+          {planRatingMessage&&<p className="msg">{planRatingMessage}</p>}
+        </section>
+      </div>}
+
+    </main>;
     }
     return this.props.children;
   }
@@ -510,6 +542,11 @@ function Game({membership,onBack,session}){
   const[stageMessage,setStageMessage]=useState('');
   const[editingStageId,setEditingStageId]=useState(null);
   const[expandedStageId,setExpandedStageId]=useState(null);
+  const[planRatingTarget,setPlanRatingTarget]=useState(null);
+  const[planRatingScore,setPlanRatingScore]=useState(5);
+  const[planRatingNote,setPlanRatingNote]=useState('');
+  const[planRatingBusy,setPlanRatingBusy]=useState(false);
+  const[planRatingMessage,setPlanRatingMessage]=useState('');
   const[stageForm,setStageForm]=useState({
     stage_date:'',
     same_place:false,
@@ -1283,6 +1320,34 @@ function Game({membership,onBack,session}){
     setAuctionBusy(false);
   }
 
+  function openPlanRating(target){
+    setPlanRatingTarget(target);
+    setPlanRatingScore(Number(target.my_rating||5));
+    setPlanRatingNote(target.my_note||'');
+    setPlanRatingMessage('');
+  }
+
+  async function savePlanRating(){
+    if(!planRatingTarget)return;
+    setPlanRatingBusy(true);
+    setPlanRatingMessage('');
+    const{error}=await supabase.rpc('save_plan_rating_v24',{
+      p_game_id:g.id,
+      p_target_type:planRatingTarget.target_type,
+      p_target_key:planRatingTarget.target_key,
+      p_label:planRatingTarget.label,
+      p_rating:Number(planRatingScore),
+      p_note:planRatingNote.trim()||null
+    });
+    if(error)setPlanRatingMessage(error.message);
+    else{
+      setPlanRatingMessage('⭐ Valoración guardada');
+      await loadStages();
+      setTimeout(()=>setPlanRatingTarget(null),450);
+    }
+    setPlanRatingBusy(false);
+  }
+
   function blankStageForm(){
     return {
       stage_date:'',
@@ -1305,7 +1370,7 @@ function Game({membership,onBack,session}){
 
   async function loadStages(){
     setStagesLoading(true);
-    const{data,error}=await supabase.rpc('list_brinkkando_stages_v23',{p_game_id:g.id});
+    const{data,error}=await supabase.rpc('list_brinkkando_stages_v24',{p_game_id:g.id});
     if(error){
       console.error('Error cargando Plan:',error);
       setStages([]);
@@ -4848,6 +4913,19 @@ function Game({membership,onBack,session}){
                           <strong style={{fontSize:'.82rem'}}>{a.time_text?`${a.time_text} · `:''}{a.title}</strong>
                           {a.details&&<small style={{display:'block',color:'var(--muted)',marginTop:'2px'}}>{a.details}</small>}
                           {a.url&&<a href={a.url} target="_blank" rel="noreferrer" style={{display:'inline-block',fontSize:'.7rem',fontWeight:'900',marginTop:'3px'}}>Abrir enlace ↗</a>}
+                          {(Number(a.rating_count||0)>0||state!=='future')&&<div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px',marginTop:'6px'}}>
+                            <small style={{fontWeight:'900',color:'var(--muted)'}}>
+                              {Number(a.rating_count||0)>0?`⭐ ${Number(a.rating_avg||0).toFixed(1)} · ${a.rating_count}`:'Sin valorar'}
+                            </small>
+                            {state!=='future'&&<button type="button" className="secondary"
+                              onClick={()=>openPlanRating({
+                                target_type:'plan_item',target_key:String(a.id),label:a.title,
+                                my_rating:a.my_rating,my_note:a.my_note
+                              })}
+                              style={{padding:'5px 8px',fontSize:'.66rem'}}>
+                              {a.my_rating?'Editar valoración':'Valorar'}
+                            </button>}
+                          </div>}
                         </div>
                       </div>
                     </div>
@@ -4867,6 +4945,24 @@ function Game({membership,onBack,session}){
                     {stage.resolved_accommodation_name||'Mismo alojamiento que la noche anterior'}
                   </p>
                   {stage.booked_by_nickname&&<small style={{display:'block',marginTop:'5px'}}>👤 Reservado por {stage.booked_by_nickname}</small>}
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'8px',marginTop:'8px'}}>
+                    <small style={{fontWeight:'900',color:'var(--muted)'}}>
+                      {Number(stage.accommodation_rating_count||0)>0
+                        ?`⭐ ${Number(stage.accommodation_rating_avg||0).toFixed(1)} · ${stage.accommodation_rating_count}`
+                        :'Sin valorar'}
+                    </small>
+                    {state!=='future'&&stage.resolved_accommodation_name&&<button type="button" className="secondary"
+                      onClick={()=>openPlanRating({
+                        target_type:'accommodation',
+                        target_key:stage.accommodation_rating_key,
+                        label:stage.resolved_accommodation_name,
+                        my_rating:stage.accommodation_my_rating,
+                        my_note:stage.accommodation_my_note
+                      })}
+                      style={{padding:'5px 8px',fontSize:'.66rem'}}>
+                      {stage.accommodation_my_rating?'Editar valoración':'Valorar alojamiento'}
+                    </button>}
+                  </div>
                   {stage.resolved_booking_url&&<a className="secondary wide" href={stage.resolved_booking_url} target="_blank" rel="noreferrer"
                     style={{textDecoration:'none',marginTop:'9px'}}>
                     <Hotel size={17}/>Ver reserva<ExternalLink size={15}/>
