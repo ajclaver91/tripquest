@@ -1041,6 +1041,7 @@ function Game({membership,onBack,session}){
     const{data,error}=await supabase.rpc('get_tripquest_expense_participants',{p_expense_id:item.expense_id});
     if(error){setExpenseMessage(error.message);setExpenseBusy(false);return;}
     setEditingExpenseId(item.expense_id);
+    setExpenseFormOpen(true);
     setExpenseForm({
       description:item.description||'',
       amount:String(item.amount??''),
