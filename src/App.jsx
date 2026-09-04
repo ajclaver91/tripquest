@@ -541,6 +541,7 @@ function Game({membership,onBack,session}){
   const[planRatingBusy,setPlanRatingBusy]=useState(false);
   const[planRatingMessage,setPlanRatingMessage]=useState('');
   const[pendingPlanRatings,setPendingPlanRatings]=useState([]);
+  const[pendingPlanRatingsError,setPendingPlanRatingsError]=useState('');
   const[pendingRatingsLoading,setPendingRatingsLoading]=useState(false);
   const[ratingRewardMessage,setRatingRewardMessage]=useState('');
   const[stageForm,setStageForm]=useState({
@@ -1326,10 +1327,12 @@ function Game({membership,onBack,session}){
 
   async function loadPendingPlanRatings(){
     setPendingRatingsLoading(true);
+    setPendingPlanRatingsError('');
     const{data,error}=await supabase.rpc('list_my_pending_plan_ratings_v24b',{p_game_id:g.id});
     if(error){
       console.error('Error cargando valoraciones pendientes:',error);
       setPendingPlanRatings([]);
+      setPendingPlanRatingsError(error.message||'No se han podido cargar las valoraciones pendientes.');
     }else{
       setPendingPlanRatings(data||[]);
     }
@@ -3416,14 +3419,14 @@ function Game({membership,onBack,session}){
           </small>
         </div>
       </section>
-      {(pendingRatingsLoading||pendingPlanRatings.length>0||ratingRewardMessage)&&<section className="card" style={{
+      {(pendingRatingsLoading||pendingPlanRatings.length>0||ratingRewardMessage||pendingPlanRatingsError)&&<section className="card" style={{
         marginTop:'9px',padding:'12px 13px',
         border:'1px solid rgba(226,170,54,.24)',
         background:'#fffaf0',boxShadow:'none'
       }}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'8px'}}>
           <div>
-            <p className="eyebrow" style={{margin:'0 0 2px',fontSize:'.64rem',letterSpacing:'.08em'}}>⭐ ¿QUÉ TAL ESTUVO AYER?</p>
+            <p className="eyebrow" style={{margin:'0 0 2px',fontSize:'.64rem',letterSpacing:'.08em'}}>⭐ VALORACIONES PENDIENTES</p>
             <strong style={{fontSize:'.88rem'}}>
               {pendingRatingsLoading?'Cargando…':
                 pendingPlanRatings.length?`${pendingPlanRatings.length} ${pendingPlanRatings.length===1?'valoración pendiente':'valoraciones pendientes'}`:'¡Todo valorado!'}
@@ -3461,6 +3464,9 @@ function Game({membership,onBack,session}){
         })()}
 
         {ratingRewardMessage&&<small style={{display:'block',marginTop:'7px',fontWeight:'950',color:'#8a6500'}}>{ratingRewardMessage}</small>}
+        {pendingPlanRatingsError&&<small style={{display:'block',marginTop:'7px',fontWeight:'850',color:'#a13f3f'}}>
+          Error al cargar valoraciones: {pendingPlanRatingsError}
+        </small>}
       </section>}
 
       <section style={{marginTop:'9px'}}>
